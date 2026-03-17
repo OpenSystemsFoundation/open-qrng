@@ -69,6 +69,16 @@ public with sharing class QRNGSetupController {
                 backends.add(backend);
             }
 
+            // Cache the backends in settings
+            QRNG_Settings__c settingsToCache = QRNG_Settings__c.getOrgDefaults();
+            if (settingsToCache.Id == null) {
+                settingsToCache = new QRNG_Settings__c(
+                    SetupOwnerId = UserInfo.getOrganizationId()
+                );
+            }
+            settingsToCache.Cached_Backends__c = JSON.serialize(backends);
+            upsert settingsToCache;
+
             return backends;
         } catch (Exception e) {
             throw new AuraHandledException(
@@ -215,12 +225,25 @@ public with sharing class QRNGSetupController {
             settings.put('defaultBackend', s.Default_Backend__c);
             settings.put('defaultShots', s.Default_Shots__c);
             settings.put('useBellTest', s.Use_Bell_Test__c);
+            settings.put('useLeastBusy', s.Use_Least_Busy__c);
+            settings.put('pollIntervalMinutes', s.Poll_Interval_Minutes__c);
         } else {
             settings.put('hasApiKey', false);
             settings.put('hasCRN', false);
             settings.put('defaultBackend', 'ibm_kingston');
             settings.put('defaultShots', 1024);
             settings.put('useBellTest', false);
+            settings.put('useLeastBusy', false);
+            settings.put('pollIntervalMinutes', 5);
+        }
+        settings.put('sweeperActive', QRNGJobSweeper.isScheduled());
+
+        // Load cached backends
+        if (s != null && String.isNotBlank(s.Cached_Backends__c)) {
+            settings.put(
+                'cachedBackends',
+                JSON.deserializeUntyped(s.Cached_Backends__c)
+            );
         }
 
         return settings;
@@ -235,7 +258,9 @@ public with sharing class QRNGSetupController {
         String instanceCRN,
         String defaultBackend,
         Integer defaultShots,
-        Boolean useBellTest
+        Boolean useBellTest,
+        Boolean useLeastBusy,
+        Integer pollIntervalMinutes
     ) {
         QRNG_Settings__c settings = QRNG_Settings__c.getOrgDefaults();
 
@@ -260,11 +285,33 @@ public with sharing class QRNGSetupController {
         if (useBellTest != null) {
             settings.Use_Bell_Test__c = useBellTest;
         }
+        if (useLeastBusy != null) {
+            settings.Use_Least_Busy__c = useLeastBusy;
+        }
+        if (pollIntervalMinutes != null && pollIntervalMinutes > 0) {
+            settings.Poll_Interval_Minutes__c = pollIntervalMinutes;
+        }
 
         upsert settings;
 
         // Clear auth cache since API key may have changed
         IBMQuantumAuth.clearCache();
+    }
+
+    /**
+     * Start the background job sweeper.
+     */
+    @AuraEnabled
+    public static void startSweeper() {
+        QRNGJobSweeper.scheduleDefault();
+    }
+
+    /**
+     * Stop the background job sweeper.
+     */
+    @AuraEnabled
+    public static void stopSweeper() {
+        QRNGJobSweeper.unschedule();
     }
 
     /**
@@ -280,11 +327,18 @@ public with sharing class QRNGSetupController {
     ) {
         try {
             QRNG_Settings__c settings = QRNG_Settings__c.getInstance();
-            String backendName = String.isNotBlank(backend)
-                ? backend
-                : (settings != null
-                      ? settings.Default_Backend__c
-                      : 'ibm_kingston');
+            String backendName;
+            if (String.isNotBlank(backend)) {
+                backendName = backend;
+            } else if (settings != null && settings.Use_Least_Busy__c == true) {
+                backendName = IBMQuantumService.getLeastBusyBackend();
+            }
+            if (String.isBlank(backendName)) {
+                backendName = (settings != null &&
+                    String.isNotBlank(settings.Default_Backend__c))
+                    ? settings.Default_Backend__c
+                    : 'ibm_kingston';
+            }
             Integer numQ = numQubits != null ? numQubits : 8;
             Integer numShots = shots != null
                 ? shots

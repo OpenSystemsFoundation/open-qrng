@@ -14,7 +14,9 @@ private class QRNGSetupController_Test {
             'crn:v1:bluemix:public:quantum-computing:us-east:a/123:456::',
             'ibm_kingston',
             2048,
-            true
+            true,
+            true,
+            10
         );
 
         QRNG_Settings__c settings = QRNG_Settings__c.getOrgDefaults();
@@ -26,6 +28,8 @@ private class QRNGSetupController_Test {
         System.assertEquals('ibm_kingston', settings.Default_Backend__c);
         System.assertEquals(2048, settings.Default_Shots__c);
         System.assertEquals(true, settings.Use_Bell_Test__c);
+        System.assertEquals(true, settings.Use_Least_Busy__c);
+        System.assertEquals(10, settings.Poll_Interval_Minutes__c);
     }
 
     @IsTest

@@ -135,7 +135,9 @@ describe('c-qrng-setup', () => {
             instanceCRN: '',
             defaultBackend: 'ibm_kingston',
             defaultShots: 1024,
-            useBellTest: false
+            useBellTest: false,
+            useLeastBusy: false,
+            pollIntervalMinutes: 5
         });
     });
 });

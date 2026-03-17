@@ -18,6 +18,67 @@ public with sharing class IBMQuantumService {
     }
 
     /**
+     * Find the least busy operational backend.
+     * Calls /v1/backends and returns the backend name with the lowest queue_length.
+     *
+     * Governor limits: 1 callout
+     */
+    public static String getLeastBusyBackend() {
+        String backendsJson = getBackends();
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
+            backendsJson
+        );
+
+        List<Object> devices;
+        if (response.containsKey('devices')) {
+            devices = (List<Object>) response.get('devices');
+        } else if (response.containsKey('backends')) {
+            devices = (List<Object>) response.get('backends');
+        } else {
+            return null;
+        }
+
+        String bestBackend = null;
+        Integer lowestQueue = Integer.MAX_VALUE;
+
+        for (Object device : devices) {
+            Map<String, Object> d = (Map<String, Object>) device;
+
+            // Check status - only consider online backends
+            Object statusObj = d.get('status');
+            String statusName;
+            if (statusObj instanceof Map<String, Object>) {
+                statusName = (String) ((Map<String, Object>) statusObj)
+                    .get('name');
+            } else {
+                statusName = String.valueOf(statusObj);
+            }
+            if (statusName != 'online') {
+                continue;
+            }
+
+            // Skip simulators
+            Boolean isSim = d.containsKey('is_simulator')
+                ? (Boolean) d.get('is_simulator')
+                : false;
+            if (isSim) {
+                continue;
+            }
+
+            Integer queueLen = d.containsKey('queue_length')
+                ? (Integer) d.get('queue_length')
+                : Integer.MAX_VALUE;
+
+            if (queueLen < lowestQueue) {
+                lowestQueue = queueLen;
+                bestBackend = (String) d.get('name');
+            }
+        }
+
+        return bestBackend;
+    }
+
+    /**
      * Submit a QRNG job to IBM Quantum Runtime.
      * Creates Quantum_Job__c record and returns its Id.
      */

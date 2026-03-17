@@ -122,6 +122,26 @@
                         class="slds-m-bottom_small"
                     >
                     </lightning-input>
+                    <lightning-input
+                        type="checkbox"
+                        label="Use Least Busy Backend"
+                        checked={useLeastBusy}
+                        onchange={handleLeastBusyChange}
+                        field-level-help="Automatically submit jobs to the backend with the shortest queue"
+                        class="slds-m-bottom_small"
+                    >
+                    </lightning-input>
+                    <lightning-input
+                        type="number"
+                        label="Job Sweeper Interval (minutes)"
+                        value={pollIntervalMinutes}
+                        onchange={handlePollIntervalChange}
+                        min="1"
+                        max="60"
+                        field-level-help="How often the background sweeper checks pending jobs"
+                        class="slds-m-bottom_small"
+                    >
+                    </lightning-input>
                     <lightning-button
                         label="Save Settings"
                         variant="brand"
@@ -129,6 +149,50 @@
                         class="slds-m-top_small"
                     >
                     </lightning-button>
+                </div>
+            </div>
+
+            <!-- Job Sweeper -->
+            <div
+                class="slds-section slds-is-open slds-m-bottom_medium"
+            >
+                <h3 class="slds-section__title">
+                    <span
+                        class="slds-truncate slds-p-horizontal_small"
+                        title="Job Sweeper"
+                        >Job Sweeper</span
+                    >
+                </h3>
+                <div class="slds-section__content">
+                    <div
+                        class="slds-grid slds-gutters slds-grid_vertical-align-center"
+                    >
+                        <div class="slds-col">
+                            <lightning-badge
+                                label={sweeperStatusLabel}
+                                class={sweeperBadgeClass}
+                            >
+                            </lightning-badge>
+                        </div>
+                        <div
+                            class="slds-col slds-col_bump-left"
+                        >
+                            <lightning-button
+                                label={sweeperButtonLabel}
+                                variant={sweeperButtonVariant}
+                                onclick={handleToggleSweeper}
+                                icon-name="utility:clock"
+                            >
+                            </lightning-button>
+                        </div>
+                    </div>
+                    <p
+                        class="slds-text-body_small slds-text-color_weak slds-m-top_x-small"
+                    >
+                        Automatically checks pending quantum
+                        jobs every {pollIntervalMinutes}
+                        minutes.
+                    </p>
                 </div>
             </div>
 

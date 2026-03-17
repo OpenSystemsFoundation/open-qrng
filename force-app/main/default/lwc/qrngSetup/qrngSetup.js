@@ -6,6 +6,8 @@ import getAvailableBackends from '@salesforce/apex/QRNGSetupController.getAvaila
 import getUsageStats from '@salesforce/apex/QRNGSetupController.getUsageStats';
 import discoverInstances from '@salesforce/apex/QRNGSetupController.discoverInstances';
 import getBackendHealth from '@salesforce/apex/QRNGSetupController.getBackendHealth';
+import startSweeper from '@salesforce/apex/QRNGSetupController.startSweeper';
+import stopSweeper from '@salesforce/apex/QRNGSetupController.stopSweeper';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class QrngSetup extends LightningElement {
@@ -23,6 +25,9 @@ export default class QrngSetup extends LightningElement {
     @track totalJobs = 0;
     @track completedJobs = 0;
     @track totalCertificates = 0;
+    @track useLeastBusy = false;
+    @track pollIntervalMinutes = 5;
+    @track sweeperActive = false;
     @track isDiscoveringCRN = false;
     @track backendHealth = null;
     @track isLoadingHealth = false;
@@ -38,6 +43,16 @@ export default class QrngSetup extends LightningElement {
             }
             if (data.hasCRN) {
                 this.instanceCRN = '********'; // Mask existing CRN
+            }
+            this.useLeastBusy = data.useLeastBusy || false;
+            this.pollIntervalMinutes = data.pollIntervalMinutes || 5;
+            this.sweeperActive = data.sweeperActive || false;
+
+            // Load cached backends into dropdown
+            if (data.cachedBackends && data.cachedBackends.length > 0) {
+                this.backendOptions = this.buildBackendOptions(
+                    data.cachedBackends
+                );
             }
         }
     }
@@ -81,6 +96,14 @@ export default class QrngSetup extends LightningElement {
         this.useBellTest = event.target.checked;
     }
 
+    handleLeastBusyChange(event) {
+        this.useLeastBusy = event.target.checked;
+    }
+
+    handlePollIntervalChange(event) {
+        this.pollIntervalMinutes = parseInt(event.target.value, 10);
+    }
+
     async handleTestConnection() {
         this.isTestingConnection = true;
         try {
@@ -93,16 +116,8 @@ export default class QrngSetup extends LightningElement {
                 try {
                     const backends = await getAvailableBackends();
                     if (backends && backends.length > 0) {
-                        this.backendOptions = backends.map((b) => {
-                            const statusStr =
-                                typeof b.status === 'object'
-                                    ? b.status.name || 'unknown'
-                                    : b.status || 'unknown';
-                            return {
-                                label: `${b.name} (${b.qubits} qubits, ${statusStr})`,
-                                value: b.name
-                            };
-                        });
+                        this.backendOptions =
+                            this.buildBackendOptions(backends);
                     }
                 } catch (backendErr) {
                     // Non-critical
@@ -127,7 +142,9 @@ export default class QrngSetup extends LightningElement {
                 instanceCRN: crnToSave,
                 defaultBackend: this.defaultBackend,
                 defaultShots: this.defaultShots,
-                useBellTest: this.useBellTest
+                useBellTest: this.useBellTest,
+                useLeastBusy: this.useLeastBusy,
+                pollIntervalMinutes: this.pollIntervalMinutes
             });
             this.dispatchEvent(
                 new ShowToastEvent({
@@ -239,6 +256,77 @@ export default class QrngSetup extends LightningElement {
         return this.backendHealth?.avgReadoutError
             ? (this.backendHealth.avgReadoutError * 100).toFixed(2) + '%'
             : 'N/A';
+    }
+
+    buildBackendOptions(backends) {
+        const options = backends.map((b) => {
+            const statusStr =
+                typeof b.status === 'object'
+                    ? b.status.name || 'unknown'
+                    : b.status || 'unknown';
+            return {
+                label: `${b.name} (${b.qubits} qubits, ${statusStr})`,
+                value: b.name
+            };
+        });
+        // Add "Least Busy (auto)" option at the top
+        options.unshift({
+            label: 'Least Busy (auto-select)',
+            value: '__least_busy__'
+        });
+        return options;
+    }
+
+    async handleToggleSweeper() {
+        try {
+            if (this.sweeperActive) {
+                await stopSweeper();
+                this.sweeperActive = false;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Sweeper Stopped',
+                        message: 'Background job sweeper has been stopped.',
+                        variant: 'info'
+                    })
+                );
+            } else {
+                await startSweeper();
+                this.sweeperActive = true;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Sweeper Started',
+                        message: `Background job sweeper running every ${this.pollIntervalMinutes} minutes.`,
+                        variant: 'success'
+                    })
+                );
+            }
+        } catch (error) {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Sweeper Error',
+                    message: this.reduceErrors(error),
+                    variant: 'error'
+                })
+            );
+        }
+    }
+
+    get sweeperButtonLabel() {
+        return this.sweeperActive ? 'Stop Job Sweeper' : 'Start Job Sweeper';
+    }
+
+    get sweeperButtonVariant() {
+        return this.sweeperActive ? 'destructive' : 'brand';
+    }
+
+    get sweeperStatusLabel() {
+        return this.sweeperActive ? 'Active' : 'Inactive';
+    }
+
+    get sweeperBadgeClass() {
+        return this.sweeperActive
+            ? 'slds-badge slds-theme_success'
+            : 'slds-badge';
     }
 
     reduceErrors(error) {
