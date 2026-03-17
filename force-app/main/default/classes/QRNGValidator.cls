@@ -4,7 +4,6 @@
  * Tests: frequency (monobit), runs test, chi-squared uniformity.
  */
 public with sharing class QRNGValidator {
-
     private static final Double SIGNIFICANCE_LEVEL = 0.01;
 
     /**
@@ -18,7 +17,9 @@ public with sharing class QRNGValidator {
             results.put('passed', false);
             results.put(
                 'error',
-                'Insufficient bits for validation (minimum 20, got ' + (bits == null ? 0 : bits.length()) + ')'
+                'Insufficient bits for validation (minimum 20, got ' +
+                    (bits == null ? 0 : bits.length()) +
+                    ')'
             );
             return results;
         }
@@ -85,7 +86,13 @@ public with sharing class QRNGValidator {
 
         // Expected runs and variance
         Double expectedRuns = 2.0 * n * pi * (1 - pi) + 1;
-        Double variance = 2.0 * n * pi * (1 - pi) * (2.0 * n * pi * (1 - pi) - 1) / (n - 1);
+        Double variance =
+            2.0 *
+            n *
+            pi *
+            (1 - pi) *
+            (2.0 * n * pi * (1 - pi) - 1) /
+            (n - 1);
 
         if (variance <= 0) {
             return false;
@@ -143,7 +150,10 @@ public with sharing class QRNGValidator {
      * Calculate CHSH S-value from Bell test measurements.
      * S > 2 proves quantum origin (violates Bell inequality).
      */
-    public static Double calculateCHSH(List<String> bitstrings, Integer numPairs) {
+    public static Double calculateCHSH(
+        List<String> bitstrings,
+        Integer numPairs
+    ) {
         if (bitstrings == null || bitstrings.isEmpty() || numPairs < 1) {
             return 0.0;
         }
@@ -154,7 +164,9 @@ public with sharing class QRNGValidator {
         Integer n00 = 0, n01 = 0, n10 = 0, n11 = 0;
 
         for (String bs : bitstrings) {
-            for (Integer p = 0; p < numPairs && (p * 2 + 1) < bs.length(); p++) {
+            for (
+                Integer p = 0; p < numPairs && (p * 2 + 1) < bs.length(); p++
+            ) {
                 Integer a = bs.substring(p * 2, p * 2 + 1) == '1' ? 1 : -1;
                 Integer b = bs.substring(p * 2 + 1, p * 2 + 2) == '1' ? 1 : -1;
 

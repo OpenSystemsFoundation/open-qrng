@@ -1,7 +1,8 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>open-qrng</fullName>
-    <description>QuantumFair — Certified quantum random number generation for Salesforce</description>
+    <description
+    >QuantumFair — Certified quantum random number generation for Salesforce</description>
     <types>
         <members>*</members>
         <name>ApexClass</name>

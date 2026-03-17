@@ -1,6 +1,5 @@
 @IsTest
 private class QRNGResultParser_Test {
-
     @IsTest
     static void testParseSamplerResults() {
         String json = '{"results":[{"data":{"meas":{"samples":["0110","1001","1110","0011"]}}}]}';
@@ -16,7 +15,10 @@ private class QRNGResultParser_Test {
             QRNGResultParser.parseSamplerResults('{"results":[]}');
             System.assert(false, 'Should throw');
         } catch (QRNGException e) {
-            System.assert(e.getMessage().contains('No results'), 'Should indicate no results');
+            System.assert(
+                e.getMessage().contains('No results'),
+                'Should indicate no results'
+            );
         }
     }
 
@@ -64,7 +66,10 @@ private class QRNGResultParser_Test {
             QRNGResultParser.consumeBits('0110', 2, 4);
             System.assert(false, 'Should throw');
         } catch (QRNGException e) {
-            System.assert(e.getMessage().contains('Not enough'), 'Should indicate insufficient bits');
+            System.assert(
+                e.getMessage().contains('Not enough'),
+                'Should indicate insufficient bits'
+            );
         }
     }
 }

@@ -1,18 +1,27 @@
 <template>
-    <lightning-card title="Assignment Results" icon-name="standard:record">
+    <lightning-card
+        title="Assignment Results"
+        icon-name="standard:record"
+    >
         <div class="slds-p-around_small">
             <template if:true={hasAssignments}>
                 <lightning-datatable
                     key-field="Id"
                     data={assignments}
                     columns={columns}
-                    hide-checkbox-column>
+                    hide-checkbox-column
+                >
                 </lightning-datatable>
             </template>
             <template if:false={hasAssignments}>
-                <div class="slds-text-align_center slds-p-around_medium slds-text-color_weak">
+                <div
+                    class="slds-text-align_center slds-p-around_medium slds-text-color_weak"
+                >
                     <template if:true={isLoading}>
-                        <lightning-spinner alternative-text="Loading..." size="small"></lightning-spinner>
+                        <lightning-spinner
+                            alternative-text="Loading..."
+                            size="small"
+                        ></lightning-spinner>
                     </template>
                     <template if:false={isLoading}>
                         No assignments found for this job

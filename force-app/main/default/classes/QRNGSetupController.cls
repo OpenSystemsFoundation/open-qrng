@@ -3,7 +3,6 @@
  * Handles connection testing, backend listing, settings management, and job submission.
  */
 public with sharing class QRNGSetupController {
-
     /**
      * Test the IBM Quantum connection
      */
@@ -13,7 +12,12 @@ public with sharing class QRNGSetupController {
         try {
             Boolean connected = IBMQuantumAuth.testApiKey();
             result.put('connected', connected);
-            result.put('message', connected ? 'Connected to IBM Quantum' : 'Connection failed - check API key');
+            result.put(
+                'message',
+                connected
+                    ? 'Connected to IBM Quantum'
+                    : 'Connection failed - check API key'
+            );
         } catch (Exception e) {
             result.put('connected', false);
             result.put('message', 'Error: ' + e.getMessage());
@@ -28,7 +32,9 @@ public with sharing class QRNGSetupController {
     public static List<Map<String, Object>> getAvailableBackends() {
         try {
             String backendsJson = IBMQuantumService.getBackends();
-            Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(backendsJson);
+            Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
+                backendsJson
+            );
 
             List<Map<String, Object>> backends = new List<Map<String, Object>>();
 
@@ -46,19 +52,28 @@ public with sharing class QRNGSetupController {
                 Map<String, Object> deviceMap = (Map<String, Object>) device;
                 Map<String, Object> backend = new Map<String, Object>();
                 backend.put('name', deviceMap.get('name'));
-                backend.put('status', deviceMap.containsKey('status') ? deviceMap.get('status') : 'unknown');
+                backend.put(
+                    'status',
+                    deviceMap.containsKey('status')
+                        ? deviceMap.get('status')
+                        : 'unknown'
+                );
                 backend.put(
                     'qubits',
                     deviceMap.containsKey('qubits')
                         ? deviceMap.get('qubits')
-                        : (deviceMap.containsKey('num_qubits') ? deviceMap.get('num_qubits') : 0)
+                        : (deviceMap.containsKey('num_qubits')
+                              ? deviceMap.get('num_qubits')
+                              : 0)
                 );
                 backends.add(backend);
             }
 
             return backends;
         } catch (Exception e) {
-            throw new AuraHandledException('Failed to get backends: ' + e.getMessage());
+            throw new AuraHandledException(
+                'Failed to get backends: ' + e.getMessage()
+            );
         }
     }
 
@@ -89,11 +104,18 @@ public with sharing class QRNGSetupController {
      * Save settings (admin only)
      */
     @AuraEnabled
-    public static void saveSettings(String apiKey, String defaultBackend, Integer defaultShots, Boolean useBellTest) {
+    public static void saveSettings(
+        String apiKey,
+        String defaultBackend,
+        Integer defaultShots,
+        Boolean useBellTest
+    ) {
         QRNG_Settings__c settings = QRNG_Settings__c.getOrgDefaults();
 
         if (settings.Id == null) {
-            settings = new QRNG_Settings__c(SetupOwnerId = UserInfo.getOrganizationId());
+            settings = new QRNG_Settings__c(
+                SetupOwnerId = UserInfo.getOrganizationId()
+            );
         }
 
         if (String.isNotBlank(apiKey)) {
@@ -130,11 +152,16 @@ public with sharing class QRNGSetupController {
             QRNG_Settings__c settings = QRNG_Settings__c.getInstance();
             String backendName = String.isNotBlank(backend)
                 ? backend
-                : (settings != null ? settings.Default_Backend__c : 'ibm_kingston');
+                : (settings != null
+                      ? settings.Default_Backend__c
+                      : 'ibm_kingston');
             Integer numQ = numQubits != null ? numQubits : 8;
             Integer numShots = shots != null
                 ? shots
-                : (settings != null && settings.Default_Shots__c != null ? (Integer) settings.Default_Shots__c : 1024);
+                : (settings != null &&
+                      settings.Default_Shots__c != null
+                      ? (Integer) settings.Default_Shots__c
+                      : 1024);
             Boolean bell = useBellTest != null ? useBellTest : false;
 
             String qasm;
@@ -144,7 +171,14 @@ public with sharing class QRNGSetupController {
                 qasm = QRNGCircuitBuilder.buildStandardCircuit(numQ);
             }
 
-            return IBMQuantumService.submitJob(qasm, backendName, numShots, purpose, bell, numQ);
+            return IBMQuantumService.submitJob(
+                qasm,
+                backendName,
+                numShots,
+                purpose,
+                bell,
+                numQ
+            );
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage());
         }
@@ -273,7 +307,14 @@ public with sharing class QRNGSetupController {
     @AuraEnabled(cacheable=true)
     public static List<QRNG_Assignment__c> getAssignments(Id jobId) {
         return [
-            SELECT Id, Name, Assigned_Record_ID__c, Assigned_To_ID__c, Assignment_Index__c, Random_Value__c, Certificate__c
+            SELECT
+                Id,
+                Name,
+                Assigned_Record_ID__c,
+                Assigned_To_ID__c,
+                Assignment_Index__c,
+                Random_Value__c,
+                Certificate__c
             FROM QRNG_Assignment__c
             WHERE Quantum_Job__c = :jobId
             ORDER BY Assignment_Index__c
@@ -286,7 +327,17 @@ public with sharing class QRNGSetupController {
     @AuraEnabled(cacheable=true)
     public static List<Fairness_Certificate__c> getAuditTrail() {
         return [
-            SELECT Id, Name, IBM_Job_ID__c, Backend__c, Status__c, Purpose__c, CHSH_S_Value__c, CreatedDate, Quantum_Job__c, Created_By_User__c
+            SELECT
+                Id,
+                Name,
+                IBM_Job_ID__c,
+                Backend__c,
+                Status__c,
+                Purpose__c,
+                CHSH_S_Value__c,
+                CreatedDate,
+                Quantum_Job__c,
+                Created_By_User__c
             FROM Fairness_Certificate__c
             ORDER BY CreatedDate DESC
             LIMIT 100
@@ -301,7 +352,9 @@ public with sharing class QRNGSetupController {
         try {
             return FairnessCertificateService.verifyCertificate(certificateId);
         } catch (Exception e) {
-            throw new AuraHandledException('Verification failed: ' + e.getMessage());
+            throw new AuraHandledException(
+                'Verification failed: ' + e.getMessage()
+            );
         }
     }
 
@@ -313,9 +366,22 @@ public with sharing class QRNGSetupController {
         Map<String, Object> stats = new Map<String, Object>();
 
         stats.put('totalJobs', [SELECT COUNT() FROM Quantum_Job__c]);
-        stats.put('completedJobs', [SELECT COUNT() FROM Quantum_Job__c WHERE Status__c = 'Completed']);
-        stats.put('failedJobs', [SELECT COUNT() FROM Quantum_Job__c WHERE Status__c = 'Failed']);
-        stats.put('totalCertificates', [SELECT COUNT() FROM Fairness_Certificate__c WHERE Status__c = 'Certified']);
+        stats.put(
+            'completedJobs',
+            [SELECT COUNT() FROM Quantum_Job__c WHERE Status__c = 'Completed']
+        );
+        stats.put(
+            'failedJobs',
+            [SELECT COUNT() FROM Quantum_Job__c WHERE Status__c = 'Failed']
+        );
+        stats.put(
+            'totalCertificates',
+            [
+                SELECT COUNT()
+                FROM Fairness_Certificate__c
+                WHERE Status__c = 'Certified'
+            ]
+        );
         stats.put('totalAssignments', [SELECT COUNT() FROM QRNG_Assignment__c]);
 
         return stats;

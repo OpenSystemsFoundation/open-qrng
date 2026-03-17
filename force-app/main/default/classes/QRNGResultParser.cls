@@ -3,7 +3,6 @@
  * Extracts raw bitstrings, concatenates into bit pool, removes hardware bias.
  */
 public with sharing class QRNGResultParser {
-
     /**
      * Parse IBM Sampler response JSON and extract bitstring samples.
      * Expected format: {"results":[{"data":{"meas":{"samples":["0110","1001",...]}}}]}
@@ -11,7 +10,9 @@ public with sharing class QRNGResultParser {
     public static List<String> parseSamplerResults(String jsonResponse) {
         List<String> bitstrings = new List<String>();
 
-        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(jsonResponse);
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
+            jsonResponse
+        );
         List<Object> results = (List<Object>) response.get('results');
 
         if (results == null || results.isEmpty()) {
@@ -19,7 +20,9 @@ public with sharing class QRNGResultParser {
         }
 
         Map<String, Object> firstResult = (Map<String, Object>) results[0];
-        Map<String, Object> data = (Map<String, Object>) firstResult.get('data');
+        Map<String, Object> data = (Map<String, Object>) firstResult.get(
+            'data'
+        );
 
         if (data == null) {
             throw new QRNGException('No data found in IBM results');
@@ -95,7 +98,11 @@ public with sharing class QRNGResultParser {
      * Consume N bits from the bit pool starting at the given offset.
      * Returns the consumed bits as a string.
      */
-    public static String consumeBits(String bitPool, Integer offset, Integer numBits) {
+    public static String consumeBits(
+        String bitPool,
+        Integer offset,
+        Integer numBits
+    ) {
         if (offset + numBits > bitPool.length()) {
             throw new QRNGException(
                 'Not enough random bits available. Need ' +

@@ -1,6 +1,5 @@
 @IsTest
 private class QRNGSetupController_Test {
-
     @IsTest
     static void testGetSettings() {
         Map<String, Object> settings = QRNGSetupController.getSettings();
@@ -10,7 +9,12 @@ private class QRNGSetupController_Test {
 
     @IsTest
     static void testSaveSettings() {
-        QRNGSetupController.saveSettings('test-key', 'ibm_kingston', 2048, true);
+        QRNGSetupController.saveSettings(
+            'test-key',
+            'ibm_kingston',
+            2048,
+            true
+        );
 
         QRNG_Settings__c settings = QRNG_Settings__c.getOrgDefaults();
         System.assertEquals('test-key', settings.IBM_API_Key__c);

@@ -1,15 +1,26 @@
 <template>
-    <lightning-card title="Circuit Diagram" icon-name="standard:flow">
+    <lightning-card
+        title="Circuit Diagram"
+        icon-name="standard:flow"
+    >
         <div class="slds-p-around_small">
-            <div class="canvas-container" lwc:ref="canvasContainer">
+            <div
+                class="canvas-container"
+                lwc:ref="canvasContainer"
+            >
                 <canvas lwc:ref="circuitCanvas"></canvas>
             </div>
-            <div class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+            <div
+                class="slds-text-body_small slds-text-color_weak slds-m-top_x-small"
+            >
                 <template if:false={useBellTest}>
-                    Standard QRNG: H + Measure on {numQubits} qubit(s) | ISA: rz(pi/2) - sx - rz(pi/2)
+                    Standard QRNG: H + Measure on
+                    {numQubits} qubit(s) | ISA: rz(pi/2) -
+                    sx - rz(pi/2)
                 </template>
                 <template if:true={useBellTest}>
-                    Bell-Test QRNG: Entangled pairs with CHSH measurement | {numQubits} qubit(s)
+                    Bell-Test QRNG: Entangled pairs with
+                    CHSH measurement | {numQubits} qubit(s)
                 </template>
             </div>
         </div>

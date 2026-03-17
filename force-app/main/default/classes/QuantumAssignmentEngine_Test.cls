@@ -1,6 +1,5 @@
 @IsTest
 private class QuantumAssignmentEngine_Test {
-
     @IsTest
     static void testAssignUniform() {
         Quantum_Job__c job = new Quantum_Job__c(
@@ -12,10 +11,21 @@ private class QuantumAssignmentEngine_Test {
         );
         insert job;
 
-        Id certId = FairnessCertificateService.createCertificate(job.Id, '{"passed":true}', 'Certified');
+        Id certId = FairnessCertificateService.createCertificate(
+            job.Id,
+            '{"passed":true}',
+            'Certified'
+        );
 
-        List<String> recordIds = new List<String>{ '001000000000001', '001000000000002', '001000000000003' };
-        List<String> assigneeIds = new List<String>{ '005000000000001', '005000000000002' };
+        List<String> recordIds = new List<String>{
+            '001000000000001',
+            '001000000000002',
+            '001000000000003'
+        };
+        List<String> assigneeIds = new List<String>{
+            '005000000000001',
+            '005000000000002'
+        };
         // Need ceil(log2(2)) = 1 bit per record, 3 records = 3 bits minimum
         String randomBits = '01101001110001010110';
 
@@ -45,10 +55,20 @@ private class QuantumAssignmentEngine_Test {
         );
         insert job;
 
-        Id certId = FairnessCertificateService.createCertificate(job.Id, '{"passed":true}', 'Certified');
+        Id certId = FairnessCertificateService.createCertificate(
+            job.Id,
+            '{"passed":true}',
+            'Certified'
+        );
 
-        List<String> recordIds = new List<String>{ '001000000000001', '001000000000002' };
-        List<String> assigneeIds = new List<String>{ '005000000000001', '005000000000002' };
+        List<String> recordIds = new List<String>{
+            '001000000000001',
+            '001000000000002'
+        };
+        List<String> assigneeIds = new List<String>{
+            '005000000000001',
+            '005000000000002'
+        };
         List<Double> weights = new List<Double>{ 70.0, 30.0 };
         // 10 bits per selection, 2 records = 20 bits
         String randomBits = '01101001110001010110100111000101';
@@ -76,7 +96,11 @@ private class QuantumAssignmentEngine_Test {
         );
         insert job;
 
-        Id certId = FairnessCertificateService.createCertificate(job.Id, '{"passed":true}', 'Certified');
+        Id certId = FairnessCertificateService.createCertificate(
+            job.Id,
+            '{"passed":true}',
+            'Certified'
+        );
 
         List<String> recordIds = new List<String>{
             '001000000000001',
@@ -102,10 +126,19 @@ private class QuantumAssignmentEngine_Test {
     @IsTest
     static void testSelectSubsetTooLarge() {
         try {
-            QuantumAssignmentEngine.selectSubset(new List<String>{ '001000000000001' }, 5, '01101001', null, null);
+            QuantumAssignmentEngine.selectSubset(
+                new List<String>{ '001000000000001' },
+                5,
+                '01101001',
+                null,
+                null
+            );
             System.assert(false, 'Should throw');
         } catch (QRNGException e) {
-            System.assert(e.getMessage().contains('exceeds'), 'Should mention size exceeds');
+            System.assert(
+                e.getMessage().contains('exceeds'),
+                'Should mention size exceeds'
+            );
         }
     }
 

@@ -21,16 +21,16 @@ See [AGENTS.md](AGENTS.md) for detailed agent roles, conventions, and quality ga
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Backend | Apex (API v66.0, Spring '26) |
-| Frontend | Lightning Web Components (LWS) |
-| Visualizations | Canvas 2D (hand-rolled, no libs) |
-| Quantum | IBM Quantum REST API (Heron r2) |
-| Testing | Apex Tests + sfdx-lwc-jest |
-| Linting | ESLint + Prettier (with Apex plugin) |
-| CI | GitHub Actions + Salesforce CLI |
-| Package | 2GP Managed Package |
+| Layer          | Technology                           |
+| -------------- | ------------------------------------ |
+| Backend        | Apex (API v66.0, Spring '26)         |
+| Frontend       | Lightning Web Components (LWS)       |
+| Visualizations | Canvas 2D (hand-rolled, no libs)     |
+| Quantum        | IBM Quantum REST API (Heron r2)      |
+| Testing        | Apex Tests + sfdx-lwc-jest           |
+| Linting        | ESLint + Prettier (with Apex plugin) |
+| CI             | GitHub Actions + Salesforce CLI      |
+| Package        | 2GP Managed Package                  |
 
 ## Project Structure
 

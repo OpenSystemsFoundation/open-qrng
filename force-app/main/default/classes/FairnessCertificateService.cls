@@ -3,11 +3,14 @@
  * Generates SHA-256 hashes for audit trail integrity.
  */
 public with sharing class FairnessCertificateService {
-
     /**
      * Create a Fairness Certificate for a completed quantum job.
      */
-    public static Id createCertificate(Id jobId, String validationResultsJson, String certStatus) {
+    public static Id createCertificate(
+        Id jobId,
+        String validationResultsJson,
+        String certStatus
+    ) {
         Quantum_Job__c job = [
             SELECT
                 Id,
@@ -29,8 +32,12 @@ public with sharing class FairnessCertificateService {
             IBM_Job_ID__c = job.IBM_Job_ID__c,
             Backend__c = job.Backend__c,
             Circuit_QASM__c = job.Circuit_QASM__c,
-            Raw_Bitstring_Hash__c = computeSHA256(job.Raw_Results__c != null ? job.Raw_Results__c : ''),
-            Debiased_Bitstring_Hash__c = computeSHA256(job.Debiased_Results__c != null ? job.Debiased_Results__c : ''),
+            Raw_Bitstring_Hash__c = computeSHA256(
+                job.Raw_Results__c != null ? job.Raw_Results__c : ''
+            ),
+            Debiased_Bitstring_Hash__c = computeSHA256(
+                job.Debiased_Results__c != null ? job.Debiased_Results__c : ''
+            ),
             Validation_Results__c = validationResultsJson,
             Created_By_User__c = job.Requested_By__c,
             Purpose__c = job.Purpose__c,
@@ -40,9 +47,13 @@ public with sharing class FairnessCertificateService {
         // Parse validation results for CHSH value if present
         if (String.isNotBlank(validationResultsJson)) {
             try {
-                Map<String, Object> valResults = (Map<String, Object>) JSON.deserializeUntyped(validationResultsJson);
+                Map<String, Object> valResults = (Map<String, Object>) JSON.deserializeUntyped(
+                    validationResultsJson
+                );
                 if (valResults.containsKey('chshSValue')) {
-                    cert.CHSH_S_Value__c = (Double) valResults.get('chshSValue');
+                    cert.CHSH_S_Value__c = (Double) valResults.get(
+                        'chshSValue'
+                    );
                 }
             } catch (Exception e) {
                 // Non-critical - continue without CHSH value
@@ -56,7 +67,10 @@ public with sharing class FairnessCertificateService {
     /**
      * Update the assignment hash on a certificate after assignments are created.
      */
-    public static void updateAssignmentHash(Id certificateId, String assignmentData) {
+    public static void updateAssignmentHash(
+        Id certificateId,
+        String assignmentData
+    ) {
         Fairness_Certificate__c cert = new Fairness_Certificate__c(
             Id = certificateId,
             Assignment_Hash__c = computeSHA256(assignmentData)
@@ -69,7 +83,12 @@ public with sharing class FairnessCertificateService {
      */
     public static Map<String, Object> verifyCertificate(Id certificateId) {
         Fairness_Certificate__c cert = [
-            SELECT Id, Quantum_Job__c, Raw_Bitstring_Hash__c, Debiased_Bitstring_Hash__c, Assignment_Hash__c
+            SELECT
+                Id,
+                Quantum_Job__c,
+                Raw_Bitstring_Hash__c,
+                Debiased_Bitstring_Hash__c,
+                Assignment_Hash__c
             FROM Fairness_Certificate__c
             WHERE Id = :certificateId
             LIMIT 1
@@ -84,14 +103,25 @@ public with sharing class FairnessCertificateService {
 
         Map<String, Object> result = new Map<String, Object>();
 
-        String recomputedRawHash = computeSHA256(job.Raw_Results__c != null ? job.Raw_Results__c : '');
-        String recomputedDebiasedHash = computeSHA256(job.Debiased_Results__c != null ? job.Debiased_Results__c : '');
+        String recomputedRawHash = computeSHA256(
+            job.Raw_Results__c != null ? job.Raw_Results__c : ''
+        );
+        String recomputedDebiasedHash = computeSHA256(
+            job.Debiased_Results__c != null ? job.Debiased_Results__c : ''
+        );
 
-        result.put('rawHashMatch', cert.Raw_Bitstring_Hash__c == recomputedRawHash);
-        result.put('debiasedHashMatch', cert.Debiased_Bitstring_Hash__c == recomputedDebiasedHash);
+        result.put(
+            'rawHashMatch',
+            cert.Raw_Bitstring_Hash__c == recomputedRawHash
+        );
+        result.put(
+            'debiasedHashMatch',
+            cert.Debiased_Bitstring_Hash__c == recomputedDebiasedHash
+        );
         result.put(
             'integrityVerified',
-            cert.Raw_Bitstring_Hash__c == recomputedRawHash && cert.Debiased_Bitstring_Hash__c == recomputedDebiasedHash
+            cert.Raw_Bitstring_Hash__c == recomputedRawHash &&
+                cert.Debiased_Bitstring_Hash__c == recomputedDebiasedHash
         );
 
         return result;

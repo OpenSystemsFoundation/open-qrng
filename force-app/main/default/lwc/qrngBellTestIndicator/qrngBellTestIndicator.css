@@ -58,7 +58,8 @@
     top: 0;
     left: 50%;
     transform-origin: bottom center;
-    transform: translateX(-50%) rotate(calc(var(--gauge-rotation, 127deg) - 90deg));
+    transform: translateX(-50%)
+        rotate(calc(var(--gauge-rotation, 127deg) - 90deg));
 }
 .gauge-labels {
     display: flex;
