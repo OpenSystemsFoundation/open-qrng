@@ -17,9 +17,33 @@ export default class QrngRequestForm extends LightningElement {
     @wire(getSettings)
     wiredSettings({ data }) {
         if (data) {
-            this.backend = data.defaultBackend || '';
             this.shots = data.defaultShots || 1024;
             this.useBellTest = data.useBellTest || false;
+
+            // Set backend — use __least_busy__ sentinel if enabled
+            if (data.useLeastBusy) {
+                this.backend = '__least_busy__';
+            } else {
+                this.backend = data.defaultBackend || '';
+            }
+
+            // Build backend dropdown from cached backends
+            if (data.cachedBackends && data.cachedBackends.length > 0) {
+                this.backendOptions = data.cachedBackends.map((b) => {
+                    const statusStr =
+                        typeof b.status === 'object'
+                            ? b.status.name || 'unknown'
+                            : b.status || 'unknown';
+                    return {
+                        label: `${b.name} (${b.qubits} qubits, ${statusStr})`,
+                        value: b.name
+                    };
+                });
+                this.backendOptions.unshift({
+                    label: 'Least Busy (auto-select)',
+                    value: '__least_busy__'
+                });
+            }
         }
     }
 
@@ -48,8 +72,10 @@ export default class QrngRequestForm extends LightningElement {
     async handleSubmit() {
         this.isSubmitting = true;
         try {
+            const backendToSubmit =
+                this.backend === '__least_busy__' ? '' : this.backend;
             const jobId = await submitQRNGJob({
-                backend: this.backend,
+                backend: backendToSubmit,
                 numQubits: this.numQubits,
                 shots: this.shots,
                 purpose: this.purpose,

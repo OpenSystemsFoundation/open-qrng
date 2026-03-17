@@ -43,6 +43,9 @@ export default class QrngSetup extends LightningElement {
                 this.instanceCRN = '********'; // Mask existing CRN
             }
             this.useLeastBusy = data.useLeastBusy || false;
+            if (this.useLeastBusy) {
+                this.defaultBackend = '__least_busy__';
+            }
             this.pollIntervalMinutes = data.pollIntervalMinutes || 5;
             this.sweeperActive = data.sweeperActive || false;
 
@@ -51,6 +54,11 @@ export default class QrngSetup extends LightningElement {
                 this.backendOptions = this.buildBackendOptions(
                     data.cachedBackends
                 );
+            }
+
+            // Auto-connect if API key is configured
+            if (data.hasApiKey && !this.isConnected) {
+                this.handleTestConnection();
             }
         }
     }
@@ -83,7 +91,14 @@ export default class QrngSetup extends LightningElement {
     }
 
     handleBackendChange(event) {
-        this.defaultBackend = event.detail.value;
+        const val = event.detail.value;
+        if (val === '__least_busy__') {
+            this.useLeastBusy = true;
+            this.defaultBackend = '';
+        } else {
+            this.useLeastBusy = false;
+            this.defaultBackend = val;
+        }
     }
 
     handleShotsChange(event) {
@@ -207,6 +222,17 @@ export default class QrngSetup extends LightningElement {
     }
 
     async handleRefreshHealth() {
+        if (!this.defaultBackend || this.defaultBackend === '__least_busy__') {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Select a Backend',
+                    message:
+                        'Choose a specific backend from the dropdown to view its health.',
+                    variant: 'warning'
+                })
+            );
+            return;
+        }
         this.isLoadingHealth = true;
         try {
             this.backendHealth = await getBackendHealth({

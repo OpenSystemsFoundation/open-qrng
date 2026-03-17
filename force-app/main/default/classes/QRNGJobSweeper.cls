@@ -25,7 +25,24 @@ public class QRNGJobSweeper implements Schedulable {
 
         Integer intervalMinutes = getIntervalMinutes();
 
-        String cronExp = '0 0/' + intervalMinutes + ' * * * ?';
+        // Salesforce cron: seconds minutes hours day_of_month month day_of_week
+        // Note: Salesforce doesn't support step values (0/N) in System.schedule
+        // Use a specific minute offset instead, or run every hour
+        // For intervals <= 60 min, schedule at specific minutes past the hour
+        String cronExp;
+        if (intervalMinutes <= 1) {
+            // Every minute not supported in scheduled apex — minimum is every hour
+            cronExp = '0 0 * * * ?';
+        } else if (intervalMinutes <= 60) {
+            // Run at specific minute intervals using comma-separated list
+            List<String> minutes = new List<String>();
+            for (Integer m = 0; m < 60; m += intervalMinutes) {
+                minutes.add(String.valueOf(m));
+            }
+            cronExp = '0 ' + String.join(minutes, ',') + ' * * * ?';
+        } else {
+            cronExp = '0 0 * * * ?';
+        }
         System.schedule(JOB_NAME, cronExp, new QRNGJobSweeper());
     }
 
