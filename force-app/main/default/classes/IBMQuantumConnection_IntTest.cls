@@ -24,7 +24,7 @@ private class IBMQuantumConnection_IntTest {
                 res.setStatusCode(200);
                 res.setBody(
                     '{"devices":[' +
-                        '{"name":"ibm_kingston","status":"online","qubits":156},' +
+                        '{"name":"test_backend","status":"online","qubits":156},' +
                         '{"name":"ibm_sherbrooke","status":"online","qubits":127}' +
                         ']}'
                 );
@@ -52,7 +52,7 @@ private class IBMQuantumConnection_IntTest {
         QRNG_Settings__c settings = new QRNG_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             IBM_API_Key__c = 'mock-api-key',
-            Default_Backend__c = 'ibm_kingston'
+            Default_Backend__c = 'test_backend'
         );
         upsert settings;
 
@@ -130,7 +130,7 @@ private class IBMQuantumConnection_IntTest {
             backends.size(),
             'Should return 2 mock backends'
         );
-        System.assertEquals('ibm_kingston', backends[0].get('name'));
+        System.assertEquals('test_backend', backends[0].get('name'));
         System.assertEquals('ibm_sherbrooke', backends[1].get('name'));
     }
 }

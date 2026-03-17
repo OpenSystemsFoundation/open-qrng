@@ -40,7 +40,12 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
 
             // Update job record status
             Quantum_Job__c job = [
-                SELECT Id, Status__c, Poll_Count__c, Submitted_At__c
+                SELECT
+                    Id,
+                    Status__c,
+                    Poll_Count__c,
+                    Submitted_At__c,
+                    Num_Qubits__c
                 FROM Quantum_Job__c
                 WHERE Id = :jobRecordId
                 LIMIT 1
@@ -48,22 +53,14 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
             job.Poll_Count__c = pollCount + 1;
 
             if (status == 'Completed' || status == 'COMPLETED') {
-                handleCompletion(job);
+                handleCompletion(job, statusResponse);
             } else if (
                 status == 'Failed' ||
                 status == 'FAILED' ||
                 status == 'Cancelled' ||
                 status == 'CANCELLED'
             ) {
-                String errorMsg = 'IBM job status: ' + status;
-                if (statusResponse.containsKey('error')) {
-                    Map<String, Object> errorObj = (Map<String, Object>) statusResponse.get(
-                        'error'
-                    );
-                    if (errorObj != null && errorObj.containsKey('message')) {
-                        errorMsg += ' - ' + (String) errorObj.get('message');
-                    }
-                }
+                String errorMsg = buildErrorMessage(status, statusResponse);
                 job.Status__c = 'Failed';
                 job.Error_Message__c = errorMsg;
                 job.Completed_At__c = DateTime.now();
@@ -79,10 +76,12 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
                 }
                 update job;
 
-                // Re-enqueue with backoff
+                // Schedule next poll via Schedulable to avoid Queueable chain depth limit
                 if (!Test.isRunningTest()) {
-                    System.enqueueJob(
-                        new QRNGJobPoller(jobRecordId, ibmJobId, pollCount + 1)
+                    QRNGJobPollScheduler.scheduleNextPoll(
+                        jobRecordId,
+                        ibmJobId,
+                        pollCount + 1
                     );
                 }
             }
@@ -109,13 +108,20 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
         return 'Unknown';
     }
 
-    private void handleCompletion(Quantum_Job__c job) {
+    private void handleCompletion(
+        Quantum_Job__c job,
+        Map<String, Object> statusResponse
+    ) {
         // Get results from IBM
         String resultsJson = IBMQuantumService.getJobResults(ibmJobId);
 
-        // Parse results
+        // Parse results — handle hex-encoded samples from IBM Sampler
+        Integer numQubits = job.Num_Qubits__c != null
+            ? (Integer) job.Num_Qubits__c
+            : 8;
         List<String> bitstrings = QRNGResultParser.parseSamplerResults(
-            resultsJson
+            resultsJson,
+            numQubits
         );
         String rawBits = QRNGResultParser.concatenateBitstrings(bitstrings);
         String debiasedBits = QRNGResultParser.vonNeumannDebias(rawBits);
@@ -129,6 +135,8 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
             job.Execution_Time_ms__c =
                 DateTime.now().getTime() - job.Submitted_At__c.getTime();
         }
+        // Extract queue time from IBM timestamps
+        job.Queue_Time_ms__c = extractQueueTimeMs(statusResponse);
         update job;
 
         // Validate randomness
@@ -176,6 +184,98 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
             Error_Message__c = errorMessage.left(255)
         );
         EventBus.publish(failEvent);
+    }
+
+    /**
+     * Build a verbose error message from the IBM status response.
+     * Extracts error code, message, solution, and any nested details.
+     */
+    @TestVisible
+    private static String buildErrorMessage(
+        String status,
+        Map<String, Object> statusResponse
+    ) {
+        String msg = 'IBM job status: ' + status;
+
+        if (statusResponse == null) {
+            return msg;
+        }
+
+        // Extract error object
+        if (statusResponse.containsKey('error')) {
+            Object errObj = statusResponse.get('error');
+            if (errObj instanceof Map<String, Object>) {
+                Map<String, Object> error = (Map<String, Object>) errObj;
+
+                if (error.containsKey('code')) {
+                    msg += '\nError code: ' + error.get('code');
+                }
+                if (error.containsKey('message')) {
+                    msg += '\nError message: ' + (String) error.get('message');
+                }
+                if (error.containsKey('solution')) {
+                    msg += '\nSolution: ' + (String) error.get('solution');
+                }
+                if (error.containsKey('more_info')) {
+                    msg += '\nMore info: ' + (String) error.get('more_info');
+                }
+            } else {
+                msg += '\nError: ' + String.valueOf(errObj);
+            }
+        }
+
+        // Some IBM responses include state.reason
+        if (statusResponse.containsKey('state')) {
+            Object stateObj = statusResponse.get('state');
+            if (stateObj instanceof Map<String, Object>) {
+                Map<String, Object> state = (Map<String, Object>) stateObj;
+                if (state.containsKey('reason')) {
+                    msg += '\nReason: ' + (String) state.get('reason');
+                }
+                if (state.containsKey('reason_code')) {
+                    msg += '\nReason code: ' + state.get('reason_code');
+                }
+            }
+        }
+
+        return msg;
+    }
+
+    /**
+     * Extract queue time in milliseconds from IBM status response timestamps.
+     * IBM returns timestamps: { created: "...", running: "...", completed: "..." }
+     * Queue time = running - created.
+     */
+    @TestVisible
+    private static Decimal extractQueueTimeMs(
+        Map<String, Object> statusResponse
+    ) {
+        if (
+            statusResponse == null || !statusResponse.containsKey('timestamps')
+        ) {
+            return null;
+        }
+        Object tsObj = statusResponse.get('timestamps');
+        if (!(tsObj instanceof Map<String, Object>)) {
+            return null;
+        }
+        Map<String, Object> timestamps = (Map<String, Object>) tsObj;
+        String created = (String) timestamps.get('created');
+        String running = (String) timestamps.get('running');
+        if (String.isBlank(created) || String.isBlank(running)) {
+            return null;
+        }
+        try {
+            DateTime createdDt = DateTime.valueOf(
+                created.replace('T', ' ').replace('Z', '')
+            );
+            DateTime runningDt = DateTime.valueOf(
+                running.replace('T', ' ').replace('Z', '')
+            );
+            return runningDt.getTime() - createdDt.getTime();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**

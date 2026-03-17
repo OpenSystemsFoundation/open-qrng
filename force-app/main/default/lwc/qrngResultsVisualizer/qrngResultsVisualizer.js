@@ -67,7 +67,8 @@ export default class QrngResultsVisualizer extends LightningElement {
 
         const container = this.refs.chartContainer;
         const width = container.clientWidth || 600;
-        const height = 300;
+        const qubits = parseInt(this.numQubits, 10) || 8;
+        const height = Math.max(300, 200 + qubits * 6);
         canvas.width = width;
         canvas.height = height;
 
@@ -83,9 +84,10 @@ export default class QrngResultsVisualizer extends LightningElement {
         const idealCount =
             this._totalSamples / Math.pow(2, parseInt(this.numQubits, 10) || 8);
 
-        // Chart dimensions
+        // Chart dimensions — adjust bottom margin for rotated labels
+        const n = parseInt(this.numQubits, 10) || 8;
         const marginLeft = 50;
-        const marginBottom = 60;
+        const marginBottom = Math.max(60, n * 6 + 30);
         const marginTop = 20;
         const marginRight = 20;
         const chartWidth = width - marginLeft - marginRight;
@@ -94,13 +96,14 @@ export default class QrngResultsVisualizer extends LightningElement {
         // Limit display to top 32 entries if too many
         const displayEntries =
             entries.length > 32 ? entries.slice(0, 32) : entries;
-        const barWidth = Math.max(2, chartWidth / displayEntries.length - 2);
-        const barGap = 2;
+        const totalBarSpace = chartWidth / displayEntries.length;
+        const barGap = Math.max(1, Math.min(4, totalBarSpace * 0.15));
+        const barWidth = Math.max(2, totalBarSpace - barGap);
 
-        // Draw bars
+        // Draw bars with labels and counts
         displayEntries.forEach(([label, count], i) => {
-            const barHeight = (count / maxCount) * chartHeight;
-            const x = marginLeft + i * (barWidth + barGap);
+            const barHeight = Math.max(1, (count / maxCount) * chartHeight);
+            const x = marginLeft + i * totalBarSpace;
             const y = marginTop + chartHeight - barHeight;
 
             // Color based on deviation from ideal
@@ -115,17 +118,23 @@ export default class QrngResultsVisualizer extends LightningElement {
 
             ctx.fillRect(x, y, barWidth, barHeight);
 
-            // Label (only if bars are wide enough)
-            if (barWidth > 12 && displayEntries.length <= 16) {
-                ctx.save();
-                ctx.translate(x + barWidth / 2, marginTop + chartHeight + 5);
-                ctx.rotate(Math.PI / 4);
-                ctx.font = '10px monospace';
-                ctx.fillStyle = '#706e6b';
-                ctx.textAlign = 'left';
-                ctx.fillText(label, 0, 0);
-                ctx.restore();
-            }
+            // Count value on top of bar
+            ctx.font = '10px monospace';
+            ctx.fillStyle = '#181818';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(count.toString(), x + barWidth / 2, y - 2);
+
+            // Bitstring label below x-axis (always shown, rotated 45°)
+            ctx.save();
+            ctx.translate(x + barWidth / 2, marginTop + chartHeight + 4);
+            ctx.rotate(Math.PI / 4);
+            ctx.font = '9px monospace';
+            ctx.fillStyle = '#706e6b';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(label, 0, 0);
+            ctx.restore();
         });
 
         // Ideal line (dashed)

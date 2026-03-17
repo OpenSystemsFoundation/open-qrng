@@ -4,32 +4,73 @@ import saveSettings from '@salesforce/apex/QRNGSetupController.saveSettings';
 import testConnection from '@salesforce/apex/QRNGSetupController.testConnection';
 import getAvailableBackends from '@salesforce/apex/QRNGSetupController.getAvailableBackends';
 import getUsageStats from '@salesforce/apex/QRNGSetupController.getUsageStats';
+import discoverInstances from '@salesforce/apex/QRNGSetupController.discoverInstances';
+import getAllBackendHealth from '@salesforce/apex/QRNGSetupController.getAllBackendHealth';
+import refreshAllBackendHealth from '@salesforce/apex/QRNGSetupController.refreshAllBackendHealth';
+import startSweeper from '@salesforce/apex/QRNGSetupController.startSweeper';
+import stopSweeper from '@salesforce/apex/QRNGSetupController.stopSweeper';
+import startIntegrityCheck from '@salesforce/apex/QRNGSetupController.startIntegrityCheck';
+import stopIntegrityCheck from '@salesforce/apex/QRNGSetupController.stopIntegrityCheck';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class QrngSetup extends LightningElement {
     @track apiKey = '';
-    @track defaultBackend = 'ibm_kingston';
+    @track instanceCRN = '';
+    @track defaultBackend = '';
     @track defaultShots = 1024;
     @track useBellTest = false;
     @track isConnected = false;
     @track isTestingConnection = false;
     @track connectionMessage = '';
-    @track backendOptions = [
-        { label: 'ibm_kingston (Heron r2, 156 qubits)', value: 'ibm_kingston' }
-    ];
+    @track backendOptions = [];
     @track totalJobs = 0;
     @track completedJobs = 0;
     @track totalCertificates = 0;
+    @track useLeastBusy = false;
+    @track pollIntervalMinutes = 5;
+    @track sweeperActive = false;
+    @track isDiscoveringCRN = false;
+    @track backendHealthList = [];
+    @track isLoadingHealth = false;
+    @track integrityCheckActive = false;
+    @track integrityCheckHour = 2;
 
     @wire(getSettings)
     wiredSettings({ data }) {
         if (data) {
-            this.defaultBackend = data.defaultBackend || 'ibm_kingston';
+            this.defaultBackend = data.defaultBackend || '';
             this.defaultShots = data.defaultShots || 1024;
             this.useBellTest = data.useBellTest || false;
             if (data.hasApiKey) {
                 this.apiKey = '********'; // Mask existing key
             }
+            if (data.hasCRN) {
+                this.instanceCRN = '********'; // Mask existing CRN
+            }
+            this.useLeastBusy = data.useLeastBusy || false;
+            if (this.useLeastBusy) {
+                this.defaultBackend = '__least_busy__';
+            }
+            this.pollIntervalMinutes = data.pollIntervalMinutes || 5;
+            this.sweeperActive = data.sweeperActive || false;
+            this.integrityCheckActive = data.integrityCheckActive || false;
+            this.integrityCheckHour =
+                data.integrityCheckHour != null ? data.integrityCheckHour : 2;
+
+            // Load cached backends into dropdown
+            if (data.cachedBackends && data.cachedBackends.length > 0) {
+                this.backendOptions = this.buildBackendOptions(
+                    data.cachedBackends
+                );
+            }
+
+            // Auto-connect if API key is configured
+            if (data.hasApiKey && !this.isConnected) {
+                this.handleTestConnection();
+            }
+
+            // Load stored backend health
+            this.loadBackendHealth();
         }
     }
 
@@ -56,8 +97,19 @@ export default class QrngSetup extends LightningElement {
         this.apiKey = event.target.value;
     }
 
+    handleCRNChange(event) {
+        this.instanceCRN = event.target.value;
+    }
+
     handleBackendChange(event) {
-        this.defaultBackend = event.detail.value;
+        const val = event.detail.value;
+        if (val === '__least_busy__') {
+            this.useLeastBusy = true;
+            this.defaultBackend = '';
+        } else {
+            this.useLeastBusy = false;
+            this.defaultBackend = val;
+        }
     }
 
     handleShotsChange(event) {
@@ -66,6 +118,14 @@ export default class QrngSetup extends LightningElement {
 
     handleBellTestChange(event) {
         this.useBellTest = event.target.checked;
+    }
+
+    handleLeastBusyChange(event) {
+        this.useLeastBusy = event.target.checked;
+    }
+
+    handlePollIntervalChange(event) {
+        this.pollIntervalMinutes = parseInt(event.target.value, 10);
     }
 
     async handleTestConnection() {
@@ -80,10 +140,8 @@ export default class QrngSetup extends LightningElement {
                 try {
                     const backends = await getAvailableBackends();
                     if (backends && backends.length > 0) {
-                        this.backendOptions = backends.map((b) => ({
-                            label: `${b.name} (${b.qubits} qubits, ${b.status})`,
-                            value: b.name
-                        }));
+                        this.backendOptions =
+                            this.buildBackendOptions(backends);
                     }
                 } catch (backendErr) {
                     // Non-critical
@@ -101,11 +159,16 @@ export default class QrngSetup extends LightningElement {
     async handleSaveSettings() {
         try {
             const keyToSave = this.apiKey === '********' ? null : this.apiKey;
+            const crnToSave =
+                this.instanceCRN === '********' ? null : this.instanceCRN;
             await saveSettings({
                 apiKey: keyToSave,
+                instanceCRN: crnToSave,
                 defaultBackend: this.defaultBackend,
                 defaultShots: this.defaultShots,
-                useBellTest: this.useBellTest
+                useBellTest: this.useBellTest,
+                useLeastBusy: this.useLeastBusy,
+                pollIntervalMinutes: this.pollIntervalMinutes
             });
             this.dispatchEvent(
                 new ShowToastEvent({
@@ -123,6 +186,258 @@ export default class QrngSetup extends LightningElement {
                 })
             );
         }
+    }
+
+    async handleDiscoverCRN() {
+        this.isDiscoveringCRN = true;
+        try {
+            const instances = await discoverInstances();
+            if (instances && instances.length === 1) {
+                this.instanceCRN = instances[0].crn;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'CRN Found',
+                        message: `Auto-detected instance: ${instances[0].name}`,
+                        variant: 'success'
+                    })
+                );
+            } else if (instances && instances.length > 1) {
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Multiple Instances',
+                        message: `Found ${instances.length} instances. Please select one manually.`,
+                        variant: 'info'
+                    })
+                );
+            } else {
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'No Instances',
+                        message:
+                            'No IBM Quantum instances found for this account.',
+                        variant: 'warning'
+                    })
+                );
+            }
+        } catch (error) {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Discovery Failed',
+                    message: this.reduceErrors(error),
+                    variant: 'error'
+                })
+            );
+        } finally {
+            this.isDiscoveringCRN = false;
+        }
+    }
+
+    async loadBackendHealth() {
+        try {
+            const backends = await getAllBackendHealth();
+            this.backendHealthList = this.mapBackendHealth(backends);
+        } catch (error) {
+            // Silently fail — table just stays empty
+            console.warn('Could not load backend health:', error);
+        }
+    }
+
+    async handleRefreshHealth() {
+        this.isLoadingHealth = true;
+        try {
+            const backends = await refreshAllBackendHealth();
+            this.backendHealthList = this.mapBackendHealth(backends);
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Health Refreshed',
+                    message: `Updated ${this.backendHealthList.length} backends from IBM.`,
+                    variant: 'success'
+                })
+            );
+        } catch (error) {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Health Check Failed',
+                    message: this.reduceErrors(error),
+                    variant: 'error'
+                })
+            );
+        } finally {
+            this.isLoadingHealth = false;
+        }
+    }
+
+    mapBackendHealth(backends) {
+        return backends.map((b) => ({
+            id: b.id,
+            name: b.name,
+            status: b.status || '—',
+            qubits: b.qubits || 0,
+            queueLength: b.queueLength != null ? b.queueLength : '—',
+            processor: b.processorFamily
+                ? `${b.processorFamily} ${b.processorRevision || ''}`
+                : '—',
+            avgT1: this.formatTime(b.avgT1),
+            avgT2: this.formatTime(b.avgT2),
+            gateError: this.formatPercent(b.gateError),
+            readoutError: this.formatPercent(b.readoutError),
+            lastSynced: b.lastSynced,
+            statusClass:
+                b.status === 'online'
+                    ? 'slds-text-color_success'
+                    : 'slds-text-color_error'
+        }));
+    }
+
+    get hasBackendHealth() {
+        return this.backendHealthList.length > 0;
+    }
+
+    formatTime(val) {
+        if (val == null || val === undefined) return '—';
+        const n = Number(val);
+        if (isNaN(n)) return '—';
+        if (n > 1000) return (n / 1000).toFixed(1) + ' ms';
+        return n.toFixed(1) + ' us';
+    }
+
+    formatPercent(val) {
+        if (val == null || val === undefined) return '—';
+        const n = Number(val);
+        if (isNaN(n)) return '—';
+        return (n * 100).toFixed(3) + '%';
+    }
+
+    buildBackendOptions(backends) {
+        const options = backends.map((b) => {
+            const statusStr =
+                typeof b.status === 'object'
+                    ? b.status.name || 'unknown'
+                    : b.status || 'unknown';
+            return {
+                label: `${b.name} (${b.qubits} qubits, ${statusStr})`,
+                value: b.name
+            };
+        });
+        // Add "Least Busy (auto)" option at the top
+        options.unshift({
+            label: 'Least Busy (auto-select)',
+            value: '__least_busy__'
+        });
+        return options;
+    }
+
+    async handleToggleSweeper() {
+        try {
+            if (this.sweeperActive) {
+                await stopSweeper();
+                this.sweeperActive = false;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Sweeper Stopped',
+                        message: 'Background job sweeper has been stopped.',
+                        variant: 'info'
+                    })
+                );
+            } else {
+                await startSweeper();
+                this.sweeperActive = true;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Sweeper Started',
+                        message: `Background job sweeper running every ${this.pollIntervalMinutes} minutes.`,
+                        variant: 'success'
+                    })
+                );
+            }
+        } catch (error) {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Sweeper Error',
+                    message: this.reduceErrors(error),
+                    variant: 'error'
+                })
+            );
+        }
+    }
+
+    get sweeperButtonLabel() {
+        return this.sweeperActive ? 'Stop Job Sweeper' : 'Start Job Sweeper';
+    }
+
+    get sweeperButtonVariant() {
+        return this.sweeperActive ? 'destructive' : 'brand';
+    }
+
+    get sweeperStatusLabel() {
+        return this.sweeperActive ? 'Active' : 'Inactive';
+    }
+
+    get sweeperBadgeClass() {
+        return this.sweeperActive
+            ? 'slds-badge slds-theme_success'
+            : 'slds-badge';
+    }
+
+    // ── Integrity Verification ──────────────────────────────────
+
+    handleIntegrityHourChange(event) {
+        this.integrityCheckHour = parseInt(event.detail.value, 10);
+    }
+
+    async handleToggleIntegrityCheck() {
+        try {
+            if (this.integrityCheckActive) {
+                await stopIntegrityCheck();
+                this.integrityCheckActive = false;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Integrity Check Stopped',
+                        message:
+                            'Nightly integrity verification has been stopped.',
+                        variant: 'info'
+                    })
+                );
+            } else {
+                await startIntegrityCheck();
+                this.integrityCheckActive = true;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Integrity Check Started',
+                        message: `Nightly integrity verification scheduled at ${this.integrityCheckHour}:00.`,
+                        variant: 'success'
+                    })
+                );
+            }
+        } catch (error) {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Integrity Check Error',
+                    message: this.reduceErrors(error),
+                    variant: 'error'
+                })
+            );
+        }
+    }
+
+    get integrityButtonLabel() {
+        return this.integrityCheckActive
+            ? 'Stop Integrity Check'
+            : 'Start Integrity Check';
+    }
+
+    get integrityButtonVariant() {
+        return this.integrityCheckActive ? 'destructive' : 'brand';
+    }
+
+    get integrityStatusLabel() {
+        return this.integrityCheckActive ? 'Active' : 'Inactive';
+    }
+
+    get integrityBadgeClass() {
+        return this.integrityCheckActive
+            ? 'slds-badge slds-theme_success'
+            : 'slds-badge';
     }
 
     reduceErrors(error) {

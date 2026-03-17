@@ -88,6 +88,57 @@ public with sharing class IBMQuantumAuth {
     }
 
     /**
+     * Discover IBM Quantum service instances and their CRNs.
+     * Uses IBM Cloud Resource Controller API.
+     * resource_id for Qiskit Runtime: b6049020-80f4-11eb-a0f7-e35ec9b4054f
+     *
+     * Governor limits: 1 callout
+     */
+    public static List<Map<String, String>> discoverInstances() {
+        String token = getAccessToken();
+
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(
+            'https://resource-controller.cloud.ibm.com/v2/resource_instances' +
+            '?resource_id=b6049020-80f4-11eb-a0f7-e35ec9b4054f'
+        );
+        req.setMethod('GET');
+        req.setHeader('Authorization', 'Bearer ' + token);
+        req.setTimeout(30000);
+
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+
+        if (res.getStatusCode() != 200) {
+            throw new QRNGException(
+                'Failed to discover IBM Quantum instances: ' +
+                    res.getStatusCode() +
+                    ' ' +
+                    res.getBody()
+            );
+        }
+
+        Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(
+            res.getBody()
+        );
+        List<Object> resources = (List<Object>) responseMap.get('resources');
+        List<Map<String, String>> instances = new List<Map<String, String>>();
+
+        if (resources != null) {
+            for (Object resource : resources) {
+                Map<String, Object> r = (Map<String, Object>) resource;
+                Map<String, String> instance = new Map<String, String>();
+                instance.put('name', (String) r.get('name'));
+                instance.put('crn', (String) r.get('crn'));
+                instance.put('state', (String) r.get('state'));
+                instances.add(instance);
+            }
+        }
+
+        return instances;
+    }
+
+    /**
      * Clear the cached token (for testing or forced refresh)
      */
     public static void clearCache() {

@@ -1,10 +1,13 @@
 /**
  * Creates and manages Fairness Certificates for QRNG jobs.
  * Generates SHA-256 hashes for audit trail integrity.
+ *
+ * One job = one certificate. Re-retrieving results updates the existing cert.
  */
 public with sharing class FairnessCertificateService {
     /**
      * Create a Fairness Certificate for a completed quantum job.
+     * If a certificate already exists for this job, update it instead.
      */
     public static Id createCertificate(
         Id jobId,
@@ -14,7 +17,7 @@ public with sharing class FairnessCertificateService {
         Quantum_Job__c job = [
             SELECT
                 Id,
-                IBM_Job_ID__c,
+                External_Job_ID__c,
                 Backend__c,
                 Circuit_QASM__c,
                 Raw_Results__c,
@@ -27,22 +30,49 @@ public with sharing class FairnessCertificateService {
             LIMIT 1
         ];
 
-        Fairness_Certificate__c cert = new Fairness_Certificate__c(
-            Quantum_Job__c = job.Id,
-            IBM_Job_ID__c = job.IBM_Job_ID__c,
-            Backend__c = job.Backend__c,
-            Circuit_QASM__c = job.Circuit_QASM__c,
-            Raw_Bitstring_Hash__c = computeSHA256(
-                job.Raw_Results__c != null ? job.Raw_Results__c : ''
-            ),
-            Debiased_Bitstring_Hash__c = computeSHA256(
-                job.Debiased_Results__c != null ? job.Debiased_Results__c : ''
-            ),
-            Validation_Results__c = validationResultsJson,
-            Created_By_User__c = job.Requested_By__c,
-            Purpose__c = job.Purpose__c,
-            Status__c = certStatus
+        String rawHash = computeSHA256(
+            job.Raw_Results__c != null ? job.Raw_Results__c : ''
         );
+        String debiasedHash = computeSHA256(
+            job.Debiased_Results__c != null ? job.Debiased_Results__c : ''
+        );
+
+        // Check for existing certificate for this job
+        List<Fairness_Certificate__c> existing = [
+            SELECT Id
+            FROM Fairness_Certificate__c
+            WHERE Quantum_Job__c = :jobId
+            ORDER BY CreatedDate DESC
+            LIMIT 1
+        ];
+
+        Fairness_Certificate__c cert;
+        if (!existing.isEmpty()) {
+            // Update existing certificate with fresh hashes
+            cert = existing[0];
+            cert.Raw_Bitstring_Hash__c = rawHash;
+            cert.Debiased_Bitstring_Hash__c = debiasedHash;
+            cert.Validation_Results__c = validationResultsJson;
+            cert.Status__c = certStatus;
+            cert.Tampered__c = false;
+            cert.Last_Integrity_Check__c = DateTime.now();
+        } else {
+            // Create new certificate
+            cert = new Fairness_Certificate__c(
+                Quantum_Job__c = job.Id,
+                External_Job_ID__c = job.External_Job_ID__c,
+                Backend__c = job.Backend__c,
+                Circuit_QASM__c = job.Circuit_QASM__c,
+                Raw_Bitstring_Hash__c = rawHash,
+                Debiased_Bitstring_Hash__c = debiasedHash,
+                Validation_Results__c = validationResultsJson,
+                Created_By_User__c = job.Requested_By__c,
+                Purpose__c = job.Purpose__c,
+                Status__c = certStatus,
+                Tampered__c = false,
+                Last_Integrity_Check__c = DateTime.now()
+            );
+        }
 
         // Parse validation results for CHSH value if present
         if (String.isNotBlank(validationResultsJson)) {
@@ -60,7 +90,7 @@ public with sharing class FairnessCertificateService {
             }
         }
 
-        insert cert;
+        upsert cert;
         return cert.Id;
     }
 
@@ -80,6 +110,7 @@ public with sharing class FairnessCertificateService {
 
     /**
      * Verify integrity of a certificate by re-computing hashes.
+     * Sets or clears the Tampered__c flag on the record.
      */
     public static Map<String, Object> verifyCertificate(Id certificateId) {
         Fairness_Certificate__c cert = [
@@ -101,8 +132,6 @@ public with sharing class FairnessCertificateService {
             LIMIT 1
         ];
 
-        Map<String, Object> result = new Map<String, Object>();
-
         String recomputedRawHash = computeSHA256(
             job.Raw_Results__c != null ? job.Raw_Results__c : ''
         );
@@ -110,20 +139,20 @@ public with sharing class FairnessCertificateService {
             job.Debiased_Results__c != null ? job.Debiased_Results__c : ''
         );
 
-        result.put(
-            'rawHashMatch',
-            cert.Raw_Bitstring_Hash__c == recomputedRawHash
-        );
-        result.put(
-            'debiasedHashMatch',
-            cert.Debiased_Bitstring_Hash__c == recomputedDebiasedHash
-        );
-        result.put(
-            'integrityVerified',
-            cert.Raw_Bitstring_Hash__c == recomputedRawHash &&
-                cert.Debiased_Bitstring_Hash__c == recomputedDebiasedHash
-        );
+        Boolean rawMatch = cert.Raw_Bitstring_Hash__c == recomputedRawHash;
+        Boolean debiasedMatch =
+            cert.Debiased_Bitstring_Hash__c == recomputedDebiasedHash;
+        Boolean verified = rawMatch && debiasedMatch;
 
+        // Update tampered flag and last check timestamp
+        cert.Tampered__c = !verified;
+        cert.Last_Integrity_Check__c = DateTime.now();
+        update cert;
+
+        Map<String, Object> result = new Map<String, Object>();
+        result.put('rawHashMatch', rawMatch);
+        result.put('debiasedHashMatch', debiasedMatch);
+        result.put('integrityVerified', verified);
         return result;
     }
 

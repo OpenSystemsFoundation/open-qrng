@@ -67,4 +67,113 @@ private class IBMQuantumAuth_Test {
             'Should return false when no API key configured'
         );
     }
+
+    private class MockDiscoverInstances implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            HttpResponse res = new HttpResponse();
+            if (req.getEndpoint().contains('iam.cloud.ibm.com')) {
+                res.setStatusCode(200);
+                res.setBody(
+                    '{"access_token":"test-token-disc","token_type":"Bearer","expires_in":3600}'
+                );
+            } else if (
+                req.getEndpoint().contains('resource-controller.cloud.ibm.com')
+            ) {
+                res.setStatusCode(200);
+                res.setBody(
+                    '{"resources":[' +
+                        '{"name":"instance-1","crn":"crn:v1:instance1","state":"active"},' +
+                        '{"name":"instance-2","crn":"crn:v1:instance2","state":"active"}' +
+                        ']}'
+                );
+            }
+            return res;
+        }
+    }
+
+    @IsTest
+    static void testDiscoverInstances() {
+        Test.setMock(HttpCalloutMock.class, new MockDiscoverInstances());
+        QRNG_Settings__c s = new QRNG_Settings__c(
+            SetupOwnerId = UserInfo.getOrganizationId(),
+            IBM_API_Key__c = 'test-api-key'
+        );
+        upsert s;
+
+        Test.startTest();
+        List<Map<String, String>> instances = IBMQuantumAuth.discoverInstances();
+        Test.stopTest();
+
+        System.assertEquals(2, instances.size(), 'Should find two instances');
+        System.assertEquals(
+            'instance-1',
+            instances[0].get('name'),
+            'First instance name should match'
+        );
+        System.assertEquals(
+            'crn:v1:instance1',
+            instances[0].get('crn'),
+            'First instance CRN should match'
+        );
+        System.assertEquals(
+            'active',
+            instances[1].get('state'),
+            'Second instance state should be active'
+        );
+    }
+
+    private class MockTokenExchange implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            HttpResponse res = new HttpResponse();
+            res.setStatusCode(200);
+            res.setBody(
+                '{"access_token":"fresh-token-xyz","token_type":"Bearer","expires_in":3600}'
+            );
+            return res;
+        }
+    }
+
+    @IsTest
+    static void testGetAccessTokenViaExchange() {
+        Test.setMock(HttpCalloutMock.class, new MockTokenExchange());
+        QRNG_Settings__c s = new QRNG_Settings__c(
+            SetupOwnerId = UserInfo.getOrganizationId(),
+            IBM_API_Key__c = 'test-api-key'
+        );
+        upsert s;
+
+        // Ensure no cached token
+        IBMQuantumAuth.clearCache();
+
+        Test.startTest();
+        String token = IBMQuantumAuth.getAccessToken();
+        Test.stopTest();
+
+        System.assertEquals(
+            'fresh-token-xyz',
+            token,
+            'Should return token from IAM exchange'
+        );
+    }
+
+    @IsTest
+    static void testTestApiKeyTrue() {
+        Test.setMock(HttpCalloutMock.class, new MockTokenExchange());
+        QRNG_Settings__c s = new QRNG_Settings__c(
+            SetupOwnerId = UserInfo.getOrganizationId(),
+            IBM_API_Key__c = 'test-api-key'
+        );
+        upsert s;
+        IBMQuantumAuth.clearCache();
+
+        Test.startTest();
+        Boolean result = IBMQuantumAuth.testApiKey();
+        Test.stopTest();
+
+        System.assertEquals(
+            true,
+            result,
+            'Should return true when API key is valid'
+        );
+    }
 }

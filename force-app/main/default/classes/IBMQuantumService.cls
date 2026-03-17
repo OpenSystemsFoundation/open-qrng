@@ -7,6 +7,76 @@
  */
 public with sharing class IBMQuantumService {
     private static final String BASE_URL = 'https://quantum.cloud.ibm.com/api';
+    private static final String IBM_API_VERSION = '2025-11-01';
+
+    /**
+     * Get the Instance CRN from settings.
+     */
+    private static String getInstanceCRN() {
+        QRNG_Settings__c settings = QRNG_Settings__c.getInstance();
+        return settings != null ? settings.Instance_CRN__c : null;
+    }
+
+    /**
+     * Find the least busy operational backend.
+     * Calls /v1/backends and returns the backend name with the lowest queue_length.
+     *
+     * Governor limits: 1 callout
+     */
+    public static String getLeastBusyBackend() {
+        String backendsJson = getBackends();
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
+            backendsJson
+        );
+
+        List<Object> devices;
+        if (response.containsKey('devices')) {
+            devices = (List<Object>) response.get('devices');
+        } else if (response.containsKey('backends')) {
+            devices = (List<Object>) response.get('backends');
+        } else {
+            return null;
+        }
+
+        String bestBackend = null;
+        Integer lowestQueue = 2147483647;
+
+        for (Object device : devices) {
+            Map<String, Object> d = (Map<String, Object>) device;
+
+            // Check status - only consider online backends
+            Object statusObj = d.get('status');
+            String statusName;
+            if (statusObj instanceof Map<String, Object>) {
+                statusName = (String) ((Map<String, Object>) statusObj)
+                    .get('name');
+            } else {
+                statusName = String.valueOf(statusObj);
+            }
+            if (statusName != 'online') {
+                continue;
+            }
+
+            // Skip simulators
+            Boolean isSim = d.containsKey('is_simulator')
+                ? (Boolean) d.get('is_simulator')
+                : false;
+            if (isSim) {
+                continue;
+            }
+
+            Integer queueLen = d.containsKey('queue_length')
+                ? (Integer) d.get('queue_length')
+                : 2147483647;
+
+            if (queueLen < lowestQueue) {
+                lowestQueue = queueLen;
+                bestBackend = (String) d.get('name');
+            }
+        }
+
+        return bestBackend;
+    }
 
     /**
      * Submit a QRNG job to IBM Quantum Runtime.
@@ -51,7 +121,8 @@ public with sharing class IBMQuantumService {
 
         // DML after callout succeeds
         Quantum_Job__c job = new Quantum_Job__c(
-            IBM_Job_ID__c = ibmJobId,
+            External_Job_ID__c = ibmJobId,
+            Provider__c = 'ibm',
             Backend__c = backend,
             Status__c = 'Submitted',
             Circuit_QASM__c = openqasm,
@@ -96,11 +167,20 @@ public with sharing class IBMQuantumService {
         params.put('version', 2);
         body.put('params', params);
 
+        String instanceCRN = getInstanceCRN();
+        if (String.isBlank(instanceCRN)) {
+            throw new QRNGException(
+                'Instance CRN not configured. Please set it in the Setup tab.'
+            );
+        }
+
         HttpRequest req = new HttpRequest();
         req.setEndpoint(BASE_URL + '/v1/jobs');
         req.setMethod('POST');
         req.setHeader('Authorization', 'Bearer ' + token);
         req.setHeader('Content-Type', 'application/json');
+        req.setHeader('Service-CRN', instanceCRN);
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
         req.setBody(JSON.serialize(body));
         req.setTimeout(60000);
 
@@ -127,11 +207,16 @@ public with sharing class IBMQuantumService {
      */
     public static Map<String, Object> getJobStatus(String ibmJobId) {
         String token = IBMQuantumAuth.getAccessToken();
+        String instanceCRN = getInstanceCRN();
 
         HttpRequest req = new HttpRequest();
         req.setEndpoint(BASE_URL + '/v1/jobs/' + ibmJobId);
         req.setMethod('GET');
         req.setHeader('Authorization', 'Bearer ' + token);
+        if (String.isNotBlank(instanceCRN)) {
+            req.setHeader('Service-CRN', instanceCRN);
+        }
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
         req.setTimeout(30000);
 
         Http http = new Http();
@@ -151,11 +236,16 @@ public with sharing class IBMQuantumService {
      */
     public static String getJobResults(String ibmJobId) {
         String token = IBMQuantumAuth.getAccessToken();
+        String instanceCRN = getInstanceCRN();
 
         HttpRequest req = new HttpRequest();
         req.setEndpoint(BASE_URL + '/v1/jobs/' + ibmJobId + '/results');
         req.setMethod('GET');
         req.setHeader('Authorization', 'Bearer ' + token);
+        if (String.isNotBlank(instanceCRN)) {
+            req.setHeader('Service-CRN', instanceCRN);
+        }
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
         req.setTimeout(60000);
 
         Http http = new Http();
@@ -175,11 +265,16 @@ public with sharing class IBMQuantumService {
      */
     public static String getBackends() {
         String token = IBMQuantumAuth.getAccessToken();
+        String instanceCRN = getInstanceCRN();
 
         HttpRequest req = new HttpRequest();
         req.setEndpoint(BASE_URL + '/v1/backends');
         req.setMethod('GET');
         req.setHeader('Authorization', 'Bearer ' + token);
+        if (String.isNotBlank(instanceCRN)) {
+            req.setHeader('Service-CRN', instanceCRN);
+        }
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
         req.setTimeout(30000);
 
         Http http = new Http();
@@ -192,5 +287,168 @@ public with sharing class IBMQuantumService {
         }
 
         return res.getBody();
+    }
+
+    /**
+     * Get detailed backend properties (T1, T2, gate errors, readout errors).
+     * Endpoint: GET /v1/backends/{backend}/properties
+     *
+     * Governor limits: 1 callout
+     */
+    public static Map<String, Object> getBackendProperties(String backendName) {
+        String token = IBMQuantumAuth.getAccessToken();
+        String instanceCRN = getInstanceCRN();
+
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(
+            BASE_URL +
+                '/v1/backends/' +
+                EncodingUtil.urlEncode(backendName, 'UTF-8') +
+                '/properties'
+        );
+        req.setMethod('GET');
+        req.setHeader('Authorization', 'Bearer ' + token);
+        if (String.isNotBlank(instanceCRN)) {
+            req.setHeader('Service-CRN', instanceCRN);
+        }
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
+        req.setTimeout(30000);
+
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+
+        if (res.getStatusCode() != 200) {
+            throw new QRNGException(
+                'Failed to get backend properties: ' +
+                    res.getStatusCode() +
+                    ' ' +
+                    res.getBody()
+            );
+        }
+
+        return (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+    }
+
+    /**
+     * Extract coupling map from backend configuration as List<List<Integer>>.
+     * Each inner list is a [q0, q1] connected pair.
+     *
+     * Governor limits: 1 callout
+     */
+    public static List<List<Integer>> getCouplingMap(String backendName) {
+        Map<String, Object> config = getBackendConfiguration(backendName);
+        List<List<Integer>> couplingMap = new List<List<Integer>>();
+
+        // Try coupling_map (list of [q0, q1] pairs)
+        if (config.containsKey('coupling_map')) {
+            List<Object> edges = (List<Object>) config.get('coupling_map');
+            for (Object edge : edges) {
+                List<Object> pair = (List<Object>) edge;
+                couplingMap.add(
+                    new List<Integer>{ (Integer) pair[0], (Integer) pair[1] }
+                );
+            }
+        }
+
+        // Fallback: try gates array for cx/cz entries
+        if (couplingMap.isEmpty() && config.containsKey('gates')) {
+            List<Object> gates = (List<Object>) config.get('gates');
+            Set<String> seen = new Set<String>();
+            for (Object gObj : gates) {
+                Map<String, Object> gate = (Map<String, Object>) gObj;
+                String gateName = (String) gate.get('gate');
+                if (gateName == 'cz' || gateName == 'cx' || gateName == 'ecr') {
+                    List<Object> qubits = (List<Object>) gate.get('qubits');
+                    if (qubits != null && qubits.size() == 2) {
+                        Integer q0 = (Integer) qubits[0];
+                        Integer q1 = (Integer) qubits[1];
+                        String key = q0 + '-' + q1;
+                        if (!seen.contains(key)) {
+                            seen.add(key);
+                            couplingMap.add(new List<Integer>{ q0, q1 });
+                        }
+                    }
+                }
+            }
+        }
+
+        return couplingMap;
+    }
+
+    /**
+     * Extract per-qubit readout error rates from backend properties.
+     * Returns Map of qubit index → readout error probability.
+     *
+     * Governor limits: 1 callout
+     */
+    public static Map<Integer, Double> getReadoutErrors(String backendName) {
+        Map<String, Object> props = getBackendProperties(backendName);
+        Map<Integer, Double> errors = new Map<Integer, Double>();
+
+        // Try qubits array (list of qubit property lists)
+        if (props.containsKey('qubits')) {
+            List<Object> qubits = (List<Object>) props.get('qubits');
+            for (Integer i = 0; i < qubits.size(); i++) {
+                List<Object> qubitProps = (List<Object>) qubits[i];
+                for (Object propObj : qubitProps) {
+                    Map<String, Object> prop = (Map<String, Object>) propObj;
+                    String propName = (String) prop.get('name');
+                    if (
+                        propName == 'readout_error' ||
+                        propName == 'prob_meas1_prep0'
+                    ) {
+                        Object val = prop.get('value');
+                        if (val != null) {
+                            errors.put(i, (Double) val);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        return errors;
+    }
+
+    /**
+     * Get backend configuration (coupling map, basis gates, max_shots).
+     * Endpoint: GET /v1/backends/{backend}/configuration
+     *
+     * Governor limits: 1 callout
+     */
+    public static Map<String, Object> getBackendConfiguration(
+        String backendName
+    ) {
+        String token = IBMQuantumAuth.getAccessToken();
+        String instanceCRN = getInstanceCRN();
+
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(
+            BASE_URL +
+                '/v1/backends/' +
+                EncodingUtil.urlEncode(backendName, 'UTF-8') +
+                '/configuration'
+        );
+        req.setMethod('GET');
+        req.setHeader('Authorization', 'Bearer ' + token);
+        if (String.isNotBlank(instanceCRN)) {
+            req.setHeader('Service-CRN', instanceCRN);
+        }
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
+        req.setTimeout(30000);
+
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+
+        if (res.getStatusCode() != 200) {
+            throw new QRNGException(
+                'Failed to get backend configuration: ' +
+                    res.getStatusCode() +
+                    ' ' +
+                    res.getBody()
+            );
+        }
+
+        return (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
     }
 }

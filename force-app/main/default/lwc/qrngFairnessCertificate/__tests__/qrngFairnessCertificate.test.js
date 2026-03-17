@@ -2,7 +2,7 @@ import { createElement } from 'lwc';
 import QrngFairnessCertificate from 'c/qrngFairnessCertificate';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getCertificate',
+    '@salesforce/apex/QRNGSetupController.getCertificateDTO',
     () => {
         const {
             createApexTestWireAdapter
@@ -18,7 +18,7 @@ jest.mock(
     { virtual: true }
 );
 
-import getCertificate from '@salesforce/apex/QRNGSetupController.getCertificate';
+import getCertificateDTO from '@salesforce/apex/QRNGSetupController.getCertificateDTO';
 import verifyCertificate from '@salesforce/apex/QRNGSetupController.verifyCertificate';
 
 function flushPromises() {
@@ -26,20 +26,19 @@ function flushPromises() {
 }
 
 const MOCK_CERTIFICATE = {
-    Id: 'a01xx000001234',
-    Name: 'CERT-0001',
-    IBM_Job_ID__c: 'job_abc123',
-    Backend__c: 'ibm_kingston',
-    Status__c: 'Certified',
-    Raw_Bitstring_Hash__c:
+    name: 'CERT-0001',
+    externalJobId: 'job_abc123',
+    backend: 'test_backend',
+    status: 'Certified',
+    rawBitstringHash:
         'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-    Debiased_Bitstring_Hash__c:
+    debiasedBitstringHash:
         'b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3',
-    Validation_Results__c:
+    validationResults:
         '{"frequencyTest":true,"runsTest":true,"chiSquaredTest":true,"passed":true}',
-    Purpose__c: 'Test assignment',
-    CreatedDate: '2026-03-17T10:00:00.000Z',
-    CHSH_S_Value__c: null
+    purpose: 'Test assignment',
+    createdDate: '2026-03-17T10:00:00.000Z',
+    chshSValue: null
 };
 
 describe('c-qrng-fairness-certificate', () => {
@@ -100,7 +99,7 @@ describe('c-qrng-fairness-certificate', () => {
     it('renders certificate header with name and status badge when wire emits data', async () => {
         const element = createComponent({ certificateId: 'a01xx000001234' });
 
-        getCertificate.emit(MOCK_CERTIFICATE);
+        getCertificateDTO.emit(MOCK_CERTIFICATE);
         await flushPromises();
 
         const certId = element.shadowRoot.querySelector('.certificate-id');
@@ -115,23 +114,23 @@ describe('c-qrng-fairness-certificate', () => {
     it('displays hash values', async () => {
         const element = createComponent({ certificateId: 'a01xx000001234' });
 
-        getCertificate.emit(MOCK_CERTIFICATE);
+        getCertificateDTO.emit(MOCK_CERTIFICATE);
         await flushPromises();
 
         const hashValues = element.shadowRoot.querySelectorAll('.hash-value');
         expect(hashValues.length).toBeGreaterThanOrEqual(2);
         expect(hashValues[0].textContent).toBe(
-            MOCK_CERTIFICATE.Raw_Bitstring_Hash__c
+            MOCK_CERTIFICATE.rawBitstringHash
         );
         expect(hashValues[1].textContent).toBe(
-            MOCK_CERTIFICATE.Debiased_Bitstring_Hash__c
+            MOCK_CERTIFICATE.debiasedBitstringHash
         );
     });
 
     it('renders validation results with 3 test badges', async () => {
         const element = createComponent({ certificateId: 'a01xx000001234' });
 
-        getCertificate.emit(MOCK_CERTIFICATE);
+        getCertificateDTO.emit(MOCK_CERTIFICATE);
         await flushPromises();
 
         const testBadges = element.shadowRoot.querySelectorAll('.test-badge');
@@ -156,7 +155,7 @@ describe('c-qrng-fairness-certificate', () => {
 
         const element = createComponent({ certificateId: 'a01xx000001234' });
 
-        getCertificate.emit(MOCK_CERTIFICATE);
+        getCertificateDTO.emit(MOCK_CERTIFICATE);
         await flushPromises();
 
         const verifyButton =
@@ -183,7 +182,7 @@ describe('c-qrng-fairness-certificate', () => {
     it('canvas visual hash is drawn (getContext called)', async () => {
         createComponent({ certificateId: 'a01xx000001234' });
 
-        getCertificate.emit(MOCK_CERTIFICATE);
+        getCertificateDTO.emit(MOCK_CERTIFICATE);
         await flushPromises();
 
         expect(HTMLCanvasElement.prototype.getContext).toHaveBeenCalledWith(

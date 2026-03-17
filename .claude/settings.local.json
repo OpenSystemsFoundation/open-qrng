@@ -1,5 +1,0 @@
-{
-    "permissions": {
-        "allow": ["Bash(npx sfdx-lwc-jest:*)", "Bash(npx jest:*)"]
-    }
-}

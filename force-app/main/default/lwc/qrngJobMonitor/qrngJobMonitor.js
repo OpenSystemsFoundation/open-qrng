@@ -1,11 +1,12 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { subscribe, unsubscribe, onError } from 'lightning/empApi';
-import getJobDetails from '@salesforce/apex/QRNGSetupController.getJobDetails';
+import getJobStatusDTO from '@salesforce/apex/QRNGSetupController.getJobStatusDTO';
 import getCertificateByJobId from '@salesforce/apex/QRNGSetupController.getCertificateByJobId';
 import { refreshApex } from '@salesforce/apex';
 
 const COMPLETE_CHANNEL = '/event/OpenSF__QRNG_Complete__e';
 const FAILED_CHANNEL = '/event/OpenSF__QRNG_Failed__e';
+const POLL_INTERVAL_MS = 5000;
 
 export default class QrngJobMonitor extends LightningElement {
     @api jobId;
@@ -15,14 +16,20 @@ export default class QrngJobMonitor extends LightningElement {
     _completeSubscription;
     _failedSubscription;
     _wiredJobResult;
+    _pollTimer;
 
-    @wire(getJobDetails, { jobId: '$jobId' })
+    @wire(getJobStatusDTO, { jobId: '$jobId' })
     wiredJob(result) {
         this._wiredJobResult = result;
         if (result.data) {
             this.job = result.data;
-            if (this.job.Status__c === 'Completed') {
+            if (this.job.status === 'Completed') {
+                this.stopPolling();
                 this.loadCertificate();
+            } else if (this.job.status === 'Failed') {
+                this.stopPolling();
+            } else {
+                this.startPolling();
             }
         }
     }
@@ -33,6 +40,31 @@ export default class QrngJobMonitor extends LightningElement {
 
     disconnectedCallback() {
         this.unsubscribeFromEvents();
+        this.stopPolling();
+    }
+
+    startPolling() {
+        if (this._polling) return;
+        this._polling = true;
+        this.schedulePoll();
+    }
+
+    schedulePoll() {
+        if (!this._polling) return;
+        // eslint-disable-next-line @lwc/lwc/no-async-operation
+        this._pollTimer = setTimeout(() => {
+            if (!this._polling) return;
+            refreshApex(this._wiredJobResult);
+            this.schedulePoll();
+        }, POLL_INTERVAL_MS);
+    }
+
+    stopPolling() {
+        this._polling = false;
+        if (this._pollTimer) {
+            clearTimeout(this._pollTimer);
+            this._pollTimer = null;
+        }
     }
 
     async subscribeToEvents() {
@@ -75,6 +107,7 @@ export default class QrngJobMonitor extends LightningElement {
 
         if (eventJobId === this.jobId) {
             this.certificateId = payload.OpenSF__Certificate_Id__c;
+            this.stopPolling();
             refreshApex(this._wiredJobResult);
 
             this.dispatchEvent(
@@ -94,6 +127,7 @@ export default class QrngJobMonitor extends LightningElement {
         const eventJobId = payload.OpenSF__Job_Id__c;
 
         if (eventJobId === this.jobId) {
+            this.stopPolling();
             refreshApex(this._wiredJobResult);
         }
     }
@@ -111,20 +145,18 @@ export default class QrngJobMonitor extends LightningElement {
 
     get currentStep() {
         if (!this.job) return 'Submitted';
-        return this.job.Status__c === 'Failed'
-            ? 'Submitted'
-            : this.job.Status__c;
+        return this.job.status === 'Failed' ? 'Submitted' : this.job.status;
     }
 
     get isInProgress() {
         if (!this.job) return false;
         return ['Submitted', 'Queued', 'Running', 'Pending'].includes(
-            this.job.Status__c
+            this.job.status
         );
     }
 
     get isCompleted() {
-        return this.job && this.job.Status__c === 'Completed';
+        return this.job && this.job.status === 'Completed';
     }
 
     get statusClass() {
@@ -137,6 +169,6 @@ export default class QrngJobMonitor extends LightningElement {
             Completed: 'status-badge status-completed',
             Failed: 'status-badge status-failed'
         };
-        return statusMap[this.job.Status__c] || 'status-badge';
+        return statusMap[this.job.status] || 'status-badge';
     }
 }

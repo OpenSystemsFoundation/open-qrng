@@ -11,7 +11,7 @@
                         for:item="cert"
                     >
                         <div
-                            key={cert.Id}
+                            key={cert.recordId}
                             class="timeline-item slds-m-bottom_small"
                         >
                             <div
@@ -39,28 +39,28 @@
                                             >
                                                 <a
                                                     onclick={handleCertClick}
-                                                    data-id={cert.Id}
-                                                    >{cert.Name}</a
+                                                    data-id={cert.recordId}
+                                                    >{cert.name}</a
                                                 >
                                             </p>
                                             <p
                                                 class="slds-text-body_small"
                                             >
-                                                {cert.Purpose__c}
+                                                {cert.purpose}
                                             </p>
                                         </div>
                                         <div
                                             class="slds-col slds-shrink slds-text-align_right"
                                         >
                                             <lightning-badge
-                                                label={cert.Status__c}
+                                                label={cert.badgeLabel}
                                                 class={cert.badgeClass}
                                             ></lightning-badge>
                                             <p
                                                 class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small"
                                             >
                                                 <lightning-formatted-date-time
-                                                    value={cert.CreatedDate}
+                                                    value={cert.createdDate}
                                                     year="numeric"
                                                     month="short"
                                                     day="2-digit"
@@ -74,19 +74,19 @@
                                         class="slds-text-body_small slds-text-color_weak"
                                     >
                                         Backend:
-                                        {cert.Backend__c} |
-                                        IBM Job:
-                                        {cert.IBM_Job_ID__c}
+                                        {cert.backend} | Job
+                                        ID:
+                                        {cert.externalJobId}
                                     </p>
                                     <template
-                                        if:true={cert.CHSH_S_Value__c}
+                                        if:true={cert.chshSValue}
                                     >
                                         <p
                                             class="slds-text-body_small"
                                         >
                                             CHSH S-Value:
                                             <strong
-                                                >{cert.CHSH_S_Value__c}</strong
+                                                >{cert.chshSValue}</strong
                                             >
                                             <template
                                                 if:true={cert.isQuantumCertified}

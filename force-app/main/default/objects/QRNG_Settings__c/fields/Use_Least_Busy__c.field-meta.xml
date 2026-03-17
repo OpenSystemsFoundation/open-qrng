@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Use_Least_Busy__c</fullName>
+    <label>Use Least Busy Backend</label>
+    <description
+    >Automatically select the backend with the shortest queue instead of the default backend.</description>
+    <inlineHelpText
+    >When enabled, jobs are submitted to the backend with the fewest pending jobs.</inlineHelpText>
+    <type>Checkbox</type>
+    <defaultValue>false</defaultValue>
+</CustomField>

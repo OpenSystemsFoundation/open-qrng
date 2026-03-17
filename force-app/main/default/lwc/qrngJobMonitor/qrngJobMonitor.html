@@ -18,7 +18,7 @@
                             <dd
                                 class="slds-dl_horizontal__detail"
                             >
-                                {job.Name}
+                                {job.name}
                             </dd>
                             <dt
                                 class="slds-dl_horizontal__label"
@@ -28,7 +28,7 @@
                             <dd
                                 class="slds-dl_horizontal__detail"
                             >
-                                {job.Backend__c}
+                                {job.backend}
                             </dd>
                             <dt
                                 class="slds-dl_horizontal__label"
@@ -38,7 +38,7 @@
                             <dd
                                 class="slds-dl_horizontal__detail"
                             >
-                                {job.Num_Qubits__c}
+                                {job.numQubits}
                             </dd>
                             <dt
                                 class="slds-dl_horizontal__label"
@@ -48,7 +48,7 @@
                             <dd
                                 class="slds-dl_horizontal__detail"
                             >
-                                {job.Shots__c}
+                                {job.shots}
                             </dd>
                         </dl>
                     </div>
@@ -57,15 +57,15 @@
                     >
                         <div class={statusClass}>
                             <p class="status-label">
-                                {job.Status__c}
+                                {job.status}
                             </p>
                         </div>
                         <template if:true={isInProgress}>
-                            <lightning-spinner
-                                alternative-text="Processing"
-                                size="medium"
-                                class="slds-m-top_small"
-                            ></lightning-spinner>
+                            <p
+                                class="slds-m-top_small slds-text-body_small pulse"
+                            >
+                                Awaiting result...
+                            </p>
                         </template>
                     </div>
                 </div>
@@ -95,12 +95,12 @@
                 </lightning-progress-indicator>
 
                 <!-- Error message -->
-                <template if:true={job.Error_Message__c}>
+                <template if:true={job.errorMessage}>
                     <div
                         class="slds-notify slds-notify_alert slds-alert_error slds-m-top_small"
                         role="alert"
                     >
-                        <p>{job.Error_Message__c}</p>
+                        <p>{job.errorMessage}</p>
                     </div>
                 </template>
 
@@ -112,13 +112,11 @@
                                 certificate-id={certificateId}
                             ></c-qrng-fairness-certificate>
                         </template>
-                        <template
-                            if:true={job.Raw_Results__c}
-                        >
+                        <template if:true={job.rawResults}>
                             <div class="slds-m-top_medium">
                                 <c-qrng-results-visualizer
-                                    raw-results={job.Raw_Results__c}
-                                    num-qubits={job.Num_Qubits__c}
+                                    raw-results={job.rawResults}
+                                    num-qubits={job.numQubits}
                                 ></c-qrng-results-visualizer>
                             </div>
                         </template>

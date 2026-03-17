@@ -3,11 +3,34 @@
  * Extracts raw bitstrings, concatenates into bit pool, removes hardware bias.
  */
 public with sharing class QRNGResultParser {
+    private static final Map<String, String> HEX_TO_BIN = new Map<String, String>{
+        '0' => '0000',
+        '1' => '0001',
+        '2' => '0010',
+        '3' => '0011',
+        '4' => '0100',
+        '5' => '0101',
+        '6' => '0110',
+        '7' => '0111',
+        '8' => '1000',
+        '9' => '1001',
+        'a' => '1010',
+        'b' => '1011',
+        'c' => '1100',
+        'd' => '1101',
+        'e' => '1110',
+        'f' => '1111'
+    };
+
     /**
      * Parse IBM Sampler response JSON and extract bitstring samples.
-     * Expected format: {"results":[{"data":{"meas":{"samples":["0110","1001",...]}}}]}
+     * Handles both binary ("0110") and hex ("0xb6") sample formats.
+     * Expected format: {"results":[{"data":{"meas":{"samples":["0xb6","0x17",...]}}}]}
      */
-    public static List<String> parseSamplerResults(String jsonResponse) {
+    public static List<String> parseSamplerResults(
+        String jsonResponse,
+        Integer numQubits
+    ) {
         List<String> bitstrings = new List<String>();
 
         Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
@@ -39,10 +62,50 @@ public with sharing class QRNGResultParser {
         }
 
         for (Object sample : samples) {
-            bitstrings.add((String) sample);
+            String sampleStr = (String) sample;
+            if (sampleStr.startsWith('0x') || sampleStr.startsWith('0X')) {
+                bitstrings.add(hexToBinary(sampleStr, numQubits));
+            } else {
+                bitstrings.add(sampleStr);
+            }
         }
 
         return bitstrings;
+    }
+
+    /**
+     * Convert a hex string (e.g. "0xb6") to a zero-padded binary string.
+     */
+    @TestVisible
+    private static String hexToBinary(String hexStr, Integer numQubits) {
+        String hex = hexStr.toLowerCase();
+        if (hex.startsWith('0x')) {
+            hex = hex.substring(2);
+        }
+
+        String binary = '';
+        for (Integer i = 0; i < hex.length(); i++) {
+            String digit = hex.substring(i, i + 1);
+            String nibble = HEX_TO_BIN.get(digit);
+            if (nibble == null) {
+                throw new QRNGException(
+                    'Invalid hex digit in sample: ' + digit
+                );
+            }
+            binary += nibble;
+        }
+
+        // Zero-pad to numQubits width
+        while (binary.length() < numQubits) {
+            binary = '0' + binary;
+        }
+
+        // Trim leading bits if hex produced more than numQubits
+        if (binary.length() > numQubits) {
+            binary = binary.substring(binary.length() - numQubits);
+        }
+
+        return binary;
     }
 
     /**

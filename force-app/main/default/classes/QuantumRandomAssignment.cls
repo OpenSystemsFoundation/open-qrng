@@ -100,7 +100,7 @@ public with sharing class QuantumRandomAssignment {
                     : (settings != null &&
                           String.isNotBlank(settings.Default_Backend__c)
                           ? settings.Default_Backend__c
-                          : 'ibm_kingston');
+                          : IBMQuantumService.getLeastBusyBackend());
                 Integer numQubits = req.numQubits != null ? req.numQubits : 8;
                 Integer shots = settings != null &&
                     settings.Default_Shots__c != null
@@ -110,14 +110,32 @@ public with sharing class QuantumRandomAssignment {
                     ? req.useBellTest
                     : false;
 
+                // Fetch backend topology and calibration
+                Map<Integer, Double> readoutErrors;
+                try {
+                    readoutErrors = IBMQuantumService.getReadoutErrors(
+                        backendName
+                    );
+                } catch (Exception ex) {
+                    readoutErrors = null;
+                }
+
                 // Build circuit
                 String qasm;
                 if (useBellTest) {
+                    List<List<Integer>> couplingMap = IBMQuantumService.getCouplingMap(
+                        backendName
+                    );
                     qasm = QRNGCircuitBuilder.buildBellTestCircuit(
-                        numQubits / 2
+                        numQubits / 2,
+                        couplingMap,
+                        readoutErrors
                     );
                 } else {
-                    qasm = QRNGCircuitBuilder.buildStandardCircuit(numQubits);
+                    qasm = QRNGCircuitBuilder.buildStandardCircuit(
+                        numQubits,
+                        readoutErrors
+                    );
                 }
 
                 // Submit job (async - results come via Platform Event)

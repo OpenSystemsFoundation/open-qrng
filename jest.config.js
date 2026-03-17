@@ -10,6 +10,11 @@ module.exports = {
         '^lightning/platformShowToastEvent$':
             '<rootDir>/force-app/test/jest-mocks/lightning/platformShowToastEvent'
     },
+    collectCoverageFrom: [
+        '**/lwc/**/*.js',
+        '!**/__tests__/**',
+        '!**/jest-mocks/**'
+    ],
     coverageThreshold: {
         global: {
             branches: 60,

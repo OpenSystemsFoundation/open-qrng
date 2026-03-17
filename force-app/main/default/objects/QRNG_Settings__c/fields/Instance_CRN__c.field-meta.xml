@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Instance_CRN__c</fullName>
+    <label>Instance CRN</label>
+    <description
+    >IBM Cloud Quantum service instance CRN (Cloud Resource Name). Required for job submission.</description>
+    <inlineHelpText
+    >Find this in your IBM Cloud dashboard under your Quantum service instance.</inlineHelpText>
+    <length>255</length>
+    <type>Text</type>
+    <required>false</required>
+</CustomField>

@@ -12,7 +12,7 @@ This file defines AI agent roles for developing the QuantumFair Salesforce manag
 
 - All Apex classes use `with sharing` unless explicitly documented otherwise
 - Namespace-aware: this is a managed package — never hardcode object/field API names without the namespace prefix pattern
-- Every service class gets a corresponding `_Test` class with `@isTest` annotation
+- Every service class gets a corresponding `_Test` class in `classes/tests/`
 - Test classes must achieve 90%+ code coverage per class, not just org-wide
 - Use `@TestSetup` for shared test data, never insert data in individual test methods without justification
 - Callouts to IBM Quantum REST API go through Named Credentials — never construct raw endpoint URLs with API keys in Apex
@@ -21,21 +21,48 @@ This file defines AI agent roles for developing the QuantumFair Salesforce manag
 - Governor limit budget awareness: document callout count, SOQL count, and heap usage in class-level comments for any class that processes quantum results
 - Von Neumann debiasing, SHA-256 hashing, and statistical validation are deterministic — test with known input/output fixtures
 - Use `System.assert` with descriptive messages, never bare `System.assert(true)`
+- **DTO pattern:** Use dedicated DTO inner classes or wrapper classes for all data passed between Apex controllers and LWC components. Never return raw SObject records or untyped Maps to the front end.
+- **Provider pattern:** All quantum backend integrations implement the `QuantumProvider` interface. Use `QuantumProviderFactory` to obtain provider instances — never instantiate providers directly.
+- **Native Heron r2 gates:** Circuit generation must use the native ISA gate set (`rz`, `sx`, `x`, `ecr`). No abstract/logical gates — all circuits are pre-transpiled in Apex.
+- **Coupling map awareness:** Qubit selection must respect the backend coupling map. Validate qubit connectivity before circuit submission.
 
-### Key Classes (from ARCHITECTURE.md)
+### Apex Class Organization
 
-| Class                        | Responsibility                               |
-| ---------------------------- | -------------------------------------------- |
-| `QRNGCircuitBuilder`         | Generate ISA-compliant OpenQASM 3.0          |
-| `IBMQuantumAuth`             | IAM token exchange + Platform Cache          |
-| `IBMQuantumService`          | REST client — submit, poll, results          |
-| `QRNGJobPoller`              | Queueable chain for async polling            |
-| `QRNGResultParser`           | Bitstring extraction + von Neumann debiasing |
-| `QRNGValidator`              | Statistical randomness tests                 |
-| `FairnessCertificateService` | Certificate creation + hashing               |
-| `QuantumAssignmentEngine`    | Random assignment algorithms                 |
-| `QuantumRandomAssignment`    | @InvocableMethod for Flow Builder            |
-| `QRNGSetupController`        | LWC controller for admin setup               |
+Classes are organized by domain responsibility:
+
+| Directory       | Purpose                                                         |
+| --------------- | --------------------------------------------------------------- |
+| `api/`          | IBM Quantum integration — auth, REST client, provider impl      |
+| `circuits/`     | OpenQASM 3.0 circuit generation (ISA-compliant)                 |
+| `jobs/`         | Async polling (Queueable chain), job sweeper, poll scheduler    |
+| `results/`      | Result parsing, von Neumann debiasing, statistical validation   |
+| `certificates/` | Fairness certificate service, integrity verification job        |
+| `controllers/`  | LWC controllers, @InvocableMethod for Flow Builder              |
+| `shared/`       | Interfaces (QuantumProvider, QRNGConsumer), factory, exceptions |
+| `tests/`        | All @isTest classes                                             |
+
+### Key Classes
+
+| Class                        | Directory       | Responsibility                                 |
+| ---------------------------- | --------------- | ---------------------------------------------- |
+| `IBMQuantumAuth`             | `api/`          | IAM token exchange + Platform Cache            |
+| `IBMQuantumService`          | `api/`          | REST client — submit, poll, results            |
+| `IBMQuantumProvider`         | `api/`          | QuantumProvider implementation for IBM Quantum |
+| `QRNGCircuitBuilder`         | `circuits/`     | Generate ISA-compliant OpenQASM 3.0            |
+| `QRNGJobPoller`              | `jobs/`         | Queueable chain for async polling              |
+| `QRNGJobSweeper`             | `jobs/`         | Cleanup stale/abandoned quantum jobs           |
+| `QRNGJobPollScheduler`       | `jobs/`         | Scheduled poll orchestration                   |
+| `QRNGResultParser`           | `results/`      | Bitstring extraction + von Neumann debiasing   |
+| `QRNGValidator`              | `results/`      | Statistical randomness tests                   |
+| `QuantumAssignmentEngine`    | `results/`      | Random assignment algorithms                   |
+| `FairnessCertificateService` | `certificates/` | Certificate creation + hashing                 |
+| `IntegrityVerificationJob`   | `certificates/` | Nightly re-hash verification of certificates   |
+| `QRNGSetupController`        | `controllers/`  | LWC controller for admin setup                 |
+| `QuantumRandomAssignment`    | `controllers/`  | @InvocableMethod for Flow Builder              |
+| `QuantumProvider`            | `shared/`       | Interface for quantum backend providers        |
+| `QuantumProviderFactory`     | `shared/`       | Factory for obtaining provider instances       |
+| `QRNGConsumer`               | `shared/`       | Interface for custom randomness consumers      |
+| `QRNGException`              | `shared/`       | Package-specific exception class               |
 
 ---
 
@@ -56,21 +83,23 @@ This file defines AI agent roles for developing the QuantumFair Salesforce manag
 - `ResizeObserver` for responsive Canvas components
 - All user-facing strings should be externalizable (Custom Labels) for future i18n
 - Component naming: `qrng` prefix for all package components
+- **DTO pattern:** Controllers return typed DTO objects. LWC components consume DTO properties directly — no manual field mapping from raw SObject shapes. Use safe `Number()` casts for numeric DTO fields in `formatTime`/`formatPercent`-style helpers.
 
 ### Component Map
 
-| Component                 | Purpose                       |
-| ------------------------- | ----------------------------- |
-| `quantumFairApp`          | Main app shell                |
-| `qrngSetup`               | Admin config panel            |
-| `qrngRequestForm`         | Assignment request form       |
-| `qrngJobMonitor`          | Real-time job status (empApi) |
-| `qrngCircuitVisualizer`   | Canvas 2D circuit diagram     |
-| `qrngResultsVisualizer`   | Canvas 2D measurement charts  |
-| `qrngFairnessCertificate` | Certificate document view     |
-| `qrngAssignmentTable`     | Results table                 |
-| `qrngAuditTrail`          | Historical timeline           |
-| `qrngBellTestIndicator`   | CSS gauge for CHSH value      |
+| Component                 | Purpose                                   |
+| ------------------------- | ----------------------------------------- |
+| `quantumFairApp`          | Main app shell                            |
+| `qrngSetup`               | Admin config panel (backend picker, test) |
+| `qrngJobStatusPanel`      | Backend health and job status dashboard   |
+| `qrngRequestForm`         | Assignment request form                   |
+| `qrngJobMonitor`          | Real-time job status (empApi)             |
+| `qrngCircuitVisualizer`   | Canvas 2D circuit diagram                 |
+| `qrngResultsVisualizer`   | Canvas 2D measurement charts              |
+| `qrngFairnessCertificate` | Certificate document view                 |
+| `qrngAssignmentTable`     | Results table                             |
+| `qrngAuditTrail`          | Historical timeline                       |
+| `qrngBellTestIndicator`   | CSS gauge for CHSH value                  |
 
 ---
 
@@ -119,9 +148,11 @@ sf apex run test --code-coverage --result-format human --wait 10
 
 - All Jest tests pass
 - All Apex tests pass with 90%+ coverage per class
+- **Org-wide Apex coverage must be 75%+ minimum** — this is a Salesforce production deployment requirement. Never lower this threshold; always write the missing tests.
 - ESLint: zero errors, zero warnings
 - Prettier: all files formatted
 - No `.only` or `.skip` in committed test files
+- **DTO contracts:** Controller methods must return DTO types, not raw SObjects or untyped Maps. Test assertions should validate DTO property names and types.
 
 ---
 
@@ -133,7 +164,7 @@ sf apex run test --code-coverage --result-format human --wait 10
 
 - Scratch org definition: `config/project-scratch-def.json`
 - Package type: Managed (2GP — Second-Generation Packaging)
-- Branch strategy: `main` is always deployable, feature branches for development
+- Branch strategy: `master` is always deployable, feature branches for development
 - CI pipeline: lint + format check + Jest tests + scratch org creation + Apex deploy + Apex tests
 - Never store secrets in workflow files — use GitHub Secrets for IBM API key, SF auth URL
 - Scratch org TTL: 7 days for CI, 30 days for development
@@ -148,13 +179,30 @@ sf apex run test --code-coverage --result-format human --wait 10
 ### Conventions
 
 - All circuits must be ISA-compliant for IBM Heron r2 backends
-- Native gate set: `rz(θ)`, `sx`, `x`, `cz`/`ecr`
+- Native gate set: `rz(θ)`, `sx`, `x`, `ecr`
 - Hadamard decomposition: `rz(π/2) → sx → rz(π/2)`
-- Standard QRNG: H + measure on N qubits (1024–8192 shots)
+- Standard QRNG: H + measure on N qubits (1024-8192 shots)
 - Bell-test QRNG: Bell pairs (H + ECR) with random basis rotation + measure
 - OpenQASM 3.0 output — no Qiskit/Python dependency for circuit generation
-- Always validate circuits against backend coupling map before submission
+- **Coupling map integration:** Always validate qubit connectivity against the backend coupling map before circuit submission. Use physically connected qubits for two-qubit gates.
 - CHSH S-value computation for Bell-test certification: S > 2.0 = quantum certified
+- **Gate fidelity:** Prefer qubits and connections with higher gate fidelity when coupling map data is available
+
+---
+
+## Scratch Org & App Navigation
+
+The current scratch org alias is `opendev`. To open the QuantumFair app in the browser:
+
+```bash
+# Get the front door login URL
+sf org open -o opendev --url-only
+
+# QuantumFair app tab URL (append to scratch org lightning domain)
+# https://<scratch-org-domain>.scratch.lightning.force.com/lightning/n/OpenSF__QuantumFair
+```
+
+The QuantumFair tab uses the `OpenSF__` namespace prefix. Always use `/lightning/n/OpenSF__QuantumFair` to navigate to the main app page.
 
 ---
 
@@ -167,6 +215,8 @@ sf apex run test --code-coverage --result-format human --wait 10
 5. **Security first** — no raw API keys in code, no customer data in quantum circuits, no PII in logs
 6. **Governor limits** — every Apex transaction must document its callout/SOQL/DML budget
 7. **Deterministic assignments** — given the same quantum random bits, the assignment engine must always produce the same result (for audit verification)
+8. **DTO pattern** — all Apex-to-LWC communication uses typed DTOs, not raw SObjects or untyped Maps
+9. **Provider pattern** — quantum backend integrations are abstracted behind the `QuantumProvider` interface, instantiated via `QuantumProviderFactory`
 
 ---
 

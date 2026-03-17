@@ -1,5 +1,5 @@
 import { LightningElement, api, wire, track } from 'lwc';
-import getCertificate from '@salesforce/apex/QRNGSetupController.getCertificate';
+import getCertificateDTO from '@salesforce/apex/QRNGSetupController.getCertificateDTO';
 import verifyCertificate from '@salesforce/apex/QRNGSetupController.verifyCertificate';
 
 export default class QrngFairnessCertificate extends LightningElement {
@@ -9,15 +9,13 @@ export default class QrngFairnessCertificate extends LightningElement {
     @track verificationResult;
     @track isVerifying = false;
 
-    @wire(getCertificate, { certificateId: '$certificateId' })
+    @wire(getCertificateDTO, { certificateId: '$certificateId' })
     wiredCert({ data }) {
         if (data) {
             this.certificate = data;
-            if (data.Validation_Results__c) {
+            if (data.validationResults) {
                 try {
-                    this.validationResults = JSON.parse(
-                        data.Validation_Results__c
-                    );
+                    this.validationResults = JSON.parse(data.validationResults);
                 } catch {
                     this.validationResults = null;
                 }
@@ -33,23 +31,33 @@ export default class QrngFairnessCertificate extends LightningElement {
     }
 
     get formattedDate() {
-        if (!this.certificate || !this.certificate.CreatedDate) return '';
-        return new Date(this.certificate.CreatedDate).toLocaleString();
+        if (!this.certificate || !this.certificate.createdDate) return '';
+        return new Date(this.certificate.createdDate).toLocaleString();
     }
 
     get hasCHSH() {
         return (
             this.certificate &&
-            this.certificate.CHSH_S_Value__c != null &&
-            this.certificate.CHSH_S_Value__c > 0
+            this.certificate.chshSValue != null &&
+            this.certificate.chshSValue > 0
         );
+    }
+
+    get isTampered() {
+        return this.certificate?.tampered === true;
     }
 
     get statusBadgeClass() {
         if (!this.certificate) return '';
-        return this.certificate.Status__c === 'Certified'
+        if (this.certificate.tampered) return 'slds-badge slds-theme_warning';
+        return this.certificate.status === 'Certified'
             ? 'slds-badge slds-theme_success'
             : 'slds-badge slds-theme_error';
+    }
+
+    get statusLabel() {
+        if (!this.certificate) return '';
+        return this.certificate.tampered ? 'Tampered' : this.certificate.status;
     }
 
     // Validation result getters
@@ -119,10 +127,10 @@ export default class QrngFairnessCertificate extends LightningElement {
 
     drawVisualHash() {
         const canvas = this.refs.hashCanvas;
-        if (!canvas || !this.certificate?.Raw_Bitstring_Hash__c) return;
+        if (!canvas || !this.certificate?.rawBitstringHash) return;
 
         const ctx = canvas.getContext('2d');
-        const hash = this.certificate.Raw_Bitstring_Hash__c;
+        const hash = this.certificate.rawBitstringHash;
         const size = 128;
         const cellSize = size / 8;
 

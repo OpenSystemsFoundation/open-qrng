@@ -25,7 +25,7 @@ jest.mock(
 );
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getJobDetails',
+    '@salesforce/apex/QRNGSetupController.getJobStatusDTO',
     () => {
         const {
             createApexTestWireAdapter
@@ -62,7 +62,7 @@ jest.mock(
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getAuditTrail',
+    '@salesforce/apex/QRNGSetupController.getAuditTrailDTO',
     () => {
         const {
             createApexTestWireAdapter

@@ -2,7 +2,7 @@ import { createElement } from 'lwc';
 import QrngAuditTrail from 'c/qrngAuditTrail';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getAuditTrail',
+    '@salesforce/apex/QRNGSetupController.getAuditTrailDTO',
     () => {
         const {
             createApexTestWireAdapter
@@ -12,7 +12,7 @@ jest.mock(
     { virtual: true }
 );
 
-import getAuditTrail from '@salesforce/apex/QRNGSetupController.getAuditTrail';
+import getAuditTrailDTO from '@salesforce/apex/QRNGSetupController.getAuditTrailDTO';
 
 function flushPromises() {
     return new Promise((resolve) => setTimeout(resolve, 0));
@@ -20,24 +20,26 @@ function flushPromises() {
 
 const MOCK_AUDIT_DATA = [
     {
-        Id: 'a01xx000001',
-        Name: 'CERT-0001',
-        IBM_Job_ID__c: 'job_abc123',
-        Backend__c: 'ibm_kingston',
-        Status__c: 'Certified',
-        Purpose__c: 'Lead assignment',
-        CHSH_S_Value__c: null,
-        CreatedDate: '2026-03-17T10:00:00.000Z'
+        recordId: 'a01xx000001',
+        name: 'CERT-0001',
+        externalJobId: 'job_abc123',
+        backend: 'test_backend',
+        status: 'Certified',
+        purpose: 'Lead assignment',
+        chshSValue: null,
+        tampered: false,
+        createdDate: '2026-03-17T10:00:00.000Z'
     },
     {
-        Id: 'a01xx000002',
-        Name: 'CERT-0002',
-        IBM_Job_ID__c: 'job_def456',
-        Backend__c: 'ibm_kingston',
-        Status__c: 'Failed',
-        Purpose__c: 'Audit sampling',
-        CHSH_S_Value__c: 2.5,
-        CreatedDate: '2026-03-16T09:00:00.000Z'
+        recordId: 'a01xx000002',
+        name: 'CERT-0002',
+        externalJobId: 'job_def456',
+        backend: 'test_backend',
+        status: 'Failed',
+        purpose: 'Audit sampling',
+        chshSValue: 2.5,
+        tampered: false,
+        createdDate: '2026-03-16T09:00:00.000Z'
     }
 ];
 
@@ -59,7 +61,7 @@ describe('c-qrng-audit-trail', () => {
     it('shows empty state message when wire returns empty array', async () => {
         const element = createComponent();
 
-        getAuditTrail.emit([]);
+        getAuditTrailDTO.emit([]);
         await flushPromises();
 
         const emptyMsg = element.shadowRoot.querySelector(
@@ -74,7 +76,7 @@ describe('c-qrng-audit-trail', () => {
     it('renders timeline items when wire returns data', async () => {
         const element = createComponent();
 
-        getAuditTrail.emit(MOCK_AUDIT_DATA);
+        getAuditTrailDTO.emit(MOCK_AUDIT_DATA);
         await flushPromises();
 
         const timelineItems =
@@ -85,7 +87,7 @@ describe('c-qrng-audit-trail', () => {
     it('computes iconName as standard:task2 for Certified, standard:incident for Failed', async () => {
         const element = createComponent();
 
-        getAuditTrail.emit(MOCK_AUDIT_DATA);
+        getAuditTrailDTO.emit(MOCK_AUDIT_DATA);
         await flushPromises();
 
         const icons = element.shadowRoot.querySelectorAll('lightning-icon');
@@ -98,7 +100,7 @@ describe('c-qrng-audit-trail', () => {
     it('computes badgeClass with slds-theme_success for Certified', async () => {
         const element = createComponent();
 
-        getAuditTrail.emit(MOCK_AUDIT_DATA);
+        getAuditTrailDTO.emit(MOCK_AUDIT_DATA);
         await flushPromises();
 
         const badges = element.shadowRoot.querySelectorAll('lightning-badge');
@@ -111,10 +113,10 @@ describe('c-qrng-audit-trail', () => {
     it('computes isQuantumCertified as true when CHSH > 2.0', async () => {
         const element = createComponent();
 
-        getAuditTrail.emit(MOCK_AUDIT_DATA);
+        getAuditTrailDTO.emit(MOCK_AUDIT_DATA);
         await flushPromises();
 
-        // Second cert has CHSH_S_Value__c = 2.5, so it should show Quantum Certified
+        // Second cert has chshSValue = 2.5, so it should show Quantum Certified
         const quantumBadges =
             element.shadowRoot.querySelectorAll('.quantum-badge');
         expect(quantumBadges).toHaveLength(1);
@@ -124,7 +126,7 @@ describe('c-qrng-audit-trail', () => {
     it('click on cert name sets selectedCertId (opens modal)', async () => {
         const element = createComponent();
 
-        getAuditTrail.emit(MOCK_AUDIT_DATA);
+        getAuditTrailDTO.emit(MOCK_AUDIT_DATA);
         await flushPromises();
 
         const certLink = element.shadowRoot.querySelector(
@@ -150,7 +152,7 @@ describe('c-qrng-audit-trail', () => {
     it('closeCertDetail clears selectedCertId', async () => {
         const element = createComponent();
 
-        getAuditTrail.emit(MOCK_AUDIT_DATA);
+        getAuditTrailDTO.emit(MOCK_AUDIT_DATA);
         await flushPromises();
 
         // Open modal
