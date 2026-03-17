@@ -1,40 +1,11 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { subscribe, unsubscribe, onError } from 'lightning/empApi';
-import { getRecord, getFieldValue } from 'lightning/uiRecordApi';
 import { refreshApex } from '@salesforce/apex';
+import getJobStatusDTO from '@salesforce/apex/QRNGSetupController.getJobStatusDTO';
+import getCertificateByJobId from '@salesforce/apex/QRNGSetupController.getCertificateByJobId';
 import refreshJobStatus from '@salesforce/apex/QRNGSetupController.refreshJobStatus';
 import retrieveJobResults from '@salesforce/apex/QRNGSetupController.retrieveJobResults';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
-
-import STATUS_FIELD from '@salesforce/schema/Quantum_Job__c.Status__c';
-import EXTERNAL_JOB_ID_FIELD from '@salesforce/schema/Quantum_Job__c.External_Job_ID__c';
-import BACKEND_FIELD from '@salesforce/schema/Quantum_Job__c.Backend__c';
-import PROVIDER_FIELD from '@salesforce/schema/Quantum_Job__c.Provider__c';
-import SHOTS_FIELD from '@salesforce/schema/Quantum_Job__c.Shots__c';
-import QUBITS_FIELD from '@salesforce/schema/Quantum_Job__c.Num_Qubits__c';
-import PURPOSE_FIELD from '@salesforce/schema/Quantum_Job__c.Purpose__c';
-import BELL_TEST_FIELD from '@salesforce/schema/Quantum_Job__c.Use_Bell_Test__c';
-import SUBMITTED_FIELD from '@salesforce/schema/Quantum_Job__c.Submitted_At__c';
-import COMPLETED_FIELD from '@salesforce/schema/Quantum_Job__c.Completed_At__c';
-import ERROR_FIELD from '@salesforce/schema/Quantum_Job__c.Error_Message__c';
-import POLL_COUNT_FIELD from '@salesforce/schema/Quantum_Job__c.Poll_Count__c';
-import EXEC_TIME_FIELD from '@salesforce/schema/Quantum_Job__c.Execution_Time_ms__c';
-
-const FIELDS = [
-    STATUS_FIELD,
-    EXTERNAL_JOB_ID_FIELD,
-    BACKEND_FIELD,
-    PROVIDER_FIELD,
-    SHOTS_FIELD,
-    QUBITS_FIELD,
-    PURPOSE_FIELD,
-    BELL_TEST_FIELD,
-    SUBMITTED_FIELD,
-    COMPLETED_FIELD,
-    ERROR_FIELD,
-    POLL_COUNT_FIELD,
-    EXEC_TIME_FIELD
-];
 
 const COMPLETE_CHANNEL = '/event/OpenSF__QRNG_Complete__e';
 const FAILED_CHANNEL = '/event/OpenSF__QRNG_Failed__e';
@@ -43,14 +14,35 @@ export default class QrngJobStatusPanel extends LightningElement {
     @api recordId;
     @track isRefreshing = false;
     @track isRetrieving = false;
+    @track certificateId;
 
-    _wiredRecord;
+    _wiredResult;
+    _dto;
     _completeSubscription;
     _failedSubscription;
 
-    @wire(getRecord, { recordId: '$recordId', fields: FIELDS })
-    wiredRecord(result) {
-        this._wiredRecord = result;
+    @wire(getJobStatusDTO, { jobId: '$recordId' })
+    wiredJobStatus(result) {
+        this._wiredResult = result;
+        if (result.data) {
+            this._dto = result.data;
+            if (this._dto.status === 'Completed' && !this.certificateId) {
+                this.loadCertificate();
+            }
+        }
+    }
+
+    async loadCertificate() {
+        try {
+            const cert = await getCertificateByJobId({
+                jobId: this.recordId
+            });
+            if (cert) {
+                this.certificateId = cert.Id;
+            }
+        } catch (error) {
+            // Certificate may not exist yet
+        }
     }
 
     connectedCallback() {
@@ -69,7 +61,9 @@ export default class QrngJobStatusPanel extends LightningElement {
                 (message) => {
                     const eventJobId = message.data.payload.OpenSF__Job_Id__c;
                     if (eventJobId === this.recordId) {
-                        refreshApex(this._wiredRecord);
+                        this.certificateId =
+                            message.data.payload.OpenSF__Certificate_Id__c;
+                        refreshApex(this._wiredResult);
                         this.dispatchEvent(
                             new ShowToastEvent({
                                 title: 'Job Completed',
@@ -87,7 +81,7 @@ export default class QrngJobStatusPanel extends LightningElement {
                 (message) => {
                     const eventJobId = message.data.payload.OpenSF__Job_Id__c;
                     if (eventJobId === this.recordId) {
-                        refreshApex(this._wiredRecord);
+                        refreshApex(this._wiredResult);
                         this.dispatchEvent(
                             new ShowToastEvent({
                                 title: 'Job Failed',
@@ -118,61 +112,78 @@ export default class QrngJobStatusPanel extends LightningElement {
         }
     }
 
-    // Field accessors
+    // DTO field accessors
     get status() {
-        return getFieldValue(this._wiredRecord?.data, STATUS_FIELD) || '—';
+        return this._dto?.status || '—';
     }
     get externalJobId() {
-        return (
-            getFieldValue(this._wiredRecord?.data, EXTERNAL_JOB_ID_FIELD) || '—'
-        );
+        return this._dto?.externalJobId || '—';
     }
     get backend() {
-        return getFieldValue(this._wiredRecord?.data, BACKEND_FIELD) || '—';
+        return this._dto?.backend || '—';
     }
     get provider() {
-        return getFieldValue(this._wiredRecord?.data, PROVIDER_FIELD) || '—';
+        return this._dto?.provider || '—';
     }
     get shots() {
-        return getFieldValue(this._wiredRecord?.data, SHOTS_FIELD) || 0;
+        return this._dto?.shots || 0;
     }
     get numQubits() {
-        return getFieldValue(this._wiredRecord?.data, QUBITS_FIELD) || 0;
+        return this._dto?.numQubits || 0;
     }
     get purpose() {
-        return getFieldValue(this._wiredRecord?.data, PURPOSE_FIELD) || '';
+        return this._dto?.purpose || '';
     }
     get useBellTest() {
-        return getFieldValue(this._wiredRecord?.data, BELL_TEST_FIELD) || false;
+        return this._dto?.useBellTest || false;
+    }
+    get assignmentType() {
+        return this._dto?.assignmentType || '—';
     }
     get submittedAt() {
-        return getFieldValue(this._wiredRecord?.data, SUBMITTED_FIELD);
+        return this._dto?.submittedAt;
     }
     get completedAt() {
-        return getFieldValue(this._wiredRecord?.data, COMPLETED_FIELD);
+        return this._dto?.completedAt;
     }
     get errorMessage() {
-        return getFieldValue(this._wiredRecord?.data, ERROR_FIELD);
+        return this._dto?.errorMessage;
     }
     get pollCount() {
-        return getFieldValue(this._wiredRecord?.data, POLL_COUNT_FIELD) || 0;
+        return this._dto?.pollCount || 0;
     }
     get executionTime() {
-        const ms = getFieldValue(this._wiredRecord?.data, EXEC_TIME_FIELD);
-        if (!ms) return '—';
+        const ms = this._dto?.executionTimeMs;
+        if (ms == null) return '—';
+        if (ms < 1000) return ms + ' ms';
+        return (ms / 1000).toFixed(1) + ' s';
+    }
+    get queueTime() {
+        const ms = this._dto?.queueTimeMs;
+        if (ms == null) return '—';
         if (ms < 1000) return ms + ' ms';
         return (ms / 1000).toFixed(1) + ' s';
     }
 
+    get rawResults() {
+        return this._dto?.rawResults;
+    }
+
+    get hasResults() {
+        return this.isCompleted && this._dto?.rawResults;
+    }
+
+    get hasCertificate() {
+        return this.isCompleted && this.certificateId;
+    }
+
     get hasRecord() {
-        return this._wiredRecord?.data != null;
+        return this._dto != null;
     }
 
     get hasExternalJobId() {
         return (
-            this.externalJobId != null &&
-            this.externalJobId !== '—' &&
-            this.externalJobId !== ''
+            this._dto?.externalJobId != null && this._dto.externalJobId !== ''
         );
     }
 
@@ -239,7 +250,7 @@ export default class QrngJobStatusPanel extends LightningElement {
             const result = await refreshJobStatus({
                 jobId: this.recordId
             });
-            await refreshApex(this._wiredRecord);
+            await refreshApex(this._wiredResult);
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Status Refreshed',
@@ -269,7 +280,7 @@ export default class QrngJobStatusPanel extends LightningElement {
             const result = await retrieveJobResults({
                 jobId: this.recordId
             });
-            await refreshApex(this._wiredRecord);
+            await refreshApex(this._wiredResult);
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Results Retrieved',

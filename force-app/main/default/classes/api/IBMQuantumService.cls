@@ -330,6 +330,87 @@ public with sharing class IBMQuantumService {
     }
 
     /**
+     * Extract coupling map from backend configuration as List<List<Integer>>.
+     * Each inner list is a [q0, q1] connected pair.
+     *
+     * Governor limits: 1 callout
+     */
+    public static List<List<Integer>> getCouplingMap(String backendName) {
+        Map<String, Object> config = getBackendConfiguration(backendName);
+        List<List<Integer>> couplingMap = new List<List<Integer>>();
+
+        // Try coupling_map (list of [q0, q1] pairs)
+        if (config.containsKey('coupling_map')) {
+            List<Object> edges = (List<Object>) config.get('coupling_map');
+            for (Object edge : edges) {
+                List<Object> pair = (List<Object>) edge;
+                couplingMap.add(
+                    new List<Integer>{ (Integer) pair[0], (Integer) pair[1] }
+                );
+            }
+        }
+
+        // Fallback: try gates array for cx/cz entries
+        if (couplingMap.isEmpty() && config.containsKey('gates')) {
+            List<Object> gates = (List<Object>) config.get('gates');
+            Set<String> seen = new Set<String>();
+            for (Object gObj : gates) {
+                Map<String, Object> gate = (Map<String, Object>) gObj;
+                String gateName = (String) gate.get('gate');
+                if (gateName == 'cz' || gateName == 'cx' || gateName == 'ecr') {
+                    List<Object> qubits = (List<Object>) gate.get('qubits');
+                    if (qubits != null && qubits.size() == 2) {
+                        Integer q0 = (Integer) qubits[0];
+                        Integer q1 = (Integer) qubits[1];
+                        String key = q0 + '-' + q1;
+                        if (!seen.contains(key)) {
+                            seen.add(key);
+                            couplingMap.add(new List<Integer>{ q0, q1 });
+                        }
+                    }
+                }
+            }
+        }
+
+        return couplingMap;
+    }
+
+    /**
+     * Extract per-qubit readout error rates from backend properties.
+     * Returns Map of qubit index → readout error probability.
+     *
+     * Governor limits: 1 callout
+     */
+    public static Map<Integer, Double> getReadoutErrors(String backendName) {
+        Map<String, Object> props = getBackendProperties(backendName);
+        Map<Integer, Double> errors = new Map<Integer, Double>();
+
+        // Try qubits array (list of qubit property lists)
+        if (props.containsKey('qubits')) {
+            List<Object> qubits = (List<Object>) props.get('qubits');
+            for (Integer i = 0; i < qubits.size(); i++) {
+                List<Object> qubitProps = (List<Object>) qubits[i];
+                for (Object propObj : qubitProps) {
+                    Map<String, Object> prop = (Map<String, Object>) propObj;
+                    String propName = (String) prop.get('name');
+                    if (
+                        propName == 'readout_error' ||
+                        propName == 'prob_meas1_prep0'
+                    ) {
+                        Object val = prop.get('value');
+                        if (val != null) {
+                            errors.put(i, (Double) val);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        return errors;
+    }
+
+    /**
      * Get backend configuration (coupling map, basis gates, max_shots).
      * Endpoint: GET /v1/backends/{backend}/configuration
      *

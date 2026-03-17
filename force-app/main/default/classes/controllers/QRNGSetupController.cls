@@ -40,7 +40,162 @@ public with sharing class QRNGSetupController {
         public String provider;
     }
 
+    public class JobStatusDTO {
+        @AuraEnabled
+        public String name;
+        @AuraEnabled
+        public String status;
+        @AuraEnabled
+        public String externalJobId;
+        @AuraEnabled
+        public String backend;
+        @AuraEnabled
+        public String provider;
+        @AuraEnabled
+        public Integer shots;
+        @AuraEnabled
+        public Integer numQubits;
+        @AuraEnabled
+        public String purpose;
+        @AuraEnabled
+        public Boolean useBellTest;
+        @AuraEnabled
+        public String assignmentType;
+        @AuraEnabled
+        public DateTime submittedAt;
+        @AuraEnabled
+        public DateTime completedAt;
+        @AuraEnabled
+        public String errorMessage;
+        @AuraEnabled
+        public Integer pollCount;
+        @AuraEnabled
+        public Decimal executionTimeMs;
+        @AuraEnabled
+        public Decimal queueTimeMs;
+        @AuraEnabled
+        public String rawResults;
+        @AuraEnabled
+        public String debiasedResults;
+    }
+
+    public class AuditTrailDTO {
+        @AuraEnabled
+        public Id recordId;
+        @AuraEnabled
+        public String name;
+        @AuraEnabled
+        public String externalJobId;
+        @AuraEnabled
+        public String backend;
+        @AuraEnabled
+        public String status;
+        @AuraEnabled
+        public String purpose;
+        @AuraEnabled
+        public Decimal chshSValue;
+        @AuraEnabled
+        public DateTime createdDate;
+        @AuraEnabled
+        public Id quantumJobId;
+        @AuraEnabled
+        public Boolean tampered;
+        @AuraEnabled
+        public String createdByUser;
+    }
+
+    public class CertificateDTO {
+        @AuraEnabled
+        public String name;
+        @AuraEnabled
+        public String externalJobId;
+        @AuraEnabled
+        public String backend;
+        @AuraEnabled
+        public String circuitQasm;
+        @AuraEnabled
+        public String rawBitstringHash;
+        @AuraEnabled
+        public String debiasedBitstringHash;
+        @AuraEnabled
+        public String assignmentHash;
+        @AuraEnabled
+        public String validationResults;
+        @AuraEnabled
+        public Decimal chshSValue;
+        @AuraEnabled
+        public String createdByUser;
+        @AuraEnabled
+        public String purpose;
+        @AuraEnabled
+        public String status;
+        @AuraEnabled
+        public Id quantumJobId;
+        @AuraEnabled
+        public DateTime createdDate;
+        @AuraEnabled
+        public Boolean tampered;
+        @AuraEnabled
+        public DateTime lastIntegrityCheck;
+    }
+
     // ── Methods ─────────────────────────────────────────────────────
+
+    /**
+     * Get job status data as a DTO for the record page LWC.
+     */
+    @AuraEnabled(cacheable=true)
+    public static JobStatusDTO getJobStatusDTO(Id jobId) {
+        Quantum_Job__c job = [
+            SELECT
+                Name,
+                Status__c,
+                External_Job_ID__c,
+                Backend__c,
+                Provider__c,
+                Shots__c,
+                Num_Qubits__c,
+                Purpose__c,
+                Use_Bell_Test__c,
+                Assignment_Type__c,
+                Submitted_At__c,
+                Completed_At__c,
+                Error_Message__c,
+                Poll_Count__c,
+                Execution_Time_ms__c,
+                Queue_Time_ms__c,
+                Raw_Results__c,
+                Debiased_Results__c
+            FROM Quantum_Job__c
+            WHERE Id = :jobId
+            LIMIT 1
+        ];
+
+        JobStatusDTO dto = new JobStatusDTO();
+        dto.name = job.Name;
+        dto.status = job.Status__c;
+        dto.externalJobId = job.External_Job_ID__c;
+        dto.backend = job.Backend__c;
+        dto.provider = job.Provider__c;
+        dto.shots = job.Shots__c != null ? (Integer) job.Shots__c : null;
+        dto.numQubits = job.Num_Qubits__c != null
+            ? (Integer) job.Num_Qubits__c
+            : null;
+        dto.purpose = job.Purpose__c;
+        dto.useBellTest = job.Use_Bell_Test__c;
+        dto.assignmentType = job.Assignment_Type__c;
+        dto.submittedAt = job.Submitted_At__c;
+        dto.completedAt = job.Completed_At__c;
+        dto.errorMessage = job.Error_Message__c;
+        dto.pollCount = job.Poll_Count__c != null
+            ? (Integer) job.Poll_Count__c
+            : 0;
+        dto.executionTimeMs = job.Execution_Time_ms__c;
+        dto.queueTimeMs = job.Queue_Time_ms__c;
+        dto.rawResults = job.Raw_Results__c;
+        dto.debiasedResults = job.Debiased_Results__c;
+        return dto;
+    }
 
     /**
      * Test the IBM Quantum connection
@@ -519,6 +674,17 @@ public with sharing class QRNGSetupController {
             settings.put('pollIntervalMinutes', 5);
         }
         settings.put('sweeperActive', QRNGJobSweeper.isScheduled());
+        settings.put(
+            'integrityCheckActive',
+            IntegrityVerificationJob.isScheduled()
+        );
+        settings.put(
+            'integrityCheckHour',
+            s != null &&
+                s.Integrity_Check_Hour__c != null
+                ? s.Integrity_Check_Hour__c
+                : 2
+        );
 
         // Load cached backends from QRNG_Backend__c records
         List<QRNG_Backend__c> cachedBackends = [
@@ -625,6 +791,22 @@ public with sharing class QRNGSetupController {
     }
 
     /**
+     * Start the nightly integrity verification job.
+     */
+    @AuraEnabled
+    public static void startIntegrityCheck() {
+        IntegrityVerificationJob.scheduleDefault();
+    }
+
+    /**
+     * Stop the nightly integrity verification job.
+     */
+    @AuraEnabled
+    public static void stopIntegrityCheck() {
+        IntegrityVerificationJob.unschedule();
+    }
+
+    /**
      * Submit a QRNG job from LWC
      */
     @AuraEnabled
@@ -656,11 +838,29 @@ public with sharing class QRNGSetupController {
                       : 1024);
             Boolean bell = useBellTest != null ? useBellTest : false;
 
+            // Fetch backend topology and calibration for qubit selection
+            Map<Integer, Double> readoutErrors;
+            try {
+                readoutErrors = IBMQuantumService.getReadoutErrors(backendName);
+            } catch (Exception ex) {
+                readoutErrors = null;
+            }
+
             String qasm;
             if (bell) {
-                qasm = QRNGCircuitBuilder.buildBellTestCircuit(numQ / 2);
+                List<List<Integer>> couplingMap = IBMQuantumService.getCouplingMap(
+                    backendName
+                );
+                qasm = QRNGCircuitBuilder.buildBellTestCircuit(
+                    numQ / 2,
+                    couplingMap,
+                    readoutErrors
+                );
             } else {
-                qasm = QRNGCircuitBuilder.buildStandardCircuit(numQ);
+                qasm = QRNGCircuitBuilder.buildStandardCircuit(
+                    numQ,
+                    readoutErrors
+                );
             }
 
             return IBMQuantumService.submitJob(
@@ -736,11 +936,11 @@ public with sharing class QRNGSetupController {
     }
 
     /**
-     * Get certificate for a job
+     * Get certificate as a DTO for the fairness certificate LWC.
      */
     @AuraEnabled(cacheable=true)
-    public static Fairness_Certificate__c getCertificate(Id certificateId) {
-        return [
+    public static CertificateDTO getCertificateDTO(Id certificateId) {
+        Fairness_Certificate__c cert = [
             SELECT
                 Id,
                 Name,
@@ -756,11 +956,32 @@ public with sharing class QRNGSetupController {
                 Purpose__c,
                 Status__c,
                 Quantum_Job__c,
-                CreatedDate
+                CreatedDate,
+                Tampered__c,
+                Last_Integrity_Check__c
             FROM Fairness_Certificate__c
             WHERE Id = :certificateId
             LIMIT 1
         ];
+
+        CertificateDTO dto = new CertificateDTO();
+        dto.name = cert.Name;
+        dto.externalJobId = cert.External_Job_ID__c;
+        dto.backend = cert.Backend__c;
+        dto.circuitQasm = cert.Circuit_QASM__c;
+        dto.rawBitstringHash = cert.Raw_Bitstring_Hash__c;
+        dto.debiasedBitstringHash = cert.Debiased_Bitstring_Hash__c;
+        dto.assignmentHash = cert.Assignment_Hash__c;
+        dto.validationResults = cert.Validation_Results__c;
+        dto.chshSValue = cert.CHSH_S_Value__c;
+        dto.createdByUser = cert.Created_By_User__c;
+        dto.purpose = cert.Purpose__c;
+        dto.status = cert.Status__c;
+        dto.quantumJobId = cert.Quantum_Job__c;
+        dto.createdDate = cert.CreatedDate;
+        dto.tampered = cert.Tampered__c;
+        dto.lastIntegrityCheck = cert.Last_Integrity_Check__c;
+        return dto;
     }
 
     /**
@@ -814,11 +1035,11 @@ public with sharing class QRNGSetupController {
     }
 
     /**
-     * Get audit trail - all certificates with job info
+     * Get audit trail as DTOs for the LWC audit trail component.
      */
     @AuraEnabled(cacheable=true)
-    public static List<Fairness_Certificate__c> getAuditTrail() {
-        return [
+    public static List<AuditTrailDTO> getAuditTrailDTO() {
+        List<Fairness_Certificate__c> certs = [
             SELECT
                 Id,
                 Name,
@@ -829,11 +1050,30 @@ public with sharing class QRNGSetupController {
                 CHSH_S_Value__c,
                 CreatedDate,
                 Quantum_Job__c,
-                Created_By_User__c
+                Created_By_User__c,
+                Tampered__c
             FROM Fairness_Certificate__c
             ORDER BY CreatedDate DESC
             LIMIT 100
         ];
+
+        List<AuditTrailDTO> dtos = new List<AuditTrailDTO>();
+        for (Fairness_Certificate__c cert : certs) {
+            AuditTrailDTO dto = new AuditTrailDTO();
+            dto.recordId = cert.Id;
+            dto.name = cert.Name;
+            dto.externalJobId = cert.External_Job_ID__c;
+            dto.backend = cert.Backend__c;
+            dto.status = cert.Status__c;
+            dto.purpose = cert.Purpose__c;
+            dto.chshSValue = cert.CHSH_S_Value__c;
+            dto.createdDate = cert.CreatedDate;
+            dto.quantumJobId = cert.Quantum_Job__c;
+            dto.createdByUser = cert.Created_By_User__c;
+            dto.tampered = cert.Tampered__c;
+            dtos.add(dto);
+        }
+        return dtos;
     }
 
     /**
@@ -888,9 +1128,11 @@ public with sharing class QRNGSetupController {
             // Normalize status
             String normalizedStatus = normalizeIBMStatus(status);
 
-            // Update job record — clear error if status is healthy
+            // Update job record — capture error details or clear if healthy
             job.Status__c = normalizedStatus;
-            if (normalizedStatus != 'Failed') {
+            if (normalizedStatus == 'Failed') {
+                job.Error_Message__c = buildVerboseError(status, ibmStatus);
+            } else {
                 job.Error_Message__c = null;
             }
 
@@ -942,12 +1184,21 @@ public with sharing class QRNGSetupController {
                 job.External_Job_ID__c
             );
 
-            // Parse results
+            // Parse results — handle hex-encoded samples from IBM Sampler
+            Integer numQubits = job.Num_Qubits__c != null
+                ? (Integer) job.Num_Qubits__c
+                : 8;
             List<String> bitstrings = QRNGResultParser.parseSamplerResults(
-                resultsJson
+                resultsJson,
+                numQubits
             );
             String rawBits = QRNGResultParser.concatenateBitstrings(bitstrings);
             String debiasedBits = QRNGResultParser.vonNeumannDebias(rawBits);
+
+            // Get queue time from IBM status
+            Map<String, Object> ibmStatus = IBMQuantumService.getJobStatus(
+                job.External_Job_ID__c
+            );
 
             // Update job
             job.Status__c = 'Completed';
@@ -958,6 +1209,7 @@ public with sharing class QRNGSetupController {
                 job.Execution_Time_ms__c =
                     DateTime.now().getTime() - job.Submitted_At__c.getTime();
             }
+            job.Queue_Time_ms__c = extractQueueTimeMs(ibmStatus);
             update job;
 
             // Validate and create certificate
@@ -1013,6 +1265,80 @@ public with sharing class QRNGSetupController {
         );
         insert ibm;
         return ibm;
+    }
+
+    private static String buildVerboseError(
+        String status,
+        Map<String, Object> statusResponse
+    ) {
+        String msg = 'IBM job status: ' + status;
+        if (statusResponse == null) {
+            return msg;
+        }
+        if (statusResponse.containsKey('error')) {
+            Object errObj = statusResponse.get('error');
+            if (errObj instanceof Map<String, Object>) {
+                Map<String, Object> error = (Map<String, Object>) errObj;
+                if (error.containsKey('code')) {
+                    msg += '\nError code: ' + error.get('code');
+                }
+                if (error.containsKey('message')) {
+                    msg += '\nError message: ' + (String) error.get('message');
+                }
+                if (error.containsKey('solution')) {
+                    msg += '\nSolution: ' + (String) error.get('solution');
+                }
+                if (error.containsKey('more_info')) {
+                    msg += '\nMore info: ' + (String) error.get('more_info');
+                }
+            } else {
+                msg += '\nError: ' + String.valueOf(errObj);
+            }
+        }
+        if (statusResponse.containsKey('state')) {
+            Object stateObj = statusResponse.get('state');
+            if (stateObj instanceof Map<String, Object>) {
+                Map<String, Object> state = (Map<String, Object>) stateObj;
+                if (state.containsKey('reason')) {
+                    msg += '\nReason: ' + (String) state.get('reason');
+                }
+                if (state.containsKey('reason_code')) {
+                    msg += '\nReason code: ' + state.get('reason_code');
+                }
+            }
+        }
+        return msg;
+    }
+
+    private static Decimal extractQueueTimeMs(
+        Map<String, Object> statusResponse
+    ) {
+        if (
+            statusResponse == null || !statusResponse.containsKey('timestamps')
+        ) {
+            return null;
+        }
+        Object tsObj = statusResponse.get('timestamps');
+        if (!(tsObj instanceof Map<String, Object>)) {
+            return null;
+        }
+        Map<String, Object> timestamps = (Map<String, Object>) tsObj;
+        String created = (String) timestamps.get('created');
+        String running = (String) timestamps.get('running');
+        if (String.isBlank(created) || String.isBlank(running)) {
+            return null;
+        }
+        try {
+            DateTime createdDt = DateTime.valueOf(
+                created.replace('T', ' ').replace('Z', '')
+            );
+            DateTime runningDt = DateTime.valueOf(
+                running.replace('T', ' ').replace('Z', '')
+            );
+            return runningDt.getTime() - createdDt.getTime();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private static String normalizeIBMStatus(String ibmStatus) {

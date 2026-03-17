@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Tampered__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Set by integrity verification if hash re-computation fails</description>
+    <label>Tampered</label>
+    <type>Checkbox</type>
+</CustomField>

@@ -1,11 +1,11 @@
 import { createElement } from 'lwc';
 import QrngJobMonitor from 'c/qrngJobMonitor';
-import getJobDetails from '@salesforce/apex/QRNGSetupController.getJobDetails';
+import getJobStatusDTO from '@salesforce/apex/QRNGSetupController.getJobStatusDTO';
 import { subscribe, onError } from 'lightning/empApi';
 
 // Wire adapter for @wire-decorated property
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getJobDetails',
+    '@salesforce/apex/QRNGSetupController.getJobStatusDTO',
     () => {
         const {
             createApexTestWireAdapter
@@ -34,13 +34,12 @@ function flushPromises() {
 }
 
 const MOCK_JOB_RUNNING = {
-    Id: '001xx000003DGb1',
-    Name: 'QJ-0001',
-    External_Job_ID__c: 'job123',
-    Backend__c: 'test_backend',
-    Status__c: 'Running',
-    Num_Qubits__c: 8,
-    Shots__c: 1024
+    name: 'QJ-0001',
+    externalJobId: 'job123',
+    backend: 'test_backend',
+    status: 'Running',
+    numQubits: 8,
+    shots: 1024
 };
 
 describe('c-qrng-job-monitor', () => {
@@ -78,7 +77,7 @@ describe('c-qrng-job-monitor', () => {
             jobId: '001xx000003DGb1'
         });
 
-        getJobDetails.emit(MOCK_JOB_RUNNING);
+        getJobStatusDTO.emit(MOCK_JOB_RUNNING);
         await flushPromises();
 
         const details = element.shadowRoot.querySelectorAll(
@@ -94,7 +93,7 @@ describe('c-qrng-job-monitor', () => {
             jobId: '001xx000003DGb1'
         });
 
-        getJobDetails.emit(MOCK_JOB_RUNNING);
+        getJobStatusDTO.emit(MOCK_JOB_RUNNING);
         await flushPromises();
 
         const progressIndicator = element.shadowRoot.querySelector(
@@ -128,10 +127,11 @@ describe('c-qrng-job-monitor', () => {
             jobId: '001xx000003DGb1'
         });
 
-        getJobDetails.emit(MOCK_JOB_RUNNING);
+        getJobStatusDTO.emit(MOCK_JOB_RUNNING);
         await flushPromises();
 
-        const spinner = element.shadowRoot.querySelector('lightning-spinner');
-        expect(spinner).not.toBeNull();
+        const pulse = element.shadowRoot.querySelector('.pulse');
+        expect(pulse).not.toBeNull();
+        expect(pulse.textContent).toContain('Awaiting result');
     });
 });

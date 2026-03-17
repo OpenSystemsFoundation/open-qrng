@@ -6,11 +6,12 @@ private class QRNGJobPoller_Test {
             res.setStatusCode(200);
             if (req.getEndpoint().contains('/results')) {
                 res.setBody(
-                    '{"results":[{"data":{"meas":{"samples":["01100110","10011001","11100011","00110101","10101010","01010101","11001100","00111100"]}}}]}'
+                    '{"results":[{"data":{"meas":{"samples":["0x66","0x99","0xe3","0x35","0xaa","0x55","0xcc","0x3c"]}}}]}'
                 );
             } else {
                 res.setBody(
-                    '{"id":"job_test","status":"Completed","state":{"status":"Completed"}}'
+                    '{"id":"job_test","status":"Completed","state":{"status":"Completed"},' +
+                    '"timestamps":{"created":"2026-03-17T10:00:00Z","running":"2026-03-17T10:00:05Z","completed":"2026-03-17T10:00:08Z"}}'
                 );
             }
             return res;
@@ -60,8 +61,28 @@ private class QRNGJobPoller_Test {
         System.enqueueJob(poller);
         Test.stopTest();
 
-        job = [SELECT Id, Status__c FROM Quantum_Job__c WHERE Id = :job.Id];
+        job = [
+            SELECT
+                Id,
+                Status__c,
+                Queue_Time_ms__c,
+                Raw_Results__c,
+                Debiased_Results__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
         System.assertEquals('Completed', job.Status__c);
+        System.assertEquals(
+            5000,
+            job.Queue_Time_ms__c,
+            'Queue time should be 5000ms (5s)'
+        );
+        // Raw results should be binary, not hex
+        System.assert(
+            !job.Raw_Results__c.contains('0x'),
+            'Raw results should be binary, not hex: ' +
+            job.Raw_Results__c.left(40)
+        );
     }
 
     @IsTest
@@ -123,6 +144,33 @@ private class QRNGJobPoller_Test {
         System.assert(
             job.Error_Message__c.contains('Failed'),
             'Should contain failure info'
+        );
+    }
+
+    @IsTest
+    static void testExtractQueueTimeMsWithTimestamps() {
+        Map<String, Object> statusResponse = new Map<String, Object>{
+            'status' => 'Completed',
+            'timestamps' => new Map<String, Object>{
+                'created' => '2026-03-17T10:00:00Z',
+                'running' => '2026-03-17T10:00:12Z',
+                'completed' => '2026-03-17T10:00:15Z'
+            }
+        };
+        Decimal queueMs = QRNGJobPoller.extractQueueTimeMs(statusResponse);
+        System.assertEquals(12000, queueMs, 'Queue time should be 12000ms');
+    }
+
+    @IsTest
+    static void testExtractQueueTimeMsNoTimestamps() {
+        Map<String, Object> statusResponse = new Map<String, Object>{
+            'status' => 'Completed'
+        };
+        Decimal queueMs = QRNGJobPoller.extractQueueTimeMs(statusResponse);
+        System.assertEquals(
+            null,
+            queueMs,
+            'Should return null when no timestamps'
         );
     }
 

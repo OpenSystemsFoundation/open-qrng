@@ -123,8 +123,8 @@ private class QRNGSetupController_Test {
     }
 
     @IsTest
-    static void testGetAuditTrail() {
-        List<Fairness_Certificate__c> trail = QRNGSetupController.getAuditTrail();
+    static void testGetAuditTrailDTO() {
+        List<QRNGSetupController.AuditTrailDTO> trail = QRNGSetupController.getAuditTrailDTO();
         System.assertNotEquals(null, trail);
     }
 

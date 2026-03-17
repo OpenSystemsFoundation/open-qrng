@@ -1,23 +1,66 @@
 @IsTest
 private class QRNGResultParser_Test {
     @IsTest
-    static void testParseSamplerResults() {
+    static void testParseSamplerResultsBinary() {
         String json = '{"results":[{"data":{"meas":{"samples":["0110","1001","1110","0011"]}}}]}';
-        List<String> bitstrings = QRNGResultParser.parseSamplerResults(json);
+        List<String> bitstrings = QRNGResultParser.parseSamplerResults(json, 4);
         System.assertEquals(4, bitstrings.size());
         System.assertEquals('0110', bitstrings[0]);
         System.assertEquals('0011', bitstrings[3]);
     }
 
     @IsTest
+    static void testParseSamplerResultsHex() {
+        // IBM Sampler returns hex-encoded samples like "0xb6"
+        String json = '{"results":[{"data":{"meas":{"samples":["0xb6","0x17","0x04"]}}}]}';
+        List<String> bitstrings = QRNGResultParser.parseSamplerResults(json, 8);
+        System.assertEquals(3, bitstrings.size());
+        System.assertEquals('10110110', bitstrings[0]); // 0xb6
+        System.assertEquals('00010111', bitstrings[1]); // 0x17
+        System.assertEquals('00000100', bitstrings[2]); // 0x04
+    }
+
+    @IsTest
     static void testParseSamplerResultsNoResults() {
         try {
-            QRNGResultParser.parseSamplerResults('{"results":[]}');
+            QRNGResultParser.parseSamplerResults('{"results":[]}', 8);
             System.assert(false, 'Should throw');
         } catch (QRNGException e) {
             System.assert(
                 e.getMessage().contains('No results'),
                 'Should indicate no results'
+            );
+        }
+    }
+
+    @IsTest
+    static void testHexToBinary() {
+        // Test via hex samples
+        System.assertEquals(
+            '11111111',
+            QRNGResultParser.hexToBinary('0xff', 8)
+        );
+        System.assertEquals(
+            '00000000',
+            QRNGResultParser.hexToBinary('0x00', 8)
+        );
+        System.assertEquals('00000001', QRNGResultParser.hexToBinary('0x1', 8));
+        // 12-qubit hex
+        System.assertEquals(
+            '101010110110',
+            QRNGResultParser.hexToBinary('0xab6', 12)
+        );
+    }
+
+    @IsTest
+    static void testHexToBinaryInvalidDigit() {
+        try {
+            QRNGResultParser.hexToBinary('0xzz', 8);
+            System.assert(false, 'Should throw');
+        } catch (QRNGException e) {
+            System.assert(
+                e.getMessage().contains('Invalid hex digit'),
+                'Should indicate invalid hex'
             );
         }
     }

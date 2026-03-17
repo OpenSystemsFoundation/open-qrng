@@ -14,6 +14,7 @@ const mockContext = {
     moveTo: jest.fn(),
     lineTo: jest.fn(),
     stroke: jest.fn(),
+    fill: jest.fn(),
     arc: jest.fn(),
     save: jest.fn(),
     restore: jest.fn(),

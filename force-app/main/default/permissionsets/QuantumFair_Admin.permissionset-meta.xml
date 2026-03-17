@@ -203,6 +203,16 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>Fairness_Certificate__c.Tampered__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Fairness_Certificate__c.Last_Integrity_Check__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>QRNG_Provider__c.Provider_Key__c</field>
         <readable>true</readable>
     </fieldPermissions>

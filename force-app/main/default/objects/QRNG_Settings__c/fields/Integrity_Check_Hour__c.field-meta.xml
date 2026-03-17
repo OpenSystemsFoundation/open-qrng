@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Integrity_Check_Hour__c</fullName>
+    <label>Integrity Check Hour</label>
+    <precision>2</precision>
+    <scale>0</scale>
+    <type>Number</type>
+    <required>false</required>
+    <defaultValue>2</defaultValue>
+    <description>Hour (0-23) for nightly integrity verification</description>
+</CustomField>

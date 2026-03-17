@@ -83,21 +83,12 @@ export default class QrngCircuitVisualizer extends LightningElement {
                     gateBg,
                     gateColor
                 );
-                // ECR gate (two-qubit gate line)
+                // CNOT gate (Qiskit notation: dot on control, ⊕ on target)
                 const y2 = 20 + (i + 1) * rowHeight + rowHeight / 2;
-                const ecrX = startX + gateSpacing + gateWidth + gateSpacing;
-                this.drawTwoQubitGate(
-                    ctx,
-                    ecrX,
-                    y,
-                    y2,
-                    gateWidth,
-                    'ECR',
-                    gateBg,
-                    gateColor
-                );
+                const cxX = startX + gateSpacing + gateWidth + gateSpacing;
+                this.drawCNOTGate(ctx, cxX, y, y2, gateWidth, gateColor);
                 // Measure both
-                const measX = ecrX + gateWidth + gateSpacing;
+                const measX = cxX + gateWidth + gateSpacing;
                 this.drawMeasure(
                     ctx,
                     measX,
@@ -113,8 +104,8 @@ export default class QrngCircuitVisualizer extends LightningElement {
                 ctx.fillText(`bit[${i}]`, measX + gateWidth + 10, y);
             } else if (this.useBellTest && i % 2 === 1) {
                 // Second qubit of Bell pair - measure gate
-                const ecrX = startX + gateSpacing + gateWidth + gateSpacing;
-                const measX = ecrX + gateWidth + gateSpacing;
+                const cxX = startX + gateSpacing + gateWidth + gateSpacing;
+                const measX = cxX + gateWidth + gateSpacing;
                 this.drawMeasure(
                     ctx,
                     measX,
@@ -198,16 +189,38 @@ export default class QrngCircuitVisualizer extends LightningElement {
         ctx.fillText('M', x, y - half + 12);
     }
 
-    drawTwoQubitGate(ctx, x, y1, y2, size, label, bgColor, borderColor) {
-        // Vertical line connecting qubits
+    drawCNOTGate(ctx, x, y1, y2, size, color) {
+        // Vertical line connecting control to target
         ctx.beginPath();
-        ctx.strokeStyle = borderColor;
+        ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.moveTo(x, y1);
         ctx.lineTo(x, y2);
         ctx.stroke();
-        // Gate boxes on both qubits
-        this.drawGate(ctx, x, y1, size * 0.8, label, bgColor, borderColor);
-        this.drawGate(ctx, x, y2, size * 0.8, label, bgColor, borderColor);
+
+        // Control qubit: filled dot
+        const dotRadius = 5;
+        ctx.beginPath();
+        ctx.arc(x, y1, dotRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        // Target qubit: ⊕ (circle with plus)
+        const targetRadius = size * 0.35;
+        ctx.beginPath();
+        ctx.arc(x, y2, targetRadius, 0, 2 * Math.PI);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // Horizontal line of plus
+        ctx.beginPath();
+        ctx.moveTo(x - targetRadius, y2);
+        ctx.lineTo(x + targetRadius, y2);
+        ctx.stroke();
+        // Vertical line of plus
+        ctx.beginPath();
+        ctx.moveTo(x, y2 - targetRadius);
+        ctx.lineTo(x, y2 + targetRadius);
+        ctx.stroke();
     }
 }

@@ -46,6 +46,18 @@ jest.mock(
     { virtual: true }
 );
 
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.startIntegrityCheck',
+    () => ({ default: jest.fn() }),
+    { virtual: true }
+);
+
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.stopIntegrityCheck',
+    () => ({ default: jest.fn() }),
+    { virtual: true }
+);
+
 function flushPromises() {
     return new Promise((resolve) => setTimeout(resolve, 0));
 }

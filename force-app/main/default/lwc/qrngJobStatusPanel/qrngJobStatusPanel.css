@@ -2,8 +2,24 @@
     display: block;
 }
 
-.slds-dl_horizontal__label {
-    width: 120px;
+.detail-grid {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr;
+    gap: 0.25rem 0.75rem;
+    align-items: baseline;
+}
+
+.detail-label {
+    color: #706e6b;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+.detail-value {
+    font-size: 0.8125rem;
+    color: #181818;
+    min-width: 0;
 }
 
 .pulse {

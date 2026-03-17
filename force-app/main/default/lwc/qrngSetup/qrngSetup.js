@@ -9,6 +9,8 @@ import getAllBackendHealth from '@salesforce/apex/QRNGSetupController.getAllBack
 import refreshAllBackendHealth from '@salesforce/apex/QRNGSetupController.refreshAllBackendHealth';
 import startSweeper from '@salesforce/apex/QRNGSetupController.startSweeper';
 import stopSweeper from '@salesforce/apex/QRNGSetupController.stopSweeper';
+import startIntegrityCheck from '@salesforce/apex/QRNGSetupController.startIntegrityCheck';
+import stopIntegrityCheck from '@salesforce/apex/QRNGSetupController.stopIntegrityCheck';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class QrngSetup extends LightningElement {
@@ -30,6 +32,8 @@ export default class QrngSetup extends LightningElement {
     @track isDiscoveringCRN = false;
     @track backendHealthList = [];
     @track isLoadingHealth = false;
+    @track integrityCheckActive = false;
+    @track integrityCheckHour = 2;
 
     @wire(getSettings)
     wiredSettings({ data }) {
@@ -49,6 +53,9 @@ export default class QrngSetup extends LightningElement {
             }
             this.pollIntervalMinutes = data.pollIntervalMinutes || 5;
             this.sweeperActive = data.sweeperActive || false;
+            this.integrityCheckActive = data.integrityCheckActive || false;
+            this.integrityCheckHour =
+                data.integrityCheckHour != null ? data.integrityCheckHour : 2;
 
             // Load cached backends into dropdown
             if (data.cachedBackends && data.cachedBackends.length > 0) {
@@ -368,6 +375,67 @@ export default class QrngSetup extends LightningElement {
 
     get sweeperBadgeClass() {
         return this.sweeperActive
+            ? 'slds-badge slds-theme_success'
+            : 'slds-badge';
+    }
+
+    // ── Integrity Verification ──────────────────────────────────
+
+    handleIntegrityHourChange(event) {
+        this.integrityCheckHour = parseInt(event.detail.value, 10);
+    }
+
+    async handleToggleIntegrityCheck() {
+        try {
+            if (this.integrityCheckActive) {
+                await stopIntegrityCheck();
+                this.integrityCheckActive = false;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Integrity Check Stopped',
+                        message:
+                            'Nightly integrity verification has been stopped.',
+                        variant: 'info'
+                    })
+                );
+            } else {
+                await startIntegrityCheck();
+                this.integrityCheckActive = true;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Integrity Check Started',
+                        message: `Nightly integrity verification scheduled at ${this.integrityCheckHour}:00.`,
+                        variant: 'success'
+                    })
+                );
+            }
+        } catch (error) {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Integrity Check Error',
+                    message: this.reduceErrors(error),
+                    variant: 'error'
+                })
+            );
+        }
+    }
+
+    get integrityButtonLabel() {
+        return this.integrityCheckActive
+            ? 'Stop Integrity Check'
+            : 'Start Integrity Check';
+    }
+
+    get integrityButtonVariant() {
+        return this.integrityCheckActive ? 'destructive' : 'brand';
+    }
+
+    get integrityStatusLabel() {
+        return this.integrityCheckActive ? 'Active' : 'Inactive';
+    }
+
+    get integrityBadgeClass() {
+        return this.integrityCheckActive
             ? 'slds-badge slds-theme_success'
             : 'slds-badge';
     }

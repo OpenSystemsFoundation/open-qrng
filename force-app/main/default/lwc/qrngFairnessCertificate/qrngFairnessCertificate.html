@@ -8,17 +8,31 @@
                             Fairness Certificate
                         </h2>
                         <p class="certificate-id">
-                            {certificate.Name}
+                            {certificate.name}
                         </p>
                     </div>
                     <div class="slds-col slds-shrink">
                         <lightning-badge
-                            label={certificate.Status__c}
+                            label={statusLabel}
                             class={statusBadgeClass}
                         ></lightning-badge>
                     </div>
                 </div>
             </div>
+
+            <template if:true={isTampered}>
+                <div
+                    class="slds-notify slds-notify_alert slds-alert_warning slds-m-bottom_small"
+                    role="alert"
+                >
+                    <h2>
+                        Integrity check failed — the
+                        underlying data may have been
+                        modified since this certificate was
+                        issued.
+                    </h2>
+                </div>
+            </template>
 
             <div class="certificate-body">
                 <!-- Visual hash (pixel art from SHA-256) -->
@@ -52,7 +66,7 @@
                             <dd
                                 class="slds-dl_horizontal__detail"
                             >
-                                {certificate.External_Job_ID__c}
+                                {certificate.externalJobId}
                             </dd>
                             <dt
                                 class="slds-dl_horizontal__label cert-label"
@@ -62,7 +76,7 @@
                             <dd
                                 class="slds-dl_horizontal__detail"
                             >
-                                {certificate.Backend__c}
+                                {certificate.backend}
                             </dd>
                             <dt
                                 class="slds-dl_horizontal__label cert-label"
@@ -72,7 +86,7 @@
                             <dd
                                 class="slds-dl_horizontal__detail"
                             >
-                                {certificate.Purpose__c}
+                                {certificate.purpose}
                             </dd>
                             <dt
                                 class="slds-dl_horizontal__label cert-label"
@@ -91,7 +105,7 @@
                     >
                         <template if:true={hasCHSH}>
                             <c-qrng-bell-test-indicator
-                                s-value={certificate.CHSH_S_Value__c}
+                                s-value={certificate.chshSValue}
                             ></c-qrng-bell-test-indicator>
                         </template>
                     </div>
@@ -109,7 +123,7 @@
                             >Raw Bitstring:</span
                         >
                         <code class="hash-value"
-                            >{certificate.Raw_Bitstring_Hash__c}</code
+                            >{certificate.rawBitstringHash}</code
                         >
                     </div>
                     <div class="hash-row">
@@ -117,18 +131,18 @@
                             >Debiased:</span
                         >
                         <code class="hash-value"
-                            >{certificate.Debiased_Bitstring_Hash__c}</code
+                            >{certificate.debiasedBitstringHash}</code
                         >
                     </div>
                     <template
-                        if:true={certificate.Assignment_Hash__c}
+                        if:true={certificate.assignmentHash}
                     >
                         <div class="hash-row">
                             <span class="hash-label"
                                 >Assignment:</span
                             >
                             <code class="hash-value"
-                                >{certificate.Assignment_Hash__c}</code
+                                >{certificate.assignmentHash}</code
                             >
                         </div>
                     </template>

@@ -136,22 +136,15 @@ public class QRNGJobSweeper implements Schedulable {
                     job.Status__c = normalized;
 
                     if (normalized == 'Completed') {
+                        job.Queue_Time_ms__c = extractQueueTimeMs(
+                            statusResponse
+                        );
                         completedJobs.add(job);
                     } else if (normalized == 'Failed') {
-                        String errorMsg = 'IBM job status: ' + status;
-                        if (statusResponse.containsKey('error')) {
-                            Map<String, Object> errorObj = (Map<String, Object>) statusResponse.get(
-                                'error'
-                            );
-                            if (
-                                errorObj != null &&
-                                errorObj.containsKey('message')
-                            ) {
-                                errorMsg +=
-                                    ' - ' + (String) errorObj.get('message');
-                            }
-                        }
-                        job.Error_Message__c = errorMsg;
+                        job.Error_Message__c = buildErrorMessage(
+                            status,
+                            statusResponse
+                        );
                         job.Completed_At__c = DateTime.now();
                     }
 
@@ -184,8 +177,12 @@ public class QRNGJobSweeper implements Schedulable {
                 job.External_Job_ID__c
             );
 
+            Integer numQubits = job.Num_Qubits__c != null
+                ? (Integer) job.Num_Qubits__c
+                : 8;
             List<String> bitstrings = QRNGResultParser.parseSamplerResults(
-                resultsJson
+                resultsJson,
+                numQubits
             );
             String rawBits = QRNGResultParser.concatenateBitstrings(bitstrings);
             String debiasedBits = QRNGResultParser.vonNeumannDebias(rawBits);
@@ -236,6 +233,81 @@ public class QRNGJobSweeper implements Schedulable {
                 return (String) response.get('status');
             }
             return 'Unknown';
+        }
+
+        private String buildErrorMessage(
+            String status,
+            Map<String, Object> statusResponse
+        ) {
+            String msg = 'IBM job status: ' + status;
+            if (statusResponse == null) {
+                return msg;
+            }
+            if (statusResponse.containsKey('error')) {
+                Object errObj = statusResponse.get('error');
+                if (errObj instanceof Map<String, Object>) {
+                    Map<String, Object> error = (Map<String, Object>) errObj;
+                    if (error.containsKey('code')) {
+                        msg += '\nError code: ' + error.get('code');
+                    }
+                    if (error.containsKey('message')) {
+                        msg +=
+                            '\nError message: ' + (String) error.get('message');
+                    }
+                    if (error.containsKey('solution')) {
+                        msg += '\nSolution: ' + (String) error.get('solution');
+                    }
+                    if (error.containsKey('more_info')) {
+                        msg +=
+                            '\nMore info: ' + (String) error.get('more_info');
+                    }
+                } else {
+                    msg += '\nError: ' + String.valueOf(errObj);
+                }
+            }
+            if (statusResponse.containsKey('state')) {
+                Object stateObj = statusResponse.get('state');
+                if (stateObj instanceof Map<String, Object>) {
+                    Map<String, Object> state = (Map<String, Object>) stateObj;
+                    if (state.containsKey('reason')) {
+                        msg += '\nReason: ' + (String) state.get('reason');
+                    }
+                    if (state.containsKey('reason_code')) {
+                        msg += '\nReason code: ' + state.get('reason_code');
+                    }
+                }
+            }
+            return msg;
+        }
+
+        private Decimal extractQueueTimeMs(Map<String, Object> statusResponse) {
+            if (
+                statusResponse == null ||
+                !statusResponse.containsKey('timestamps')
+            ) {
+                return null;
+            }
+            Object tsObj = statusResponse.get('timestamps');
+            if (!(tsObj instanceof Map<String, Object>)) {
+                return null;
+            }
+            Map<String, Object> timestamps = (Map<String, Object>) tsObj;
+            String created = (String) timestamps.get('created');
+            String running = (String) timestamps.get('running');
+            if (String.isBlank(created) || String.isBlank(running)) {
+                return null;
+            }
+            try {
+                DateTime createdDt = DateTime.valueOf(
+                    created.replace('T', ' ').replace('Z', '')
+                );
+                DateTime runningDt = DateTime.valueOf(
+                    running.replace('T', ' ').replace('Z', '')
+                );
+                return runningDt.getTime() - createdDt.getTime();
+            } catch (Exception e) {
+                return null;
+            }
         }
 
         private String normalizeStatus(String ibmStatus) {
