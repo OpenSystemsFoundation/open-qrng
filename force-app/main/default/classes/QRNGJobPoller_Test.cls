@@ -175,6 +175,121 @@ private class QRNGJobPoller_Test {
     }
 
     @IsTest
+    static void testBuildErrorMessageNullResponse() {
+        String msg = QRNGJobPoller.buildErrorMessage('Failed', null);
+        System.assertEquals(
+            'IBM job status: Failed',
+            msg,
+            'Should return basic message for null response'
+        );
+    }
+
+    @IsTest
+    static void testBuildErrorMessageWithFullErrorObject() {
+        Map<String, Object> statusResponse = new Map<String, Object>{
+            'error' => new Map<String, Object>{
+                'code' => 1234,
+                'message' => 'Hardware fault detected',
+                'solution' => 'Retry on a different backend',
+                'more_info' => 'https://ibm.com/quantum/errors/1234'
+            },
+            'state' => new Map<String, Object>{
+                'status' => 'Failed',
+                'reason' => 'Calibration expired',
+                'reason_code' => 8020
+            }
+        };
+        String msg = QRNGJobPoller.buildErrorMessage('Failed', statusResponse);
+
+        System.assert(
+            msg.contains('Error code: 1234'),
+            'Should contain error code'
+        );
+        System.assert(
+            msg.contains('Hardware fault detected'),
+            'Should contain error message'
+        );
+        System.assert(
+            msg.contains('Retry on a different backend'),
+            'Should contain solution'
+        );
+        System.assert(
+            msg.contains('https://ibm.com/quantum/errors/1234'),
+            'Should contain more_info'
+        );
+        System.assert(
+            msg.contains('Calibration expired'),
+            'Should contain reason'
+        );
+        System.assert(msg.contains('8020'), 'Should contain reason_code');
+    }
+
+    @IsTest
+    static void testBuildErrorMessageWithStringError() {
+        // When error is a plain string, not a map
+        Map<String, Object> statusResponse = new Map<String, Object>{
+            'error' => 'Simple error string'
+        };
+        String msg = QRNGJobPoller.buildErrorMessage(
+            'Cancelled',
+            statusResponse
+        );
+        System.assert(
+            msg.contains('Simple error string'),
+            'Should contain the error string'
+        );
+        System.assert(
+            msg.contains('IBM job status: Cancelled'),
+            'Should contain status'
+        );
+    }
+
+    @IsTest
+    static void testBuildErrorMessageEmptyResponse() {
+        // No error or state keys
+        Map<String, Object> statusResponse = new Map<String, Object>{
+            'status' => 'Failed'
+        };
+        String msg = QRNGJobPoller.buildErrorMessage('Failed', statusResponse);
+        System.assertEquals(
+            'IBM job status: Failed',
+            msg,
+            'Should return basic message when no error details'
+        );
+    }
+
+    @IsTest
+    static void testExtractQueueTimeMsBadTimestampFormat() {
+        Map<String, Object> statusResponse = new Map<String, Object>{
+            'timestamps' => new Map<String, Object>{
+                'created' => 'not-a-date',
+                'running' => 'also-not-a-date'
+            }
+        };
+        Decimal queueMs = QRNGJobPoller.extractQueueTimeMs(statusResponse);
+        System.assertEquals(
+            null,
+            queueMs,
+            'Should return null for unparseable timestamps'
+        );
+    }
+
+    @IsTest
+    static void testExtractQueueTimeMsMissingRunning() {
+        Map<String, Object> statusResponse = new Map<String, Object>{
+            'timestamps' => new Map<String, Object>{
+                'created' => '2026-03-17T10:00:00Z'
+            }
+        };
+        Decimal queueMs = QRNGJobPoller.extractQueueTimeMs(statusResponse);
+        System.assertEquals(
+            null,
+            queueMs,
+            'Should return null when running timestamp missing'
+        );
+    }
+
+    @IsTest
     static void testCalculateDelay() {
         System.assertEquals(5, QRNGJobPoller.calculateDelay(0));
         System.assertEquals(10, QRNGJobPoller.calculateDelay(1));

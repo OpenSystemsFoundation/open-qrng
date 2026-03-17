@@ -412,6 +412,220 @@ private class QRNGSetupController_Test {
     }
 
     @IsTest
+    static void testGetJobStatusDTO() {
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'test_dto_job',
+            Backend__c = 'test_backend',
+            Status__c = 'Completed',
+            Shots__c = 2048,
+            Num_Qubits__c = 8,
+            Purpose__c = 'DTO test',
+            Use_Bell_Test__c = true,
+            Submitted_At__c = DateTime.now().addMinutes(-5),
+            Completed_At__c = DateTime.now(),
+            Execution_Time_ms__c = 3000,
+            Queue_Time_ms__c = 1500,
+            Poll_Count__c = 3,
+            Raw_Results__c = '01100110',
+            Debiased_Results__c = '0110'
+        );
+        insert job;
+
+        QRNGSetupController.JobStatusDTO dto = QRNGSetupController.getJobStatusDTO(
+            job.Id
+        );
+        System.assertEquals('Completed', dto.status);
+        System.assertEquals('test_dto_job', dto.externalJobId);
+        System.assertEquals('test_backend', dto.backend);
+        System.assertEquals(2048, dto.shots);
+        System.assertEquals(8, dto.numQubits);
+        System.assertEquals('DTO test', dto.purpose);
+        System.assertEquals(true, dto.useBellTest);
+        System.assertEquals(3, dto.pollCount);
+        System.assertEquals(3000, dto.executionTimeMs);
+        System.assertEquals(1500, dto.queueTimeMs);
+        System.assertEquals('01100110', dto.rawResults);
+        System.assertEquals('0110', dto.debiasedResults);
+    }
+
+    @IsTest
+    static void testGetJobStatusDTONullNumerics() {
+        // Test with null numeric fields to cover null-safe casting
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'test_dto_null',
+            Backend__c = 'test_backend',
+            Status__c = 'Submitted'
+        );
+        insert job;
+
+        QRNGSetupController.JobStatusDTO dto = QRNGSetupController.getJobStatusDTO(
+            job.Id
+        );
+        System.assertEquals('Submitted', dto.status);
+        System.assertEquals(null, dto.shots);
+        System.assertEquals(null, dto.numQubits);
+        System.assertEquals(0, dto.pollCount);
+    }
+
+    @IsTest
+    static void testGetCertificateDTO() {
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'test_cert_dto',
+            Backend__c = 'test_backend',
+            Status__c = 'Completed',
+            Shots__c = 1024,
+            Num_Qubits__c = 8,
+            Raw_Results__c = '01100110',
+            Debiased_Results__c = '0110',
+            Purpose__c = 'Cert DTO test',
+            Requested_By__c = UserInfo.getUserId()
+        );
+        insert job;
+
+        Id certId = FairnessCertificateService.createCertificate(
+            job.Id,
+            '{"passed":true}',
+            'Certified'
+        );
+
+        QRNGSetupController.CertificateDTO dto = QRNGSetupController.getCertificateDTO(
+            certId
+        );
+        System.assertNotEquals(null, dto.name, 'Name should be set');
+        System.assertEquals(
+            'test_cert_dto',
+            dto.externalJobId,
+            'External job ID should match'
+        );
+        System.assertEquals('test_backend', dto.backend);
+        System.assertNotEquals(
+            null,
+            dto.rawBitstringHash,
+            'Raw hash should be set'
+        );
+        System.assertNotEquals(
+            null,
+            dto.debiasedBitstringHash,
+            'Debiased hash should be set'
+        );
+        System.assertEquals('Certified', dto.status);
+        System.assertEquals(job.Id, dto.quantumJobId);
+        System.assertEquals(false, dto.tampered);
+        System.assertEquals('Cert DTO test', dto.purpose);
+    }
+
+    @IsTest
+    static void testGetAuditTrailDTOWithData() {
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'test_audit_dto',
+            Backend__c = 'test_backend',
+            Status__c = 'Completed',
+            Shots__c = 1024,
+            Num_Qubits__c = 8,
+            Raw_Results__c = '01100110',
+            Debiased_Results__c = '0110',
+            Purpose__c = 'Audit trail test',
+            Requested_By__c = UserInfo.getUserId()
+        );
+        insert job;
+
+        FairnessCertificateService.createCertificate(
+            job.Id,
+            '{"passed":true}',
+            'Certified'
+        );
+
+        List<QRNGSetupController.AuditTrailDTO> trail = QRNGSetupController.getAuditTrailDTO();
+        System.assertEquals(1, trail.size(), 'Should return one audit entry');
+        System.assertEquals('test_audit_dto', trail[0].externalJobId);
+        System.assertEquals('test_backend', trail[0].backend);
+        System.assertEquals('Certified', trail[0].status);
+        System.assertEquals('Audit trail test', trail[0].purpose);
+        System.assertEquals(false, trail[0].tampered);
+        System.assertNotEquals(null, trail[0].recordId);
+        System.assertEquals(job.Id, trail[0].quantumJobId);
+    }
+
+    /**
+     * Mock that returns a Failed status to exercise buildVerboseError.
+     */
+    private class MockFailedJobStatus implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            HttpResponse res = new HttpResponse();
+            if (req.getEndpoint().contains('iam.cloud.ibm.com')) {
+                res.setStatusCode(200);
+                res.setBody(
+                    '{"access_token":"test-token-abc","token_type":"Bearer","expires_in":3600}'
+                );
+            } else if (req.getEndpoint().contains('/v1/jobs/')) {
+                res.setStatusCode(200);
+                res.setBody(
+                    '{"id":"job_fail_123","status":"Failed",' +
+                        '"state":{"status":"Failed","reason":"Calibration expired","reason_code":8020},' +
+                        '"error":{"code":1234,"message":"Hardware fault","solution":"Retry later","more_info":"https://ibm.com/help"}}'
+                );
+            }
+            return res;
+        }
+    }
+
+    @IsTest
+    static void testRefreshJobStatusFailedWithVerboseError() {
+        Test.setMock(HttpCalloutMock.class, new MockFailedJobStatus());
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+        QRNG_Settings__c s = new QRNG_Settings__c(
+            SetupOwnerId = UserInfo.getOrganizationId(),
+            Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
+        );
+        upsert s;
+
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'job_fail_123',
+            Backend__c = 'test_backend',
+            Status__c = 'Submitted',
+            Shots__c = 1024,
+            Num_Qubits__c = 8
+        );
+        insert job;
+
+        Test.startTest();
+        Map<String, Object> result = QRNGSetupController.refreshJobStatus(
+            job.Id
+        );
+        Test.stopTest();
+
+        System.assertEquals(
+            'Failed',
+            result.get('status'),
+            'Status should be Failed'
+        );
+
+        // Verify verbose error was saved
+        Quantum_Job__c updated = [
+            SELECT Error_Message__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assert(
+            updated.Error_Message__c.contains('Hardware fault'),
+            'Error should contain IBM error message'
+        );
+        System.assert(
+            updated.Error_Message__c.contains('1234'),
+            'Error should contain error code'
+        );
+        System.assert(
+            updated.Error_Message__c.contains('Retry later'),
+            'Error should contain solution'
+        );
+        System.assert(
+            updated.Error_Message__c.contains('Calibration expired'),
+            'Error should contain reason'
+        );
+    }
+
+    @IsTest
     static void testNormalizeIBMStatusValues() {
         // Test refreshJobStatus with different IBM statuses by checking the
         // normalizeIBMStatus logic via refreshJobStatus path

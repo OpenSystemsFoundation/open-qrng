@@ -197,6 +197,94 @@ private class QRNGJobSweeper_Test {
         );
     }
 
+    /**
+     * Mock that returns a failed status with full error detail to exercise
+     * the sweeper worker's buildErrorMessage with code, solution, more_info,
+     * and state reason/reason_code.
+     */
+    private class MockSweeperVerboseFailedStatus implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            HttpResponse res = new HttpResponse();
+            if (req.getEndpoint().contains('iam.cloud.ibm.com')) {
+                res.setStatusCode(200);
+                res.setBody(
+                    '{"access_token":"test-token","token_type":"Bearer","expires_in":3600}'
+                );
+            } else if (req.getEndpoint().contains('/v1/jobs/')) {
+                res.setStatusCode(200);
+                res.setBody(
+                    '{"id":"job_sweep_verbose","status":"Failed",' +
+                        '"state":{"status":"Failed","reason":"QPU offline","reason_code":9001},' +
+                        '"error":{"code":5678,"message":"Transpilation error","solution":"Simplify circuit","more_info":"https://ibm.com/help/5678"}}'
+                );
+            }
+            return res;
+        }
+    }
+
+    @IsTest
+    static void testSweeperWorkerWithVerboseFailedJob() {
+        Test.setMock(
+            HttpCalloutMock.class,
+            new MockSweeperVerboseFailedStatus()
+        );
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+        QRNG_Settings__c s = new QRNG_Settings__c(
+            SetupOwnerId = UserInfo.getOrganizationId(),
+            Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
+        );
+        upsert s;
+
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'job_sweep_verbose',
+            Backend__c = 'test_backend',
+            Status__c = 'Submitted',
+            Shots__c = 1024,
+            Num_Qubits__c = 4,
+            Submitted_At__c = DateTime.now().addMinutes(-10)
+        );
+        insert job;
+
+        QRNGJobSweeper.QRNGJobSweeperWorker worker = new QRNGJobSweeper.QRNGJobSweeperWorker();
+
+        Test.startTest();
+        worker.execute(null);
+        Test.stopTest();
+
+        Quantum_Job__c updated = [
+            SELECT Status__c, Error_Message__c, Completed_At__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assertEquals(
+            'Failed',
+            updated.Status__c,
+            'Job should be Failed'
+        );
+        System.assert(
+            updated.Error_Message__c.contains('5678'),
+            'Should contain error code: ' + updated.Error_Message__c
+        );
+        System.assert(
+            updated.Error_Message__c.contains('Transpilation error'),
+            'Should contain error message'
+        );
+        System.assert(
+            updated.Error_Message__c.contains('Simplify circuit'),
+            'Should contain solution'
+        );
+        System.assert(
+            updated.Error_Message__c.contains('QPU offline'),
+            'Should contain reason'
+        );
+        System.assertNotEquals(
+            null,
+            updated.Completed_At__c,
+            'Should set completed timestamp'
+        );
+    }
+
     @IsTest
     static void testSchedulableExecute() {
         Test.startTest();
