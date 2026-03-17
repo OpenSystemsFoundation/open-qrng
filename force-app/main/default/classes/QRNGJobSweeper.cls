@@ -15,12 +15,13 @@ public class QRNGJobSweeper implements Schedulable {
     public void execute(SchedulableContext sc) {
         System.enqueueJob(new QRNGJobSweeperWorker());
 
-        // Re-schedule for next interval
-        try {
-            scheduleDefault();
-        } catch (Exception e) {
-            // If re-scheduling fails (e.g. name conflict), ignore
-            System.debug('Sweeper re-schedule failed: ' + e.getMessage());
+        // Re-schedule for next interval (skip in test context)
+        if (!Test.isRunningTest()) {
+            try {
+                scheduleDefault();
+            } catch (Exception e) {
+                System.debug('Sweeper re-schedule failed: ' + e.getMessage());
+            }
         }
     }
 
