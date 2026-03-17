@@ -228,26 +228,7 @@ export default class QrngSetup extends LightningElement {
     async loadBackendHealth() {
         try {
             const backends = await getAllBackendHealth();
-            this.backendHealthList = backends.map((b) => ({
-                id: b.Id,
-                name: b.Name,
-                status: b.Status__c || '—',
-                qubits: b.Num_Qubits__c || 0,
-                queueLength:
-                    b.Queue_Length__c != null ? b.Queue_Length__c : '—',
-                processor: b.Processor_Family__c
-                    ? `${b.Processor_Family__c} ${b.Processor_Revision__c || ''}`
-                    : '—',
-                avgT1: this.formatTime(b.Avg_T1_us__c),
-                avgT2: this.formatTime(b.Avg_T2_us__c),
-                gateError: this.formatPercent(b.Median_Gate_Error__c),
-                readoutError: this.formatPercent(b.Median_Readout_Error__c),
-                lastSynced: b.Last_Synced__c,
-                statusClass:
-                    b.Status__c === 'online'
-                        ? 'slds-text-color_success'
-                        : 'slds-text-color_error'
-            }));
+            this.backendHealthList = this.mapBackendHealth(backends);
         } catch (error) {
             // Silently fail — table just stays empty
             console.warn('Could not load backend health:', error);
@@ -258,26 +239,7 @@ export default class QrngSetup extends LightningElement {
         this.isLoadingHealth = true;
         try {
             const backends = await refreshAllBackendHealth();
-            this.backendHealthList = backends.map((b) => ({
-                id: b.Id,
-                name: b.Name,
-                status: b.Status__c || '—',
-                qubits: b.Num_Qubits__c || 0,
-                queueLength:
-                    b.Queue_Length__c != null ? b.Queue_Length__c : '—',
-                processor: b.Processor_Family__c
-                    ? `${b.Processor_Family__c} ${b.Processor_Revision__c || ''}`
-                    : '—',
-                avgT1: this.formatTime(b.Avg_T1_us__c),
-                avgT2: this.formatTime(b.Avg_T2_us__c),
-                gateError: this.formatPercent(b.Median_Gate_Error__c),
-                readoutError: this.formatPercent(b.Median_Readout_Error__c),
-                lastSynced: b.Last_Synced__c,
-                statusClass:
-                    b.Status__c === 'online'
-                        ? 'slds-text-color_success'
-                        : 'slds-text-color_error'
-            }));
+            this.backendHealthList = this.mapBackendHealth(backends);
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Health Refreshed',
@@ -296,6 +258,28 @@ export default class QrngSetup extends LightningElement {
         } finally {
             this.isLoadingHealth = false;
         }
+    }
+
+    mapBackendHealth(backends) {
+        return backends.map((b) => ({
+            id: b.id,
+            name: b.name,
+            status: b.status || '—',
+            qubits: b.qubits || 0,
+            queueLength: b.queueLength != null ? b.queueLength : '—',
+            processor: b.processorFamily
+                ? `${b.processorFamily} ${b.processorRevision || ''}`
+                : '—',
+            avgT1: this.formatTime(b.avgT1),
+            avgT2: this.formatTime(b.avgT2),
+            gateError: this.formatPercent(b.gateError),
+            readoutError: this.formatPercent(b.readoutError),
+            lastSynced: b.lastSynced,
+            statusClass:
+                b.status === 'online'
+                    ? 'slds-text-color_success'
+                    : 'slds-text-color_error'
+        }));
     }
 
     get hasBackendHealth() {

@@ -243,8 +243,8 @@ public with sharing class QRNGSetupController {
      * Get all backend health data from stored QRNG_Backend__c records.
      */
     @AuraEnabled
-    public static List<QRNG_Backend__c> getAllBackendHealth() {
-        return [
+    public static List<Map<String, Object>> getAllBackendHealth() {
+        List<QRNG_Backend__c> records = [
             SELECT
                 Id,
                 Name,
@@ -267,6 +267,29 @@ public with sharing class QRNGSetupController {
             WHERE Provider__r.Is_Active__c = TRUE
             ORDER BY Queue_Length__c ASC NULLS LAST
         ];
+
+        List<Map<String, Object>> result = new List<Map<String, Object>>();
+        for (QRNG_Backend__c b : records) {
+            Map<String, Object> m = new Map<String, Object>();
+            m.put('id', b.Id);
+            m.put('name', b.Name);
+            m.put('status', b.Status__c);
+            m.put('qubits', b.Num_Qubits__c);
+            m.put('queueLength', b.Queue_Length__c);
+            m.put('isSimulator', b.Is_Simulator__c);
+            m.put('processorFamily', b.Processor_Family__c);
+            m.put('processorRevision', b.Processor_Revision__c);
+            m.put('maxShots', b.Max_Shots__c);
+            m.put('avgT1', b.Avg_T1_us__c);
+            m.put('avgT2', b.Avg_T2_us__c);
+            m.put('gateError', b.Median_Gate_Error__c);
+            m.put('readoutError', b.Median_Readout_Error__c);
+            m.put('lastCalibration', b.Last_Calibration__c);
+            m.put('lastSynced', b.Last_Synced__c);
+            m.put('provider', b.Provider__r.Name);
+            result.add(m);
+        }
+        return result;
     }
 
     /**
@@ -275,7 +298,7 @@ public with sharing class QRNGSetupController {
      * Governor limits: 2 callouts per backend (auth cached after first).
      */
     @AuraEnabled
-    public static List<QRNG_Backend__c> refreshAllBackendHealth() {
+    public static List<Map<String, Object>> refreshAllBackendHealth() {
         try {
             // Ensure backends are synced first
             Integer backendCount = [
