@@ -141,20 +141,26 @@ private class QRNGCircuitBuilder_Test {
     static void testBuildBellTestCircuitHas4BasisConfigs() {
         // Need at least 4 pairs to test all 4 CHSH basis configurations
         String qasm = QRNGCircuitBuilder.buildBellTestCircuit(4);
-        // Config 0: Alice 0, Bob π/8
+        // Ry(θ) decomposition: rz(-pi/2) · sx · rz(pi-(θ)) · sx · rz(-pi/2)
+        // Config 0: Alice 0, Bob π/8 → rz(pi-(pi/8))
         System.assert(
-            qasm.contains('rz(pi/8)'),
-            'Should contain Bob π/8 rotation for config 0'
+            qasm.contains('rz(pi-(pi/8))'),
+            'Should contain Ry(π/8) decomposition for Bob config 0'
         );
-        // Config 1: Alice 0, Bob 3π/8
+        // Config 1: Alice 0, Bob 3π/8 → rz(pi-(3*pi/8))
         System.assert(
-            qasm.contains('rz(3*pi/8)'),
-            'Should contain Bob 3π/8 rotation for config 1'
+            qasm.contains('rz(pi-(3*pi/8))'),
+            'Should contain Ry(3π/8) decomposition for Bob config 1'
         );
-        // Config 2: Alice π/4, Bob π/8 — Alice gets rotated
+        // Config 2: Alice π/4 → rz(pi-(pi/4))
         System.assert(
-            qasm.contains('rz(pi/4)'),
-            'Should contain Alice π/4 rotation for configs 2-3'
+            qasm.contains('rz(pi-(pi/4))'),
+            'Should contain Ry(π/4) decomposition for Alice configs 2-3'
+        );
+        // All Ry decompositions should have rz(-pi/2) bookends
+        System.assert(
+            qasm.contains('rz(-pi/2)'),
+            'Should contain rz(-pi/2) from Ry decomposition'
         );
     }
 

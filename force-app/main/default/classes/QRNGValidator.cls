@@ -159,7 +159,12 @@ public with sharing class QRNGValidator {
      * S = |E(a,b) + E(a,b') + E(a',b) - E(a',b')|
      * Classical limit: S ≤ 2. Quantum maximum (Tsirelson): S ≤ 2√2 ≈ 2.828.
      *
-     * Each bitstring from IBM has 2*numPairs bits: (A0,B0,A1,B1,...).
+     * IMPORTANT: IBM returns bitstrings in big-endian order where meas[0] is
+     * the RIGHTMOST bit. Our circuit writes meas[0]=Alice0, meas[1]=Bob0,
+     * meas[2]=Alice1, meas[3]=Bob1, etc. So we must reverse the bitstring
+     * before extracting pairs left-to-right.
+     *
+     * Each reversed bitstring has 2*numPairs bits: (A0,B0,A1,B1,...).
      * Across all shots, we accumulate correlation E = ⟨A·B⟩ for each config.
      */
     public static Double calculateCHSH(
@@ -174,7 +179,10 @@ public with sharing class QRNGValidator {
         Double eAB = 0, eABp = 0, eApB = 0, eApBp = 0;
         Integer nAB = 0, nABp = 0, nApB = 0, nApBp = 0;
 
-        for (String bs : bitstrings) {
+        for (String rawBs : bitstrings) {
+            // Reverse bitstring: IBM big-endian → circuit register order
+            String bs = reverseString(rawBs);
+
             for (
                 Integer p = 0; p < numPairs && (p * 2 + 1) < bs.length(); p++
             ) {
@@ -219,6 +227,19 @@ public with sharing class QRNGValidator {
         Double sValue = Math.abs(eAB + eABp + eApB - eApBp);
 
         return sValue;
+    }
+
+    /**
+     * Reverse a string. Used to convert IBM big-endian bitstrings to
+     * circuit register order (meas[0] first).
+     */
+    @TestVisible
+    private static String reverseString(String s) {
+        String result = '';
+        for (Integer i = s.length() - 1; i >= 0; i--) {
+            result += s.substring(i, i + 1);
+        }
+        return result;
     }
 
     // ── Extended tests (async — run via QRNGValidationRunner) ──────
