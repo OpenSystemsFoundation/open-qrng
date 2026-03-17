@@ -151,10 +151,10 @@ public with sharing class QRNGValidator {
      * S > 2 proves quantum origin (violates Bell inequality).
      *
      * The circuit assigns each pair one of 4 basis configs via round-robin:
-     *   Config 0: Alice 0, Bob π/8       → E(a,b)
-     *   Config 1: Alice 0, Bob 3π/8      → E(a,b')
-     *   Config 2: Alice π/4, Bob π/8     → E(a',b)
-     *   Config 3: Alice π/4, Bob 3π/8    → E(a',b')
+     *   Config 0: Alice 0, Bob π/4       → E(a,b)
+     *   Config 1: Alice 0, Bob -π/4      → E(a,b')
+     *   Config 2: Alice π/2, Bob π/4     → E(a',b)
+     *   Config 3: Alice π/2, Bob -π/4    → E(a',b')
      *
      * S = |E(a,b) + E(a,b') + E(a',b) - E(a',b')|
      * Classical limit: S ≤ 2. Quantum maximum (Tsirelson): S ≤ 2√2 ≈ 2.828.

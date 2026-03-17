@@ -84,10 +84,10 @@ public with sharing class QRNGCircuitBuilder {
      * Uses the coupling map to select physically connected qubit pairs.
      *
      * CHSH requires 4 distinct measurement basis combinations per pair:
-     *   Config 0: Alice 0,       Bob π/8      → E(a,b)
-     *   Config 1: Alice 0,       Bob 3π/8     → E(a,b')
-     *   Config 2: Alice π/4,     Bob π/8      → E(a',b)
-     *   Config 3: Alice π/4,     Bob 3π/8     → E(a',b')
+     *   Config 0: Alice 0,       Bob π/4      → E(a,b)
+     *   Config 1: Alice 0,       Bob -π/4     → E(a,b')
+     *   Config 2: Alice π/2,     Bob π/4      → E(a',b)
+     *   Config 3: Alice π/2,     Bob -π/4     → E(a',b')
      * S = |E(a,b) + E(a,b') + E(a',b) - E(a',b')| > 2 proves quantum origin.
      *
      * Each pair is assigned one of the 4 configs via round-robin (mod 4).
@@ -132,15 +132,20 @@ public with sharing class QRNGCircuitBuilder {
         Integer numPairs,
         List<CoupledPair> bestPairs
     ) {
-        // CHSH basis angles for optimal Bell inequality violation:
-        // Alice measures at 0 or π/4; Bob measures at π/8 or 3π/8
-        // These are Ry rotation angles applied before Z-basis measurement.
-        List<String> aliceAngles = new List<String>{ '0', '0', 'pi/4', 'pi/4' };
+        // CHSH basis angles for optimal Bell inequality violation.
+        // For |Φ+⟩, correlation E(a,b) = cos(a - b) where a,b are Ry angles.
+        // Optimal: a=0, a'=π/2, b=π/4, b'=-π/4 gives S = 2√2.
+        //   E(0, π/4) = cos(-π/4) = 1/√2
+        //   E(0, -π/4) = cos(π/4) = 1/√2
+        //   E(π/2, π/4) = cos(π/4) = 1/√2
+        //   E(π/2, -π/4) = cos(3π/4) = -1/√2
+        //   S = |1/√2 + 1/√2 + 1/√2 - (-1/√2)| = 4/√2 = 2√2
+        List<String> aliceAngles = new List<String>{ '0', '0', 'pi/2', 'pi/2' };
         List<String> bobAngles = new List<String>{
-            'pi/8',
-            '3*pi/8',
-            'pi/8',
-            '3*pi/8'
+            'pi/4',
+            '-pi/4',
+            'pi/4',
+            '-pi/4'
         };
 
         Integer totalQubits = numPairs * 2;
