@@ -149,61 +149,74 @@ public with sharing class QRNGValidator {
     /**
      * Calculate CHSH S-value from Bell test measurements.
      * S > 2 proves quantum origin (violates Bell inequality).
+     *
+     * The circuit assigns each pair one of 4 basis configs via round-robin:
+     *   Config 0: Alice 0, Bob π/8       → E(a,b)
+     *   Config 1: Alice 0, Bob 3π/8      → E(a,b')
+     *   Config 2: Alice π/4, Bob π/8     → E(a',b)
+     *   Config 3: Alice π/4, Bob 3π/8    → E(a',b')
+     *
+     * S = |E(a,b) + E(a,b') + E(a',b) - E(a',b')|
+     * Classical limit: S ≤ 2. Quantum maximum (Tsirelson): S ≤ 2√2 ≈ 2.828.
+     *
+     * Each bitstring from IBM has 2*numPairs bits: (A0,B0,A1,B1,...).
+     * Across all shots, we accumulate correlation E = ⟨A·B⟩ for each config.
      */
     public static Double calculateCHSH(
         List<String> bitstrings,
         Integer numPairs
     ) {
-        if (bitstrings == null || bitstrings.isEmpty() || numPairs < 1) {
+        if (bitstrings == null || bitstrings.isEmpty() || numPairs < 4) {
             return 0.0;
         }
 
-        // CHSH calculation from entangled pair measurements
-        // Each bitstring has 2*numPairs bits (pairs of measurements)
-        Double e00 = 0, e01 = 0, e10 = 0, e11 = 0;
-        Integer n00 = 0, n01 = 0, n10 = 0, n11 = 0;
+        // Correlations for each of the 4 basis configs
+        Double eAB = 0, eABp = 0, eApB = 0, eApBp = 0;
+        Integer nAB = 0, nABp = 0, nApB = 0, nApBp = 0;
 
         for (String bs : bitstrings) {
             for (
                 Integer p = 0; p < numPairs && (p * 2 + 1) < bs.length(); p++
             ) {
-                Integer a = bs.substring(p * 2, p * 2 + 1) == '1' ? 1 : -1;
-                Integer b = bs.substring(p * 2 + 1, p * 2 + 2) == '1' ? 1 : -1;
+                // Map measurement outcomes to ±1: |0⟩ → +1, |1⟩ → -1
+                Integer a = bs.substring(p * 2, p * 2 + 1) == '1' ? -1 : 1;
+                Integer b = bs.substring(p * 2 + 1, p * 2 + 2) == '1' ? -1 : 1;
+                Integer corr = a * b;
 
-                // Distribute across 4 basis combinations based on pair index
+                // Pair index determines which basis config was used in the circuit
                 Integer basisConfig = Math.mod(p, 4);
                 if (basisConfig == 0) {
-                    e00 += a * b;
-                    n00++;
+                    eAB += corr;
+                    nAB++;
                 } else if (basisConfig == 1) {
-                    e01 += a * b;
-                    n01++;
+                    eABp += corr;
+                    nABp++;
                 } else if (basisConfig == 2) {
-                    e10 += a * b;
-                    n10++;
+                    eApB += corr;
+                    nApB++;
                 } else {
-                    e11 += a * b;
-                    n11++;
+                    eApBp += corr;
+                    nApBp++;
                 }
             }
         }
 
-        // Normalize correlations
-        if (n00 > 0) {
-            e00 /= n00;
+        // Normalize correlations to [-1, +1]
+        if (nAB > 0) {
+            eAB /= nAB;
         }
-        if (n01 > 0) {
-            e01 /= n01;
+        if (nABp > 0) {
+            eABp /= nABp;
         }
-        if (n10 > 0) {
-            e10 /= n10;
+        if (nApB > 0) {
+            eApB /= nApB;
         }
-        if (n11 > 0) {
-            e11 /= n11;
+        if (nApBp > 0) {
+            eApBp /= nApBp;
         }
 
-        // CHSH: S = E(0,0) - E(0,1) + E(1,0) + E(1,1)
-        Double sValue = Math.abs(e00 - e01 + e10 + e11);
+        // CHSH: S = |E(a,b) + E(a,b') + E(a',b) - E(a',b')|
+        Double sValue = Math.abs(eAB + eABp + eApB - eApBp);
 
         return sValue;
     }

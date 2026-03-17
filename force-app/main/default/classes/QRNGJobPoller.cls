@@ -45,7 +45,8 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
                     Status__c,
                     Poll_Count__c,
                     Submitted_At__c,
-                    Num_Qubits__c
+                    Num_Qubits__c,
+                    Use_Bell_Test__c
                 FROM Quantum_Job__c
                 WHERE Id = :jobRecordId
                 LIMIT 1
@@ -139,11 +140,26 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
         job.Queue_Time_ms__c = extractQueueTimeMs(statusResponse);
         update job;
 
-        // Validate randomness
+        // Critical realtime gate: frequency test (blocks certification)
         Map<String, Object> validationResults = QRNGValidator.validate(
             debiasedBits
         );
         Boolean isValid = (Boolean) validationResults.get('passed');
+
+        // For Bell test jobs, compute CHSH S-value (also blocks certification)
+        Boolean isBellTest = job.Use_Bell_Test__c == true;
+        if (isBellTest) {
+            Integer numPairs = numQubits / 2;
+            Double sValue = QRNGValidator.calculateCHSH(bitstrings, numPairs);
+            validationResults.put('chshSValue', sValue);
+            validationResults.put('bellTestPassed', sValue > 2.0);
+
+            // Bell test S > 2 is a hard gate for certification
+            if (sValue <= 2.0) {
+                isValid = false;
+                validationResults.put('passed', false);
+            }
+        }
 
         // Create certificate
         String certStatus = isValid ? 'Certified' : 'Failed';

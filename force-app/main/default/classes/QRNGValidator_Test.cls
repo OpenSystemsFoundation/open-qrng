@@ -77,18 +77,43 @@ private class QRNGValidator_Test {
     }
 
     @IsTest
-    static void testCalculateCHSH() {
+    static void testCalculateCHSHWithPairs() {
+        // Need at least 4 pairs (8 bits per bitstring) for valid CHSH
         List<String> bitstrings = new List<String>();
-        for (Integer i = 0; i < 100; i++) {
-            bitstrings.add(generateTestBits(4));
+        for (Integer i = 0; i < 200; i++) {
+            bitstrings.add(generateTestBits(8));
         }
-        Double sValue = QRNGValidator.calculateCHSH(bitstrings, 2);
+        Double sValue = QRNGValidator.calculateCHSH(bitstrings, 4);
         System.assert(sValue >= 0, 'S-value should be non-negative');
+        // Random classical data should give S ≤ 2 (with some noise)
+        System.assert(sValue <= 4.0, 'S-value should be at most 4.0');
     }
 
     @IsTest
     static void testCalculateCHSHEmpty() {
-        Double sValue = QRNGValidator.calculateCHSH(new List<String>(), 1);
+        Double sValue = QRNGValidator.calculateCHSH(new List<String>(), 4);
         System.assertEquals(0.0, sValue);
+    }
+
+    @IsTest
+    static void testCalculateCHSHTooFewPairs() {
+        // Less than 4 pairs returns 0 (can't do valid CHSH)
+        List<String> bitstrings = new List<String>{ '0101' };
+        Double sValue = QRNGValidator.calculateCHSH(bitstrings, 2);
+        System.assertEquals(0.0, sValue, 'Should return 0 for < 4 pairs');
+    }
+
+    @IsTest
+    static void testCalculateCHSHMeasurementMapping() {
+        // Verify |0⟩ → +1 and |1⟩ → -1 mapping
+        // All-zeros bitstring: every pair correlator should be +1*+1 = +1
+        List<String> bitstrings = new List<String>();
+        for (Integer i = 0; i < 100; i++) {
+            bitstrings.add('00000000');
+        }
+        Double sValue = QRNGValidator.calculateCHSH(bitstrings, 4);
+        // E(a,b) = +1, E(a,b') = +1, E(a',b) = +1, E(a',b') = +1
+        // S = |1 + 1 + 1 - 1| = 2
+        System.assertEquals(2.0, sValue, 'All-zeros should give S=2');
     }
 }

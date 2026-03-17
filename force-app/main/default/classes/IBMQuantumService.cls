@@ -411,6 +411,52 @@ public with sharing class IBMQuantumService {
     }
 
     /**
+     * Extract per-edge two-qubit gate error rates from backend properties.
+     * Returns Map of "q0-q1" → gate error probability for CZ/ECR gates.
+     * Used by selectBestPairs to weight entangling gate fidelity.
+     *
+     * Governor limits: 1 callout
+     */
+    public static Map<String, Double> getGateErrors(String backendName) {
+        Map<String, Object> props = getBackendProperties(backendName);
+        Map<String, Double> errors = new Map<String, Double>();
+
+        if (props.containsKey('gates')) {
+            List<Object> gates = (List<Object>) props.get('gates');
+            for (Object gObj : gates) {
+                Map<String, Object> gate = (Map<String, Object>) gObj;
+                String gateName = (String) gate.get('gate');
+                if (gateName == 'cz' || gateName == 'cx' || gateName == 'ecr') {
+                    List<Object> qubits = (List<Object>) gate.get('qubits');
+                    if (qubits != null && qubits.size() == 2) {
+                        Integer q0 = (Integer) qubits[0];
+                        Integer q1 = (Integer) qubits[1];
+                        String key = q0 + '-' + q1;
+
+                        // Extract gate error from parameters
+                        if (gate.containsKey('parameters')) {
+                            List<Object> params = (List<Object>) gate.get('parameters');
+                            for (Object pObj : params) {
+                                Map<String, Object> param = (Map<String, Object>) pObj;
+                                String paramName = (String) param.get('name');
+                                if (paramName == 'gate_error') {
+                                    Object val = param.get('value');
+                                    if (val != null) {
+                                        errors.put(key, (Double) val);
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return errors;
+    }
+
+    /**
      * Get backend configuration (coupling map, basis gates, max_shots).
      * Endpoint: GET /v1/backends/{backend}/configuration
      *
