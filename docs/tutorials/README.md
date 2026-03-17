@@ -2,6 +2,8 @@
 
 Step-by-step guides for Salesforce admins to implement quantum-certified fair randomization across industries. Each tutorial uses Flow Builder where possible and notes Apex alternatives for scale.
 
+> **New here?** Start with the [Generalized Pipeline](generalized-pipeline.md) guide to understand the end-to-end QRNG formula before diving into a domain-specific tutorial.
+
 ## Prerequisites
 
 Before following any tutorial, ensure:
