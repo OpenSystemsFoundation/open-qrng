@@ -32,8 +32,13 @@ public with sharing class QuantumProviderFactory {
 
         if (providerType == null) {
             throw new QRNGException(
-                'Unsupported quantum provider: ' + providerName +
-                '. Supported providers: ' + String.join(new List<String>(PROVIDER_REGISTRY.keySet()), ', ')
+                'Unsupported quantum provider: ' +
+                    providerName +
+                    '. Supported providers: ' +
+                    String.join(
+                        new List<String>(PROVIDER_REGISTRY.keySet()),
+                        ', '
+                    )
             );
         }
 

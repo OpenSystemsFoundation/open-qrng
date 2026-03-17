@@ -49,11 +49,7 @@ public class QRNGJobPollScheduler implements Schedulable {
             nextRun.month() +
             ' ? ' +
             nextRun.year();
-        String jobName =
-            'QRNGPoll_' +
-            jobRecordId +
-            '_' +
-            pollCount;
+        String jobName = 'QRNGPoll_' + jobRecordId + '_' + pollCount;
 
         System.schedule(
             jobName,

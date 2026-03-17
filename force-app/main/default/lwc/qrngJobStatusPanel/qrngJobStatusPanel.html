@@ -1,5 +1,8 @@
 <template>
-    <lightning-card title="Quantum Job Status" icon-name="standard:process">
+    <lightning-card
+        title="Quantum Job Status"
+        icon-name="standard:process"
+    >
         <div slot="actions">
             <lightning-button-group>
                 <lightning-button
@@ -29,10 +32,13 @@
                             <span class={statusBadgeClass}
                                 >{status}</span
                             >
-                            <template if:true={isInProgress}>
+                            <template
+                                if:true={isInProgress}
+                            >
                                 <span
                                     class="slds-m-left_small slds-text-body_small slds-text-color_weak pulse"
-                                    >Awaiting result...</span
+                                    >Awaiting
+                                    result...</span
                                 >
                             </template>
                         </div>
@@ -67,7 +73,9 @@
                 </div>
 
                 <!-- Job Details Grid -->
-                <div class="slds-grid slds-wrap slds-gutters">
+                <div
+                    class="slds-grid slds-wrap slds-gutters"
+                >
                     <div class="slds-col slds-size_1-of-2">
                         <dl class="slds-dl_horizontal">
                             <dt
@@ -136,10 +144,12 @@
                             <dd
                                 class="slds-dl_horizontal__detail"
                             >
-                                <template if:true={useBellTest}
+                                <template
+                                    if:true={useBellTest}
                                     >Yes</template
                                 >
-                                <template if:false={useBellTest}
+                                <template
+                                    if:false={useBellTest}
                                     >No</template
                                 >
                             </dd>
@@ -190,7 +200,9 @@
                         </p>
                     </div>
                     <template if:true={completedAt}>
-                        <div class="slds-col slds-size_1-of-2">
+                        <div
+                            class="slds-col slds-size_1-of-2"
+                        >
                             <p
                                 class="slds-text-body_small slds-text-color_weak"
                             >
@@ -210,7 +222,9 @@
                 </div>
 
                 <!-- Missing External Job ID Warning -->
-                <template if:true={missingExternalIdMessage}>
+                <template
+                    if:true={missingExternalIdMessage}
+                >
                     <div
                         class="slds-notify slds-notify_alert slds-alert_warning slds-m-top_medium"
                         role="alert"
@@ -252,7 +266,8 @@
                             size="small"
                         ></lightning-spinner>
                         <span class="slds-m-left_small"
-                            >Retrieving and processing results...</span
+                            >Retrieving and processing
+                            results...</span
                         >
                     </div>
                 </template>

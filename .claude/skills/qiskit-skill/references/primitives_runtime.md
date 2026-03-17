@@ -1,6 +1,7 @@
 # Primitives & Runtime Reference — Qiskit v2.3
 
 ## Table of Contents
+
 1. [Primitives Overview](#primitives-overview)
 2. [QiskitRuntimeService Setup](#qiskitruntimeservice-setup)
 3. [SamplerV2](#samplerv2)
@@ -17,17 +18,19 @@
 
 Qiskit provides two primitive types:
 
-| Primitive | Purpose | Input | Output |
-|-----------|---------|-------|--------|
-| **SamplerV2** | Sample circuit output distributions | Circuit + params + shots | Counts / bitstrings |
-| **EstimatorV2** | Compute expectation values | Circuit + observables + params + precision | Expectation values |
+| Primitive       | Purpose                             | Input                                      | Output              |
+| --------------- | ----------------------------------- | ------------------------------------------ | ------------------- |
+| **SamplerV2**   | Sample circuit output distributions | Circuit + params + shots                   | Counts / bitstrings |
+| **EstimatorV2** | Compute expectation values          | Circuit + observables + params + precision | Expectation values  |
 
 Three implementations:
+
 - **Qiskit Runtime** (`qiskit_ibm_runtime`): Cloud-based, runs on IBM QPUs with error mitigation.
 - **StatevectorSampler/Estimator** (`qiskit.primitives`): Local ideal simulation.
 - **BackendSamplerV2/EstimatorV2** (`qiskit.primitives`): Wrap any backend into primitive interface.
 
 Always import V2 explicitly:
+
 ```python
 from qiskit_ibm_runtime import SamplerV2 as Sampler
 from qiskit_ibm_runtime import EstimatorV2 as Estimator
@@ -116,6 +119,7 @@ print(pub_result.data.beta.get_counts())
 ### BitArray Results
 
 Results are returned as `BitArray` objects:
+
 ```python
 from qiskit.primitives.containers import BitArray
 
@@ -159,6 +163,7 @@ job = estimator.run([
 ```
 
 **Critical:** Always apply layout to observables before passing to Estimator:
+
 ```python
 isa_observable = observable.apply_layout(isa_circuit.layout)
 ```
@@ -188,14 +193,15 @@ print(op.num_qubits)
 
 ### PUB Format
 
-| Primitive | PUB Tuple |
-|-----------|-----------|
-| Sampler | `(circuit,)` or `(circuit, params)` or `(circuit, params, shots)` |
+| Primitive | PUB Tuple                                                                                                   |
+| --------- | ----------------------------------------------------------------------------------------------------------- |
+| Sampler   | `(circuit,)` or `(circuit, params)` or `(circuit, params, shots)`                                           |
 | Estimator | `(circuit, observables)` or `(circuit, observables, params)` or `(circuit, observables, params, precision)` |
 
 ### Parameter Broadcasting
 
 Parameters are NumPy arrays where rows are parameter sets:
+
 ```python
 import numpy as np
 # 5 different parameter sets, each with 2 parameters
@@ -253,11 +259,11 @@ sampler = Sampler(mode=backend, options={"default_shots": 4096})
 
 ### Resilience Levels (Estimator)
 
-| Level | Techniques |
-|-------|-----------|
-| 0 | No mitigation |
-| 1 | Measurement error mitigation (M3/TREX) |
-| 2 | Zero Noise Extrapolation (ZNE) + measurement mitigation |
+| Level | Techniques                                              |
+| ----- | ------------------------------------------------------- |
+| 0     | No mitigation                                           |
+| 1     | Measurement error mitigation (M3/TREX)                  |
+| 2     | Zero Noise Extrapolation (ZNE) + measurement mitigation |
 
 ## Sessions and Batches
 
@@ -294,6 +300,7 @@ result = job.result()
 ```
 
 For noisy simulation, use Qiskit Aer (`qiskit_aer`):
+
 ```python
 from qiskit_aer import AerSimulator
 from qiskit.primitives import BackendSamplerV2
@@ -313,9 +320,11 @@ sampler = Sampler(mode=backend)  # Runs locally with noise model
 ## Fractional Gates
 
 Experimental feature for backends that support fractional gates:
+
 ```python
 service = QiskitRuntimeService()
 backend = service.least_busy(use_fractional_gates=True)
 ```
+
 This changes the basis gate set to include fractional rotations, potentially
 reducing circuit depth.

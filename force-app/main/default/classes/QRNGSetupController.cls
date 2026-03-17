@@ -191,10 +191,7 @@ public with sharing class QRNGSetupController {
             }
 
             summary.put('backendName', backendName);
-            summary.put(
-                'lastUpdate',
-                (String) props.get('last_update_date')
-            );
+            summary.put('lastUpdate', (String) props.get('last_update_date'));
 
             return summary;
         } catch (Exception e) {
@@ -499,10 +496,7 @@ public with sharing class QRNGSetupController {
     public static Map<String, Object> refreshJobStatus(Id jobId) {
         try {
             Quantum_Job__c job = [
-                SELECT
-                    Id,
-                    External_Job_ID__c,
-                    Status__c
+                SELECT Id, External_Job_ID__c, Status__c
                 FROM Quantum_Job__c
                 WHERE Id = :jobId
                 LIMIT 1
@@ -590,9 +584,7 @@ public with sharing class QRNGSetupController {
             List<String> bitstrings = QRNGResultParser.parseSamplerResults(
                 resultsJson
             );
-            String rawBits = QRNGResultParser.concatenateBitstrings(
-                bitstrings
-            );
+            String rawBits = QRNGResultParser.concatenateBitstrings(bitstrings);
             String debiasedBits = QRNGResultParser.vonNeumannDebias(rawBits);
 
             // Update job
@@ -602,8 +594,7 @@ public with sharing class QRNGSetupController {
             job.Debiased_Results__c = debiasedBits.left(131072);
             if (job.Submitted_At__c != null) {
                 job.Execution_Time_ms__c =
-                    DateTime.now().getTime() -
-                    job.Submitted_At__c.getTime();
+                    DateTime.now().getTime() - job.Submitted_At__c.getTime();
             }
             update job;
 
@@ -636,11 +627,15 @@ public with sharing class QRNGSetupController {
     }
 
     private static String normalizeIBMStatus(String ibmStatus) {
-        if (ibmStatus == null) return 'Pending';
+        if (ibmStatus == null)
+            return 'Pending';
         String lower = ibmStatus.toLowerCase();
-        if (lower == 'completed' || lower == 'result_ready') return 'Completed';
-        if (lower == 'running') return 'Running';
-        if (lower == 'queued' || lower == 'pending_in_queue') return 'Queued';
+        if (lower == 'completed' || lower == 'result_ready')
+            return 'Completed';
+        if (lower == 'running')
+            return 'Running';
+        if (lower == 'queued' || lower == 'pending_in_queue')
+            return 'Queued';
         if (lower == 'failed' || lower == 'cancelled' || lower == 'canceled')
             return 'Failed';
         return 'Submitted';

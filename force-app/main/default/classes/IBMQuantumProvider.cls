@@ -31,7 +31,9 @@ public with sharing class IBMQuantumProvider implements QuantumProvider {
 
     public List<Map<String, Object>> listBackends() {
         String backendsJson = IBMQuantumService.getBackends();
-        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(backendsJson);
+        Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
+            backendsJson
+        );
 
         List<Map<String, Object>> backends = new List<Map<String, Object>>();
         List<Object> devices;
@@ -48,10 +50,20 @@ public with sharing class IBMQuantumProvider implements QuantumProvider {
             Map<String, Object> deviceMap = (Map<String, Object>) device;
             Map<String, Object> backendInfo = new Map<String, Object>();
             backendInfo.put('name', deviceMap.get('name'));
-            backendInfo.put('status', deviceMap.containsKey('status') ? deviceMap.get('status') : 'unknown');
-            backendInfo.put('qubits', deviceMap.containsKey('qubits')
-                ? deviceMap.get('qubits')
-                : (deviceMap.containsKey('num_qubits') ? deviceMap.get('num_qubits') : 0));
+            backendInfo.put(
+                'status',
+                deviceMap.containsKey('status')
+                    ? deviceMap.get('status')
+                    : 'unknown'
+            );
+            backendInfo.put(
+                'qubits',
+                deviceMap.containsKey('qubits')
+                    ? deviceMap.get('qubits')
+                    : (deviceMap.containsKey('num_qubits')
+                          ? deviceMap.get('num_qubits')
+                          : 0)
+            );
             backends.add(backendInfo);
         }
 

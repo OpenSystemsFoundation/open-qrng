@@ -1,6 +1,7 @@
 # OpenQASM 3 Reference — Qiskit v2.3
 
 ## Table of Contents
+
 1. [Overview](#overview)
 2. [Qiskit qasm3 Module API](#qiskit-qasm3-module-api)
 3. [OpenQASM 3 Language Reference](#openqasm-3-language-reference)
@@ -47,6 +48,7 @@ with open("circuit.qasm3", "w") as f:
 ```
 
 **Output example:**
+
 ```
 OPENQASM 3.0;
 include "stdgates.inc";
@@ -130,6 +132,7 @@ qc = loads(prog, num_qubits=127)
 ```
 
 **Parameters:**
+
 - `num_qubits` — physical qubit count for programs using `$N` addressing
 - `annotation_handlers` — dict mapping namespaces to `OpenQASM3Serializer` objects
   (new in Qiskit v2.1, requires `qiskit_qasm3_import>=0.6.0`)
@@ -477,22 +480,22 @@ Key changes from 3.0 → 3.1 (live spec):
 
 Summary of Qiskit SDK support for OpenQASM 3 features (as of Qiskit v2.3, July 2025):
 
-| Feature | Parse (import) | Export (dump) | Hardware (Runtime) |
-|---|---|---|---|
-| Basic gates (stdgates.inc) | Yes | Yes | Yes |
-| Custom gate definitions | Yes | Yes | Via transpile |
-| Gate modifiers (ctrl@, inv@, pow@, negctrl@) | Eager eval | Yes | Via transpile |
-| Classical control flow (if/else, while, for, switch) | Yes | Yes | Yes (dynamic circuits) |
-| break/continue | Partial | Partial | No |
-| Nested control flow | Yes | Yes | No |
-| Classical types (bit, int, uint, float, bool) | Limited | Yes | Partial |
-| Input parameters | Yes | Yes | Yes |
-| Output parameters | Yes | Yes | Yes |
-| Register aliasing (let) | Yes (concat) | Yes | Discouraged |
-| Duration/stretch | No | Yes | Limited |
-| Subroutines (def) | No | Yes | No |
-| Annotations | Yes (v0.6.0+) | Yes (v2.1+) | No |
-| Physical qubits ($N) | Yes | Yes (after transpile) | Yes |
+| Feature                                              | Parse (import) | Export (dump)         | Hardware (Runtime)     |
+| ---------------------------------------------------- | -------------- | --------------------- | ---------------------- |
+| Basic gates (stdgates.inc)                           | Yes            | Yes                   | Yes                    |
+| Custom gate definitions                              | Yes            | Yes                   | Via transpile          |
+| Gate modifiers (ctrl@, inv@, pow@, negctrl@)         | Eager eval     | Yes                   | Via transpile          |
+| Classical control flow (if/else, while, for, switch) | Yes            | Yes                   | Yes (dynamic circuits) |
+| break/continue                                       | Partial        | Partial               | No                     |
+| Nested control flow                                  | Yes            | Yes                   | No                     |
+| Classical types (bit, int, uint, float, bool)        | Limited        | Yes                   | Partial                |
+| Input parameters                                     | Yes            | Yes                   | Yes                    |
+| Output parameters                                    | Yes            | Yes                   | Yes                    |
+| Register aliasing (let)                              | Yes (concat)   | Yes                   | Discouraged            |
+| Duration/stretch                                     | No             | Yes                   | Limited                |
+| Subroutines (def)                                    | No             | Yes                   | No                     |
+| Annotations                                          | Yes (v0.6.0+)  | Yes (v2.1+)           | No                     |
+| Physical qubits ($N)                                 | Yes            | Yes (after transpile) | Yes                    |
 
 **Key limitation:** `qiskit_qasm3_import` v0.6.0 does not support parsing variable
 declarations, duration/stretch types, or subroutine definitions. Most Qiskit users
@@ -502,15 +505,15 @@ build circuits in Python and never need to parse QASM 3 files directly.
 
 ## Serialization Comparison
 
-| | QPY (`qiskit.qpy`) | OpenQASM 3 (`qiskit.qasm3`) |
-|---|---|---|
-| **Format** | Binary | Text |
-| **Lossless** | Yes | Mostly |
-| **Use case** | Save/load Qiskit circuits | Interop / dynamic circuits / sharing |
-| **Control flow** | Yes | Yes |
-| **Parameters** | Yes (native) | Yes |
-| **Cross-platform** | Qiskit only | Universal |
-| **Performance** | Fast | Moderate |
+|                    | QPY (`qiskit.qpy`)        | OpenQASM 3 (`qiskit.qasm3`)          |
+| ------------------ | ------------------------- | ------------------------------------ |
+| **Format**         | Binary                    | Text                                 |
+| **Lossless**       | Yes                       | Mostly                               |
+| **Use case**       | Save/load Qiskit circuits | Interop / dynamic circuits / sharing |
+| **Control flow**   | Yes                       | Yes                                  |
+| **Parameters**     | Yes (native)              | Yes                                  |
+| **Cross-platform** | Qiskit only               | Universal                            |
+| **Performance**    | Fast                      | Moderate                             |
 
 **Recommendation:** Use QPY for saving/loading Qiskit circuits. Use OpenQASM 3 for
 sharing with non-Qiskit tools or submitting to hardware compilers.
@@ -586,7 +589,7 @@ except qasm3.QASM3ExporterError as e:
   subroutines are export-only as of Qiskit v2.3
 - **Gate modifiers are eagerly evaluated on import**: `inv @ s` becomes `Sdg` in the
   resulting `QuantumCircuit` — the modifier structure is not preserved
-- **Use `**` not `pow()`**: The `pow` function was removed in OpenQASM 3.1
+- **Use `**`not`pow()`**: The `pow` function was removed in OpenQASM 3.1
 - **Transpile before hardware execution**: Gate modifiers, custom gates, and non-ISA
   instructions must be resolved via transpilation
 - **Use QPY, not QASM, for lossless Qiskit serialization**

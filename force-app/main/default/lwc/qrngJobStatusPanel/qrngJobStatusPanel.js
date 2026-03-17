@@ -67,8 +67,7 @@ export default class QrngJobStatusPanel extends LightningElement {
                 COMPLETE_CHANNEL,
                 -1,
                 (message) => {
-                    const eventJobId =
-                        message.data.payload.OpenSF__Job_Id__c;
+                    const eventJobId = message.data.payload.OpenSF__Job_Id__c;
                     if (eventJobId === this.recordId) {
                         refreshApex(this._wiredRecord);
                         this.dispatchEvent(
@@ -86,8 +85,7 @@ export default class QrngJobStatusPanel extends LightningElement {
                 FAILED_CHANNEL,
                 -1,
                 (message) => {
-                    const eventJobId =
-                        message.data.payload.OpenSF__Job_Id__c;
+                    const eventJobId = message.data.payload.OpenSF__Job_Id__c;
                     if (eventJobId === this.recordId) {
                         refreshApex(this._wiredRecord);
                         this.dispatchEvent(
@@ -126,8 +124,7 @@ export default class QrngJobStatusPanel extends LightningElement {
     }
     get externalJobId() {
         return (
-            getFieldValue(this._wiredRecord?.data, EXTERNAL_JOB_ID_FIELD) ||
-            '—'
+            getFieldValue(this._wiredRecord?.data, EXTERNAL_JOB_ID_FIELD) || '—'
         );
     }
     get backend() {
@@ -146,9 +143,7 @@ export default class QrngJobStatusPanel extends LightningElement {
         return getFieldValue(this._wiredRecord?.data, PURPOSE_FIELD) || '';
     }
     get useBellTest() {
-        return (
-            getFieldValue(this._wiredRecord?.data, BELL_TEST_FIELD) || false
-        );
+        return getFieldValue(this._wiredRecord?.data, BELL_TEST_FIELD) || false;
     }
     get submittedAt() {
         return getFieldValue(this._wiredRecord?.data, SUBMITTED_FIELD);

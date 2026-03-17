@@ -1,6 +1,7 @@
 # Circuits Reference — Qiskit v2.3
 
 ## Table of Contents
+
 1. [QuantumCircuit Construction](#quantumcircuit-construction)
 2. [Registers](#registers)
 3. [Standard Gates](#standard-gates)
@@ -73,6 +74,7 @@ Non-unitary: `measure(qubit, cbit)`, `measure_all()`, `reset(qubit)`, `barrier()
 Usage: `qc.h(0)`, `qc.cx(0, 1)`, `qc.rz(3.14, 0)`, `qc.measure(0, 0)`
 
 Append arbitrary gates:
+
 ```python
 from qiskit.circuit.library import HGate
 qc.append(HGate(), [0])
@@ -85,16 +87,19 @@ qc.append(HGate(), [0])
 **Standard gates** (as Gate objects): `HGate`, `XGate`, `CXGate`, `RZGate`, etc.
 
 **Parameterized circuits / Ansatze:**
+
 - `EfficientSU2(num_qubits, reps)` — hardware-efficient ansatz
 - `TwoLocal(num_qubits, rotation_blocks, entanglement_blocks)`
 - `RealAmplitudes(num_qubits)`
 - `ExcitationPreserving(num_qubits)`
 
 **Feature maps:**
+
 - `zz_feature_map(num_qubits)` — ZZ feature map (returns Gate)
 - `z_feature_map(num_qubits)` — Z feature map (returns Gate)
 
 **Quantum operations:**
+
 - `PauliEvolutionGate(operator, time)` — time evolution under Pauli Hamiltonian
 - `QFT(num_qubits)` — Quantum Fourier Transform
 - `UnitaryGate(matrix)` — arbitrary unitary
@@ -128,6 +133,7 @@ bound = qc.assign_parameters([1.57])
 ```
 
 For primitives, pass parameter values in PUBs rather than binding beforehand:
+
 ```python
 import numpy as np
 param_values = np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])
@@ -177,6 +183,7 @@ with qc.for_loop(range(5)):
 ```
 
 Classical expressions (`qiskit.circuit.classical.expr`):
+
 ```python
 from qiskit.circuit.classical import expr
 with qc.if_test(expr.equal(cr, 3)):

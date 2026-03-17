@@ -240,9 +240,10 @@ public with sharing class IBMQuantumService {
 
         HttpRequest req = new HttpRequest();
         req.setEndpoint(
-            BASE_URL + '/v1/backends/' +
-            EncodingUtil.urlEncode(backendName, 'UTF-8') +
-            '/properties'
+            BASE_URL +
+                '/v1/backends/' +
+                EncodingUtil.urlEncode(backendName, 'UTF-8') +
+                '/properties'
         );
         req.setMethod('GET');
         req.setHeader('Authorization', 'Bearer ' + token);
@@ -281,9 +282,10 @@ public with sharing class IBMQuantumService {
 
         HttpRequest req = new HttpRequest();
         req.setEndpoint(
-            BASE_URL + '/v1/backends/' +
-            EncodingUtil.urlEncode(backendName, 'UTF-8') +
-            '/configuration'
+            BASE_URL +
+                '/v1/backends/' +
+                EncodingUtil.urlEncode(backendName, 'UTF-8') +
+                '/configuration'
         );
         req.setMethod('GET');
         req.setHeader('Authorization', 'Bearer ' + token);

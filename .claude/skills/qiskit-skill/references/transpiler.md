@@ -1,6 +1,7 @@
 # Transpiler Reference — Qiskit v2.3
 
 ## Table of Contents
+
 1. [Overview](#overview)
 2. [generate_preset_pass_manager](#generate_preset_pass_manager)
 3. [Optimization Levels](#optimization-levels)
@@ -17,6 +18,7 @@ Transpilation converts abstract quantum circuits into ISA (Instruction Set Archi
 circuits that respect the hardware's basis gates, coupling map, and timing constraints.
 
 Two main entry points:
+
 ```python
 # Preferred: generate a reusable pass manager
 from qiskit.transpiler import generate_preset_pass_manager
@@ -58,12 +60,12 @@ Returns a `StagedPassManager` that can be reused: `pm.run(circuit)` or `pm.run([
 
 ## Optimization Levels
 
-| Level | Description |
-|-------|-------------|
-| 0 | No optimization. Maps to backend constraints only. Good for device characterization. |
-| 1 | Light optimization. Adjacent gate collapsing, layout search with VF2Layout + SabreLayout fallback. |
-| 2 | Medium optimization (default). More aggressive gate cancellation, VF2Layout/VF2PostLayout, peephole optimization. |
-| 3 | Maximum optimization. Full VF2PostLayout re-evaluation with strict_direction=True, unitarity-based resynthesis, gate commutativity exploited. Longer compile times. |
+| Level | Description                                                                                                                                                         |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | No optimization. Maps to backend constraints only. Good for device characterization.                                                                                |
+| 1     | Light optimization. Adjacent gate collapsing, layout search with VF2Layout + SabreLayout fallback.                                                                  |
+| 2     | Medium optimization (default). More aggressive gate cancellation, VF2Layout/VF2PostLayout, peephole optimization.                                                   |
+| 3     | Maximum optimization. Full VF2PostLayout re-evaluation with strict_direction=True, unitarity-based resynthesis, gate commutativity exploited. Longer compile times. |
 
 ## Transpiler Stages
 
@@ -71,17 +73,17 @@ The six-stage pipeline:
 
 1. **init** — Unrolls custom instructions, converts to 1- and 2-qubit gates, initial cleanup.
 2. **layout** — Maps virtual qubits to physical qubits.
-   - `VF2Layout`: tries exact subgraph isomorphism (no swaps needed).
-   - `SabreLayout`: heuristic fallback.
-   - `TrivialLayout`: i-th virtual → i-th physical.
-   - `DenseLayout`: maps to most connected subgraph.
+    - `VF2Layout`: tries exact subgraph isomorphism (no swaps needed).
+    - `SabreLayout`: heuristic fallback.
+    - `TrivialLayout`: i-th virtual → i-th physical.
+    - `DenseLayout`: maps to most connected subgraph.
 3. **routing** — Inserts SWAPs to satisfy coupling constraints.
-   - `SabreSwap`: default, heuristic.
-   - `StochasticSwap`: randomized.
-   - `BasicSwap`: simple greedy.
+    - `SabreSwap`: default, heuristic.
+    - `StochasticSwap`: randomized.
+    - `BasicSwap`: simple greedy.
 4. **translation** — Converts to basis gates of the target.
 5. **optimization** — Gate cancellation, commutation analysis, resynthesis.
-   - `VF2PostLayout` re-runs at level 3 after optimization.
+    - `VF2PostLayout` re-runs at level 3 after optimization.
 6. **scheduling** — Inserts delays/timing. `alap` (as late as possible) or `asap`.
 
 ## Custom Pass Managers
@@ -116,11 +118,13 @@ print(target.qargs)
 ## ISA Circuits
 
 After transpilation, a circuit is "ISA-compatible":
+
 - Only uses basis gates supported by the backend.
 - Respects coupling map (2-qubit gates only on connected pairs).
 - Virtual qubits mapped to physical qubits.
 
 The layout is stored in `isa_circuit.layout` as a `TranspileLayout`:
+
 ```python
 layout = isa_circuit.layout
 # Get the routing permutation

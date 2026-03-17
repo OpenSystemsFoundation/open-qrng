@@ -1,17 +1,17 @@
 ---
 name: qiskit-skill
 description: >
-  Write, debug, optimize, and explain quantum computing code using Qiskit SDK v2.3 and
-  qiskit-ibm-runtime. Triggers on any mention of Qiskit, quantum circuits, quantum computing
-  with Python, IBM Quantum, quantum gates, transpilation, quantum primitives (Sampler/Estimator),
-  SparsePauliOp, QuantumCircuit, or running circuits on IBM quantum hardware. Use when the user
-  wants to: (1) build or modify quantum circuits, (2) transpile circuits for hardware,
-  (3) run circuits via Qiskit Runtime primitives (EstimatorV2/SamplerV2), (4) simulate locally
-  with StatevectorEstimator/StatevectorSampler, (5) use error mitigation/suppression,
-  (6) work with quantum information (operators, states), (7) serialize circuits (QASM2/3, QPY),
-  or (8) understand Qiskit concepts and APIs. Also triggers on VQE, QAOA, Grover, quantum
-  entanglement code, Bell state, GHZ state, any IBM Quantum Platform task, OpenQASM, QASM,
-  qasm2, qasm3, OpenQASM 3 syntax, stdgates.inc, QASM export/import, or QPY serialization.
+    Write, debug, optimize, and explain quantum computing code using Qiskit SDK v2.3 and
+    qiskit-ibm-runtime. Triggers on any mention of Qiskit, quantum circuits, quantum computing
+    with Python, IBM Quantum, quantum gates, transpilation, quantum primitives (Sampler/Estimator),
+    SparsePauliOp, QuantumCircuit, or running circuits on IBM quantum hardware. Use when the user
+    wants to: (1) build or modify quantum circuits, (2) transpile circuits for hardware,
+    (3) run circuits via Qiskit Runtime primitives (EstimatorV2/SamplerV2), (4) simulate locally
+    with StatevectorEstimator/StatevectorSampler, (5) use error mitigation/suppression,
+    (6) work with quantum information (operators, states), (7) serialize circuits (QASM2/3, QPY),
+    or (8) understand Qiskit concepts and APIs. Also triggers on VQE, QAOA, Grover, quantum
+    entanglement code, Bell state, GHZ state, any IBM Quantum Platform task, OpenQASM, QASM,
+    qasm2, qasm3, OpenQASM 3 syntax, stdgates.inc, QASM export/import, or QPY serialization.
 ---
 
 # Qiskit SDK v2.3 Skill
@@ -52,6 +52,7 @@ Key methods: `qc.h()`, `qc.x()`, `qc.cx()`, `qc.rz()`, `qc.measure()`, `qc.barri
 `qc.append(gate, qubits)`, `qc.compose(other_circuit)`.
 
 Parametric circuits:
+
 ```python
 from qiskit.circuit import Parameter
 theta = Parameter("θ")
@@ -80,6 +81,7 @@ isa_circuit = pm.run(qc)
 Two V2 primitives in `qiskit-ibm-runtime`:
 
 **SamplerV2** — samples output distributions:
+
 ```python
 from qiskit_ibm_runtime import QiskitRuntimeService, SamplerV2 as Sampler
 
@@ -92,6 +94,7 @@ counts = result[0].data.meas.get_counts()
 ```
 
 **EstimatorV2** — computes expectation values:
+
 ```python
 from qiskit_ibm_runtime import EstimatorV2 as Estimator
 from qiskit.quantum_info import SparsePauliOp
@@ -104,6 +107,7 @@ exp_val = result[0].data.evs
 ```
 
 PUB (Primitive Unified Bloc) format:
+
 - Sampler: `(circuit, parameter_values?, shots?)`
 - Estimator: `(circuit, observables, parameter_values?, precision?)`
 
@@ -129,18 +133,18 @@ sampler.options.dynamical_decoupling.sequence_type = "XpXm"
 
 ## Key Modules
 
-| Module | Purpose |
-|---|---|
-| `qiskit.circuit` | QuantumCircuit, gates, parameters |
-| `qiskit.circuit.library` | Standard gates, ansatze, feature maps |
-| `qiskit.quantum_info` | SparsePauliOp, Statevector, Operator, DensityMatrix |
-| `qiskit.transpiler` | generate_preset_pass_manager, transpile, passes |
-| `qiskit.primitives` | StatevectorSampler, StatevectorEstimator (local sim) |
-| `qiskit.synthesis` | Circuit synthesis routines |
-| `qiskit.qasm3` | OpenQASM 3 import/export (load/loads/dump/dumps/Exporter; import requires `pip install qiskit[qasm3-import]`) |
-| `qiskit.qpy` | Binary circuit serialization |
-| `qiskit.visualization` | plot_histogram, plot_bloch_multivector, circuit drawing |
-| `qiskit.providers.fake_provider` | GenericBackendV2 for testing |
+| Module                           | Purpose                                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `qiskit.circuit`                 | QuantumCircuit, gates, parameters                                                                             |
+| `qiskit.circuit.library`         | Standard gates, ansatze, feature maps                                                                         |
+| `qiskit.quantum_info`            | SparsePauliOp, Statevector, Operator, DensityMatrix                                                           |
+| `qiskit.transpiler`              | generate_preset_pass_manager, transpile, passes                                                               |
+| `qiskit.primitives`              | StatevectorSampler, StatevectorEstimator (local sim)                                                          |
+| `qiskit.synthesis`               | Circuit synthesis routines                                                                                    |
+| `qiskit.qasm3`                   | OpenQASM 3 import/export (load/loads/dump/dumps/Exporter; import requires `pip install qiskit[qasm3-import]`) |
+| `qiskit.qpy`                     | Binary circuit serialization                                                                                  |
+| `qiskit.visualization`           | plot_histogram, plot_bloch_multivector, circuit drawing                                                       |
+| `qiskit.providers.fake_provider` | GenericBackendV2 for testing                                                                                  |
 
 ## Reference Files
 

@@ -3,7 +3,8 @@
     <apiVersion>66.0</apiVersion>
     <isExposed>true</isExposed>
     <masterLabel>Quantum Job Status Panel</masterLabel>
-    <description>Real-time job status monitor with refresh and retrieve controls for Quantum Job records.</description>
+    <description
+    >Real-time job status monitor with refresh and retrieve controls for Quantum Job records.</description>
     <targets>
         <target>lightning__RecordPage</target>
     </targets>
