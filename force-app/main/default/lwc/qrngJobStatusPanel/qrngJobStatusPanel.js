@@ -40,8 +40,7 @@ export default class QrngJobStatusPanel extends LightningElement {
             if (cert) {
                 this.certificateId = cert.Id;
             }
-        } catch (e) {
-            // eslint-disable-line no-unused-vars
+        } catch {
             // Certificate may not exist yet
         }
     }
