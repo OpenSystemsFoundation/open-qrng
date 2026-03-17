@@ -1,0 +1,21 @@
+:host {
+    display: block;
+}
+
+.slds-dl_horizontal__label {
+    width: 120px;
+}
+
+.pulse {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}

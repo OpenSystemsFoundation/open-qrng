@@ -28,7 +28,7 @@ function flushPromises() {
 const MOCK_CERTIFICATE = {
     Id: 'a01xx000001234',
     Name: 'CERT-0001',
-    IBM_Job_ID__c: 'job_abc123',
+    External_Job_ID__c: 'job_abc123',
     Backend__c: 'ibm_kingston',
     Status__c: 'Certified',
     Raw_Bitstring_Hash__c:

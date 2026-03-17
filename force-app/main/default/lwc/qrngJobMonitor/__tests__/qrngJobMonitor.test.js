@@ -36,7 +36,7 @@ function flushPromises() {
 const MOCK_JOB_RUNNING = {
     Id: '001xx000003DGb1',
     Name: 'QJ-0001',
-    IBM_Job_ID__c: 'job123',
+    External_Job_ID__c: 'job123',
     Backend__c: 'ibm_kingston',
     Status__c: 'Running',
     Num_Qubits__c: 8,

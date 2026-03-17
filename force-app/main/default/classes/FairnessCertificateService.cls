@@ -14,7 +14,7 @@ public with sharing class FairnessCertificateService {
         Quantum_Job__c job = [
             SELECT
                 Id,
-                IBM_Job_ID__c,
+                External_Job_ID__c,
                 Backend__c,
                 Circuit_QASM__c,
                 Raw_Results__c,
@@ -29,7 +29,7 @@ public with sharing class FairnessCertificateService {
 
         Fairness_Certificate__c cert = new Fairness_Certificate__c(
             Quantum_Job__c = job.Id,
-            IBM_Job_ID__c = job.IBM_Job_ID__c,
+            External_Job_ID__c = job.External_Job_ID__c,
             Backend__c = job.Backend__c,
             Circuit_QASM__c = job.Circuit_QASM__c,
             Raw_Bitstring_Hash__c = computeSHA256(

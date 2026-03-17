@@ -22,7 +22,7 @@ const MOCK_AUDIT_DATA = [
     {
         Id: 'a01xx000001',
         Name: 'CERT-0001',
-        IBM_Job_ID__c: 'job_abc123',
+        External_Job_ID__c: 'job_abc123',
         Backend__c: 'ibm_kingston',
         Status__c: 'Certified',
         Purpose__c: 'Lead assignment',
@@ -32,7 +32,7 @@ const MOCK_AUDIT_DATA = [
     {
         Id: 'a01xx000002',
         Name: 'CERT-0002',
-        IBM_Job_ID__c: 'job_def456',
+        External_Job_ID__c: 'job_def456',
         Backend__c: 'ibm_kingston',
         Status__c: 'Failed',
         Purpose__c: 'Audit sampling',

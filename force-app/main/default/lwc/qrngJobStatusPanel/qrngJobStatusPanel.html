@@ -1,0 +1,269 @@
+<template>
+    <lightning-card title="Quantum Job Status" icon-name="standard:process">
+        <div slot="actions">
+            <lightning-button-group>
+                <lightning-button
+                    label="Refresh Status"
+                    icon-name="utility:refresh"
+                    onclick={handleRefreshStatus}
+                    disabled={disableRefresh}
+                ></lightning-button>
+                <lightning-button
+                    label="Retrieve Results"
+                    icon-name="utility:download"
+                    variant="brand"
+                    onclick={handleRetrieveResults}
+                    disabled={disableRetrieve}
+                ></lightning-button>
+            </lightning-button-group>
+        </div>
+
+        <div class="slds-p-around_medium">
+            <template if:true={hasRecord}>
+                <!-- Status Badge + Progress -->
+                <div class="slds-m-bottom_medium">
+                    <div
+                        class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_small"
+                    >
+                        <div>
+                            <span class={statusBadgeClass}
+                                >{status}</span
+                            >
+                            <template if:true={isInProgress}>
+                                <span
+                                    class="slds-m-left_small slds-text-body_small slds-text-color_weak pulse"
+                                    >Awaiting result...</span
+                                >
+                            </template>
+                        </div>
+                        <div
+                            class="slds-text-body_small slds-text-color_weak"
+                        >
+                            Poll count: {pollCount}
+                        </div>
+                    </div>
+
+                    <lightning-progress-indicator
+                        current-step={currentStep}
+                        type="path"
+                    >
+                        <lightning-progress-step
+                            label="Submitted"
+                            value="Submitted"
+                        ></lightning-progress-step>
+                        <lightning-progress-step
+                            label="Queued"
+                            value="Queued"
+                        ></lightning-progress-step>
+                        <lightning-progress-step
+                            label="Running"
+                            value="Running"
+                        ></lightning-progress-step>
+                        <lightning-progress-step
+                            label="Completed"
+                            value="Completed"
+                        ></lightning-progress-step>
+                    </lightning-progress-indicator>
+                </div>
+
+                <!-- Job Details Grid -->
+                <div class="slds-grid slds-wrap slds-gutters">
+                    <div class="slds-col slds-size_1-of-2">
+                        <dl class="slds-dl_horizontal">
+                            <dt
+                                class="slds-dl_horizontal__label slds-text-color_weak"
+                            >
+                                External Job ID
+                            </dt>
+                            <dd
+                                class="slds-dl_horizontal__detail slds-truncate"
+                            >
+                                {externalJobId}
+                            </dd>
+
+                            <dt
+                                class="slds-dl_horizontal__label slds-text-color_weak"
+                            >
+                                Provider
+                            </dt>
+                            <dd
+                                class="slds-dl_horizontal__detail"
+                            >
+                                {provider}
+                            </dd>
+
+                            <dt
+                                class="slds-dl_horizontal__label slds-text-color_weak"
+                            >
+                                Backend
+                            </dt>
+                            <dd
+                                class="slds-dl_horizontal__detail"
+                            >
+                                {backend}
+                            </dd>
+
+                            <dt
+                                class="slds-dl_horizontal__label slds-text-color_weak"
+                            >
+                                Qubits
+                            </dt>
+                            <dd
+                                class="slds-dl_horizontal__detail"
+                            >
+                                {numQubits}
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2">
+                        <dl class="slds-dl_horizontal">
+                            <dt
+                                class="slds-dl_horizontal__label slds-text-color_weak"
+                            >
+                                Shots
+                            </dt>
+                            <dd
+                                class="slds-dl_horizontal__detail"
+                            >
+                                {shots}
+                            </dd>
+
+                            <dt
+                                class="slds-dl_horizontal__label slds-text-color_weak"
+                            >
+                                Bell Test
+                            </dt>
+                            <dd
+                                class="slds-dl_horizontal__detail"
+                            >
+                                <template if:true={useBellTest}
+                                    >Yes</template
+                                >
+                                <template if:false={useBellTest}
+                                    >No</template
+                                >
+                            </dd>
+
+                            <dt
+                                class="slds-dl_horizontal__label slds-text-color_weak"
+                            >
+                                Execution Time
+                            </dt>
+                            <dd
+                                class="slds-dl_horizontal__detail"
+                            >
+                                {executionTime}
+                            </dd>
+
+                            <dt
+                                class="slds-dl_horizontal__label slds-text-color_weak"
+                            >
+                                Purpose
+                            </dt>
+                            <dd
+                                class="slds-dl_horizontal__detail"
+                            >
+                                {purpose}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+
+                <!-- Timestamps -->
+                <div
+                    class="slds-grid slds-wrap slds-gutters slds-m-top_small"
+                >
+                    <div class="slds-col slds-size_1-of-2">
+                        <p
+                            class="slds-text-body_small slds-text-color_weak"
+                        >
+                            Submitted:
+                            <lightning-formatted-date-time
+                                value={submittedAt}
+                                year="numeric"
+                                month="short"
+                                day="2-digit"
+                                hour="2-digit"
+                                minute="2-digit"
+                                second="2-digit"
+                            ></lightning-formatted-date-time>
+                        </p>
+                    </div>
+                    <template if:true={completedAt}>
+                        <div class="slds-col slds-size_1-of-2">
+                            <p
+                                class="slds-text-body_small slds-text-color_weak"
+                            >
+                                Completed:
+                                <lightning-formatted-date-time
+                                    value={completedAt}
+                                    year="numeric"
+                                    month="short"
+                                    day="2-digit"
+                                    hour="2-digit"
+                                    minute="2-digit"
+                                    second="2-digit"
+                                ></lightning-formatted-date-time>
+                            </p>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Missing External Job ID Warning -->
+                <template if:true={missingExternalIdMessage}>
+                    <div
+                        class="slds-notify slds-notify_alert slds-alert_warning slds-m-top_medium"
+                        role="alert"
+                    >
+                        <h2>{missingExternalIdMessage}</h2>
+                    </div>
+                </template>
+
+                <!-- Error Message -->
+                <template if:true={errorMessage}>
+                    <div
+                        class="slds-notify slds-notify_alert slds-alert_error slds-m-top_medium"
+                        role="alert"
+                    >
+                        <h2>{errorMessage}</h2>
+                    </div>
+                </template>
+
+                <!-- Loading indicators -->
+                <template if:true={isRefreshing}>
+                    <div
+                        class="slds-align_absolute-center slds-m-top_medium"
+                    >
+                        <lightning-spinner
+                            alternative-text="Refreshing status..."
+                            size="small"
+                        ></lightning-spinner>
+                        <span class="slds-m-left_small"
+                            >Checking IBM Quantum...</span
+                        >
+                    </div>
+                </template>
+                <template if:true={isRetrieving}>
+                    <div
+                        class="slds-align_absolute-center slds-m-top_medium"
+                    >
+                        <lightning-spinner
+                            alternative-text="Retrieving results..."
+                            size="small"
+                        ></lightning-spinner>
+                        <span class="slds-m-left_small"
+                            >Retrieving and processing results...</span
+                        >
+                    </div>
+                </template>
+            </template>
+
+            <template if:false={hasRecord}>
+                <lightning-spinner
+                    alternative-text="Loading..."
+                    size="medium"
+                ></lightning-spinner>
+            </template>
+        </div>
+    </lightning-card>
+</template>

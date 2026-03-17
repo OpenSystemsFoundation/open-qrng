@@ -7,6 +7,15 @@
  */
 public with sharing class IBMQuantumService {
     private static final String BASE_URL = 'https://quantum.cloud.ibm.com/api';
+    private static final String IBM_API_VERSION = '2025-11-01';
+
+    /**
+     * Get the Instance CRN from settings.
+     */
+    private static String getInstanceCRN() {
+        QRNG_Settings__c settings = QRNG_Settings__c.getInstance();
+        return settings != null ? settings.Instance_CRN__c : null;
+    }
 
     /**
      * Submit a QRNG job to IBM Quantum Runtime.
@@ -51,7 +60,8 @@ public with sharing class IBMQuantumService {
 
         // DML after callout succeeds
         Quantum_Job__c job = new Quantum_Job__c(
-            IBM_Job_ID__c = ibmJobId,
+            External_Job_ID__c = ibmJobId,
+            Provider__c = 'ibm',
             Backend__c = backend,
             Status__c = 'Submitted',
             Circuit_QASM__c = openqasm,
@@ -96,11 +106,20 @@ public with sharing class IBMQuantumService {
         params.put('version', 2);
         body.put('params', params);
 
+        String instanceCRN = getInstanceCRN();
+        if (String.isBlank(instanceCRN)) {
+            throw new QRNGException(
+                'Instance CRN not configured. Please set it in the Setup tab.'
+            );
+        }
+
         HttpRequest req = new HttpRequest();
         req.setEndpoint(BASE_URL + '/v1/jobs');
         req.setMethod('POST');
         req.setHeader('Authorization', 'Bearer ' + token);
         req.setHeader('Content-Type', 'application/json');
+        req.setHeader('Service-CRN', instanceCRN);
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
         req.setBody(JSON.serialize(body));
         req.setTimeout(60000);
 
@@ -127,11 +146,16 @@ public with sharing class IBMQuantumService {
      */
     public static Map<String, Object> getJobStatus(String ibmJobId) {
         String token = IBMQuantumAuth.getAccessToken();
+        String instanceCRN = getInstanceCRN();
 
         HttpRequest req = new HttpRequest();
         req.setEndpoint(BASE_URL + '/v1/jobs/' + ibmJobId);
         req.setMethod('GET');
         req.setHeader('Authorization', 'Bearer ' + token);
+        if (String.isNotBlank(instanceCRN)) {
+            req.setHeader('Service-CRN', instanceCRN);
+        }
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
         req.setTimeout(30000);
 
         Http http = new Http();
@@ -151,11 +175,16 @@ public with sharing class IBMQuantumService {
      */
     public static String getJobResults(String ibmJobId) {
         String token = IBMQuantumAuth.getAccessToken();
+        String instanceCRN = getInstanceCRN();
 
         HttpRequest req = new HttpRequest();
         req.setEndpoint(BASE_URL + '/v1/jobs/' + ibmJobId + '/results');
         req.setMethod('GET');
         req.setHeader('Authorization', 'Bearer ' + token);
+        if (String.isNotBlank(instanceCRN)) {
+            req.setHeader('Service-CRN', instanceCRN);
+        }
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
         req.setTimeout(60000);
 
         Http http = new Http();
@@ -175,11 +204,16 @@ public with sharing class IBMQuantumService {
      */
     public static String getBackends() {
         String token = IBMQuantumAuth.getAccessToken();
+        String instanceCRN = getInstanceCRN();
 
         HttpRequest req = new HttpRequest();
         req.setEndpoint(BASE_URL + '/v1/backends');
         req.setMethod('GET');
         req.setHeader('Authorization', 'Bearer ' + token);
+        if (String.isNotBlank(instanceCRN)) {
+            req.setHeader('Service-CRN', instanceCRN);
+        }
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
         req.setTimeout(30000);
 
         Http http = new Http();
@@ -192,5 +226,85 @@ public with sharing class IBMQuantumService {
         }
 
         return res.getBody();
+    }
+
+    /**
+     * Get detailed backend properties (T1, T2, gate errors, readout errors).
+     * Endpoint: GET /v1/backends/{backend}/properties
+     *
+     * Governor limits: 1 callout
+     */
+    public static Map<String, Object> getBackendProperties(String backendName) {
+        String token = IBMQuantumAuth.getAccessToken();
+        String instanceCRN = getInstanceCRN();
+
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(
+            BASE_URL + '/v1/backends/' +
+            EncodingUtil.urlEncode(backendName, 'UTF-8') +
+            '/properties'
+        );
+        req.setMethod('GET');
+        req.setHeader('Authorization', 'Bearer ' + token);
+        if (String.isNotBlank(instanceCRN)) {
+            req.setHeader('Service-CRN', instanceCRN);
+        }
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
+        req.setTimeout(30000);
+
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+
+        if (res.getStatusCode() != 200) {
+            throw new QRNGException(
+                'Failed to get backend properties: ' +
+                    res.getStatusCode() +
+                    ' ' +
+                    res.getBody()
+            );
+        }
+
+        return (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+    }
+
+    /**
+     * Get backend configuration (coupling map, basis gates, max_shots).
+     * Endpoint: GET /v1/backends/{backend}/configuration
+     *
+     * Governor limits: 1 callout
+     */
+    public static Map<String, Object> getBackendConfiguration(
+        String backendName
+    ) {
+        String token = IBMQuantumAuth.getAccessToken();
+        String instanceCRN = getInstanceCRN();
+
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(
+            BASE_URL + '/v1/backends/' +
+            EncodingUtil.urlEncode(backendName, 'UTF-8') +
+            '/configuration'
+        );
+        req.setMethod('GET');
+        req.setHeader('Authorization', 'Bearer ' + token);
+        if (String.isNotBlank(instanceCRN)) {
+            req.setHeader('Service-CRN', instanceCRN);
+        }
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
+        req.setTimeout(30000);
+
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+
+        if (res.getStatusCode() != 200) {
+            throw new QRNGException(
+                'Failed to get backend configuration: ' +
+                    res.getStatusCode() +
+                    ' ' +
+                    res.getBody()
+            );
+        }
+
+        return (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
     }
 }

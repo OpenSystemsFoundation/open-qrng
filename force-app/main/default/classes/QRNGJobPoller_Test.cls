@@ -46,7 +46,7 @@ private class QRNGJobPoller_Test {
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
 
         Quantum_Job__c job = new Quantum_Job__c(
-            IBM_Job_ID__c = 'job_test',
+            External_Job_ID__c = 'job_test',
             Backend__c = 'ibm_kingston',
             Status__c = 'Submitted',
             Shots__c = 8,
@@ -71,7 +71,7 @@ private class QRNGJobPoller_Test {
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
 
         Quantum_Job__c job = new Quantum_Job__c(
-            IBM_Job_ID__c = 'job_test',
+            External_Job_ID__c = 'job_test',
             Backend__c = 'ibm_kingston',
             Status__c = 'Submitted',
             Shots__c = 1024,
@@ -100,7 +100,7 @@ private class QRNGJobPoller_Test {
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
 
         Quantum_Job__c job = new Quantum_Job__c(
-            IBM_Job_ID__c = 'job_test',
+            External_Job_ID__c = 'job_test',
             Backend__c = 'ibm_kingston',
             Status__c = 'Submitted',
             Shots__c = 1024,

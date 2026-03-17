@@ -58,11 +58,11 @@ private class IBMQuantumService_Test {
         Test.stopTest();
 
         Quantum_Job__c job = [
-            SELECT Id, IBM_Job_ID__c, Status__c, Backend__c
+            SELECT Id, External_Job_ID__c, Status__c, Backend__c
             FROM Quantum_Job__c
             WHERE Id = :jobId
         ];
-        System.assertEquals('job_abc123', job.IBM_Job_ID__c);
+        System.assertEquals('job_abc123', job.External_Job_ID__c);
         System.assertEquals('ibm_kingston', job.Backend__c);
     }
 

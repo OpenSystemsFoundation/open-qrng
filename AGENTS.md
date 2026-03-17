@@ -158,6 +158,22 @@ sf apex run test --code-coverage --result-format human --wait 10
 
 ---
 
+## Scratch Org & App Navigation
+
+The current scratch org alias is `opendev`. To open the QuantumFair app in the browser:
+
+```bash
+# Get the front door login URL
+sf org open -o opendev --url-only
+
+# QuantumFair app tab URL (append to scratch org lightning domain)
+# https://<scratch-org-domain>.scratch.lightning.force.com/lightning/n/OpenSF__QuantumFair
+```
+
+The QuantumFair tab uses the `OpenSF__` namespace prefix. Always use `/lightning/n/OpenSF__QuantumFair` to navigate to the main app page.
+
+---
+
 ## Cross-Cutting Rules (All Agents)
 
 1. **Read ARCHITECTURE.md** before making structural decisions — it is the source of truth for system design

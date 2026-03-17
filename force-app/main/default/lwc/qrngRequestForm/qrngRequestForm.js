@@ -48,18 +48,6 @@ export default class QrngRequestForm extends LightningElement {
     }
 
     async handleSubmit() {
-        if (!this.purpose) {
-            this.dispatchEvent(
-                new ShowToastEvent({
-                    title: 'Required',
-                    message:
-                        'Please enter a purpose for the fairness certificate',
-                    variant: 'warning'
-                })
-            );
-            return;
-        }
-
         this.isSubmitting = true;
         try {
             const jobId = await submitQRNGJob({

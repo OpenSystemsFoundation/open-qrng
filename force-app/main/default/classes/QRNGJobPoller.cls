@@ -79,10 +79,12 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
                 }
                 update job;
 
-                // Re-enqueue with backoff
+                // Schedule next poll via Schedulable to avoid Queueable chain depth limit
                 if (!Test.isRunningTest()) {
-                    System.enqueueJob(
-                        new QRNGJobPoller(jobRecordId, ibmJobId, pollCount + 1)
+                    QRNGJobPollScheduler.scheduleNextPoll(
+                        jobRecordId,
+                        ibmJobId,
+                        pollCount + 1
                     );
                 }
             }

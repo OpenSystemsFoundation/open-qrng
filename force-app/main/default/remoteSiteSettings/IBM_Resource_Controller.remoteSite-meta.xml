@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<RemoteSiteSetting xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>IBM_Resource_Controller</fullName>
+    <description>IBM Cloud Resource Controller API for instance/CRN discovery</description>
+    <disableProtocolSecurity>false</disableProtocolSecurity>
+    <isActive>true</isActive>
+    <url>https://resource-controller.cloud.ibm.com</url>
+</RemoteSiteSetting>

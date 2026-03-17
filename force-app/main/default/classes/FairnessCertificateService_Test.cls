@@ -3,7 +3,7 @@ private class FairnessCertificateService_Test {
     @TestSetup
     static void setup() {
         Quantum_Job__c job = new Quantum_Job__c(
-            IBM_Job_ID__c = 'test_job_001',
+            External_Job_ID__c = 'test_job_001',
             Backend__c = 'ibm_kingston',
             Status__c = 'Completed',
             Circuit_QASM__c = 'OPENQASM 3.0; bit[1] meas;',
@@ -29,12 +29,12 @@ private class FairnessCertificateService_Test {
         );
 
         Fairness_Certificate__c cert = [
-            SELECT Id, Status__c, IBM_Job_ID__c, Raw_Bitstring_Hash__c
+            SELECT Id, Status__c, External_Job_ID__c, Raw_Bitstring_Hash__c
             FROM Fairness_Certificate__c
             WHERE Id = :certId
         ];
         System.assertEquals('Certified', cert.Status__c);
-        System.assertEquals('test_job_001', cert.IBM_Job_ID__c);
+        System.assertEquals('test_job_001', cert.External_Job_ID__c);
         System.assertNotEquals(null, cert.Raw_Bitstring_Hash__c);
     }
 

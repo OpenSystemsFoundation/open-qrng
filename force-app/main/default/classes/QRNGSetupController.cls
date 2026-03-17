@@ -78,6 +78,133 @@ public with sharing class QRNGSetupController {
     }
 
     /**
+     * Discover IBM Quantum instances and their CRNs.
+     * Auto-saves CRN if only one instance found.
+     */
+    @AuraEnabled
+    public static List<Map<String, String>> discoverInstances() {
+        try {
+            List<Map<String, String>> instances = IBMQuantumAuth.discoverInstances();
+
+            // Auto-save if single instance
+            if (instances.size() == 1) {
+                QRNG_Settings__c settings = QRNG_Settings__c.getOrgDefaults();
+                if (settings.Id == null) {
+                    settings = new QRNG_Settings__c(
+                        SetupOwnerId = UserInfo.getOrganizationId()
+                    );
+                }
+                settings.Instance_CRN__c = instances[0].get('crn');
+                upsert settings;
+            }
+
+            return instances;
+        } catch (Exception e) {
+            throw new AuraHandledException(
+                'Failed to discover instances: ' + e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Get backend properties summary (T1, T2, errors, queue).
+     */
+    @AuraEnabled
+    public static Map<String, Object> getBackendHealth(String backendName) {
+        try {
+            Map<String, Object> props = IBMQuantumService.getBackendProperties(
+                backendName
+            );
+            Map<String, Object> summary = new Map<String, Object>();
+
+            // Extract qubit properties for averages
+            List<Object> qubits = (List<Object>) props.get('qubits');
+            if (qubits != null && !qubits.isEmpty()) {
+                Double totalT1 = 0;
+                Double totalT2 = 0;
+                Double totalReadoutError = 0;
+                Integer qubitCount = 0;
+
+                for (Object qubitObj : qubits) {
+                    List<Object> qubitProps = (List<Object>) qubitObj;
+                    for (Object propObj : qubitProps) {
+                        Map<String, Object> prop = (Map<String, Object>) propObj;
+                        String name = (String) prop.get('name');
+                        Object val = prop.get('value');
+                        if (val == null) {
+                            continue;
+                        }
+                        Double value = Double.valueOf(String.valueOf(val));
+
+                        if (name == 'T1') {
+                            totalT1 += value;
+                        } else if (name == 'T2') {
+                            totalT2 += value;
+                        } else if (name == 'readout_error') {
+                            totalReadoutError += value;
+                        }
+                    }
+                    qubitCount++;
+                }
+
+                if (qubitCount > 0) {
+                    summary.put('avgT1', totalT1 / qubitCount);
+                    summary.put('avgT2', totalT2 / qubitCount);
+                    summary.put(
+                        'avgReadoutError',
+                        totalReadoutError / qubitCount
+                    );
+                }
+                summary.put('qubitCount', qubitCount);
+            }
+
+            // Extract gate errors
+            List<Object> gates = (List<Object>) props.get('gates');
+            if (gates != null && !gates.isEmpty()) {
+                Double totalGateError = 0;
+                Integer gateCount = 0;
+
+                for (Object gateObj : gates) {
+                    Map<String, Object> gate = (Map<String, Object>) gateObj;
+                    List<Object> gateParams = (List<Object>) gate.get(
+                        'parameters'
+                    );
+                    if (gateParams != null) {
+                        for (Object paramObj : gateParams) {
+                            Map<String, Object> param = (Map<String, Object>) paramObj;
+                            if (param.get('name') == 'gate_error') {
+                                Object val = param.get('value');
+                                if (val != null) {
+                                    totalGateError += Double.valueOf(
+                                        String.valueOf(val)
+                                    );
+                                    gateCount++;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (gateCount > 0) {
+                    summary.put('avgGateError', totalGateError / gateCount);
+                }
+            }
+
+            summary.put('backendName', backendName);
+            summary.put(
+                'lastUpdate',
+                (String) props.get('last_update_date')
+            );
+
+            return summary;
+        } catch (Exception e) {
+            throw new AuraHandledException(
+                'Failed to get backend health: ' + e.getMessage()
+            );
+        }
+    }
+
+    /**
      * Get current settings
      */
     @AuraEnabled(cacheable=true)
@@ -87,11 +214,13 @@ public with sharing class QRNGSetupController {
 
         if (s != null) {
             settings.put('hasApiKey', String.isNotBlank(s.IBM_API_Key__c));
+            settings.put('hasCRN', String.isNotBlank(s.Instance_CRN__c));
             settings.put('defaultBackend', s.Default_Backend__c);
             settings.put('defaultShots', s.Default_Shots__c);
             settings.put('useBellTest', s.Use_Bell_Test__c);
         } else {
             settings.put('hasApiKey', false);
+            settings.put('hasCRN', false);
             settings.put('defaultBackend', 'ibm_kingston');
             settings.put('defaultShots', 1024);
             settings.put('useBellTest', false);
@@ -106,6 +235,7 @@ public with sharing class QRNGSetupController {
     @AuraEnabled
     public static void saveSettings(
         String apiKey,
+        String instanceCRN,
         String defaultBackend,
         Integer defaultShots,
         Boolean useBellTest
@@ -120,6 +250,9 @@ public with sharing class QRNGSetupController {
 
         if (String.isNotBlank(apiKey)) {
             settings.IBM_API_Key__c = apiKey;
+        }
+        if (String.isNotBlank(instanceCRN)) {
+            settings.Instance_CRN__c = instanceCRN;
         }
         if (String.isNotBlank(defaultBackend)) {
             settings.Default_Backend__c = defaultBackend;
@@ -193,7 +326,7 @@ public with sharing class QRNGSetupController {
             SELECT
                 Id,
                 Name,
-                IBM_Job_ID__c,
+                External_Job_ID__c,
                 Backend__c,
                 Status__c,
                 Shots__c,
@@ -219,7 +352,7 @@ public with sharing class QRNGSetupController {
             SELECT
                 Id,
                 Name,
-                IBM_Job_ID__c,
+                External_Job_ID__c,
                 Backend__c,
                 Status__c,
                 Circuit_QASM__c,
@@ -252,7 +385,7 @@ public with sharing class QRNGSetupController {
             SELECT
                 Id,
                 Name,
-                IBM_Job_ID__c,
+                External_Job_ID__c,
                 Backend__c,
                 Circuit_QASM__c,
                 Raw_Bitstring_Hash__c,
@@ -280,7 +413,7 @@ public with sharing class QRNGSetupController {
             SELECT
                 Id,
                 Name,
-                IBM_Job_ID__c,
+                External_Job_ID__c,
                 Backend__c,
                 Circuit_QASM__c,
                 Raw_Bitstring_Hash__c,
@@ -330,7 +463,7 @@ public with sharing class QRNGSetupController {
             SELECT
                 Id,
                 Name,
-                IBM_Job_ID__c,
+                External_Job_ID__c,
                 Backend__c,
                 Status__c,
                 Purpose__c,
@@ -356,6 +489,161 @@ public with sharing class QRNGSetupController {
                 'Verification failed: ' + e.getMessage()
             );
         }
+    }
+
+    /**
+     * Manually refresh job status from IBM Quantum.
+     * Useful for debugging or when the poller has stopped.
+     */
+    @AuraEnabled
+    public static Map<String, Object> refreshJobStatus(Id jobId) {
+        try {
+            Quantum_Job__c job = [
+                SELECT
+                    Id,
+                    External_Job_ID__c,
+                    Status__c
+                FROM Quantum_Job__c
+                WHERE Id = :jobId
+                LIMIT 1
+            ];
+
+            if (String.isBlank(job.External_Job_ID__c)) {
+                throw new QRNGException(
+                    'No external job ID — cannot check status.'
+                );
+            }
+
+            Map<String, Object> ibmStatus = IBMQuantumService.getJobStatus(
+                job.External_Job_ID__c
+            );
+
+            // Extract status from response (handles nested state.status or top-level status)
+            String status;
+            if (ibmStatus.containsKey('state')) {
+                Map<String, Object> state = (Map<String, Object>) ibmStatus.get(
+                    'state'
+                );
+                status = (String) state.get('status');
+            } else {
+                status = (String) ibmStatus.get('status');
+            }
+
+            // Normalize status
+            String normalizedStatus = normalizeIBMStatus(status);
+
+            // Update job record — clear error if status is healthy
+            job.Status__c = normalizedStatus;
+            if (normalizedStatus != 'Failed') {
+                job.Error_Message__c = null;
+            }
+
+            update job;
+
+            Map<String, Object> result = new Map<String, Object>();
+            result.put('status', normalizedStatus);
+            result.put('ibmStatus', status);
+            result.put('jobId', jobId);
+            return result;
+        } catch (Exception e) {
+            throw new AuraHandledException(
+                'Failed to refresh status: ' + e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Manually retrieve results for a completed job.
+     * Re-runs the result parsing and certificate creation pipeline.
+     */
+    @AuraEnabled
+    public static Map<String, Object> retrieveJobResults(Id jobId) {
+        try {
+            Quantum_Job__c job = [
+                SELECT
+                    Id,
+                    External_Job_ID__c,
+                    Status__c,
+                    Backend__c,
+                    Circuit_QASM__c,
+                    Shots__c,
+                    Num_Qubits__c,
+                    Purpose__c,
+                    Use_Bell_Test__c,
+                    Submitted_At__c,
+                    Raw_Results__c
+                FROM Quantum_Job__c
+                WHERE Id = :jobId
+                LIMIT 1
+            ];
+
+            if (String.isBlank(job.External_Job_ID__c)) {
+                throw new QRNGException('No external job ID on this record.');
+            }
+
+            // Fetch results from IBM
+            String resultsJson = IBMQuantumService.getJobResults(
+                job.External_Job_ID__c
+            );
+
+            // Parse results
+            List<String> bitstrings = QRNGResultParser.parseSamplerResults(
+                resultsJson
+            );
+            String rawBits = QRNGResultParser.concatenateBitstrings(
+                bitstrings
+            );
+            String debiasedBits = QRNGResultParser.vonNeumannDebias(rawBits);
+
+            // Update job
+            job.Status__c = 'Completed';
+            job.Completed_At__c = DateTime.now();
+            job.Raw_Results__c = rawBits.left(131072);
+            job.Debiased_Results__c = debiasedBits.left(131072);
+            if (job.Submitted_At__c != null) {
+                job.Execution_Time_ms__c =
+                    DateTime.now().getTime() -
+                    job.Submitted_At__c.getTime();
+            }
+            update job;
+
+            // Validate and create certificate
+            Map<String, Object> validation = QRNGValidator.validate(
+                debiasedBits
+            );
+            String validationJson = JSON.serialize(validation);
+            Boolean passed = validation.containsKey('passed')
+                ? (Boolean) validation.get('passed')
+                : true;
+            String certStatus = passed ? 'Certified' : 'Failed';
+            Id certId = FairnessCertificateService.createCertificate(
+                job.Id,
+                validationJson,
+                certStatus
+            );
+
+            Map<String, Object> result = new Map<String, Object>();
+            result.put('status', 'Completed');
+            result.put('certificateId', certId);
+            result.put('rawBitsLength', rawBits.length());
+            result.put('debiasedBitsLength', debiasedBits.length());
+            return result;
+        } catch (Exception e) {
+            throw new AuraHandledException(
+                'Failed to retrieve results: ' + e.getMessage()
+            );
+        }
+    }
+
+    private static String normalizeIBMStatus(String ibmStatus) {
+        if (ibmStatus == null) return 'Pending';
+        String lower = ibmStatus.toLowerCase();
+        if (lower == 'completed' || lower == 'result_ready') return 'Completed';
+        if (lower == 'running') return 'Running';
+        if (lower == 'queued' || lower == 'pending_in_queue') return 'Queued';
+        if (lower == 'failed' || lower == 'cancelled' || lower == 'canceled')
+            return 'Failed';
+        return 'Submitted';
     }
 
     /**

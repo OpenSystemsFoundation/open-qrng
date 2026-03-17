@@ -69,6 +69,32 @@
                         class="slds-m-bottom_small"
                     >
                     </lightning-input>
+                    <div
+                        class="slds-grid slds-gutters slds-m-bottom_small"
+                    >
+                        <div class="slds-col slds-grow">
+                            <lightning-input
+                                label="Instance CRN"
+                                value={instanceCRN}
+                                onchange={handleCRNChange}
+                                placeholder="crn:v1:bluemix:public:quantum-computing:..."
+                                field-level-help="Find this in your IBM Cloud dashboard under your Quantum service instance"
+                            >
+                            </lightning-input>
+                        </div>
+                        <div
+                            class="slds-col slds-no-flex slds-align-bottom"
+                        >
+                            <lightning-button
+                                label="Auto-detect"
+                                variant="neutral"
+                                onclick={handleDiscoverCRN}
+                                disabled={isDiscoveringCRN}
+                                icon-name="utility:search"
+                            >
+                            </lightning-button>
+                        </div>
+                    </div>
                     <lightning-combobox
                         label="Default Backend"
                         value={defaultBackend}
@@ -103,6 +129,91 @@
                         class="slds-m-top_small"
                     >
                     </lightning-button>
+                </div>
+            </div>
+
+            <!-- Backend Health -->
+            <div
+                class="slds-section slds-is-open slds-m-bottom_medium"
+            >
+                <h3 class="slds-section__title">
+                    <span
+                        class="slds-truncate slds-p-horizontal_small"
+                        title="Backend Health"
+                        >Backend Health</span
+                    >
+                </h3>
+                <div class="slds-section__content">
+                    <div class="slds-m-bottom_small">
+                        <lightning-button
+                            label="Refresh Backend Health"
+                            variant="neutral"
+                            onclick={handleRefreshHealth}
+                            disabled={isLoadingHealth}
+                            icon-name="utility:refresh"
+                        >
+                        </lightning-button>
+                    </div>
+                    <template if:true={isLoadingHealth}>
+                        <lightning-spinner
+                            alternative-text="Loading..."
+                            size="small"
+                        ></lightning-spinner>
+                    </template>
+                    <template if:true={hasBackendHealth}>
+                        <div
+                            class="slds-grid slds-wrap slds-gutters"
+                        >
+                            <div
+                                class="slds-col slds-size_1-of-2 slds-p-around_x-small"
+                            >
+                                <div class="stat-card">
+                                    <p class="stat-value">
+                                        {formattedT1}
+                                    </p>
+                                    <p class="stat-label">
+                                        Avg T1 (relaxation)
+                                    </p>
+                                </div>
+                            </div>
+                            <div
+                                class="slds-col slds-size_1-of-2 slds-p-around_x-small"
+                            >
+                                <div class="stat-card">
+                                    <p class="stat-value">
+                                        {formattedT2}
+                                    </p>
+                                    <p class="stat-label">
+                                        Avg T2 (coherence)
+                                    </p>
+                                </div>
+                            </div>
+                            <div
+                                class="slds-col slds-size_1-of-2 slds-p-around_x-small"
+                            >
+                                <div class="stat-card">
+                                    <p class="stat-value">
+                                        {formattedGateError}
+                                    </p>
+                                    <p class="stat-label">
+                                        Avg Gate Error
+                                    </p>
+                                </div>
+                            </div>
+                            <div
+                                class="slds-col slds-size_1-of-2 slds-p-around_x-small"
+                            >
+                                <div class="stat-card">
+                                    <p class="stat-value">
+                                        {formattedReadoutError}
+                                    </p>
+                                    <p class="stat-label">
+                                        Avg Readout Error
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
 
