@@ -330,17 +330,17 @@ private class QRNGCircuitBuilder_Test {
         QRNGCircuitBuilder.CoupledPair a = new QRNGCircuitBuilder.CoupledPair(
             0,
             1,
-            0.01
+            (Double) 0.01
         );
         QRNGCircuitBuilder.CoupledPair b = new QRNGCircuitBuilder.CoupledPair(
             2,
             3,
-            0.05
+            (Double) 0.05
         );
         QRNGCircuitBuilder.CoupledPair c = new QRNGCircuitBuilder.CoupledPair(
             4,
             5,
-            0.01
+            (Double) 0.01
         );
         System.assertEquals(-1, a.compareTo(b), 'Lower score should be -1');
         System.assertEquals(1, b.compareTo(a), 'Higher score should be 1');
