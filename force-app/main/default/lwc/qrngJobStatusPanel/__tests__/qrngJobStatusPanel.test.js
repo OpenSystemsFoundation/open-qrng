@@ -44,11 +44,7 @@ describe('c-qrng-job-status-panel', () => {
         const element = createComponent();
         await flushPromises();
 
-        const progress = element.shadowRoot.querySelector(
-            'lightning-progress-indicator'
-        );
-        // Progress may or may not render depending on record load
-        // Just verify component doesn't crash
+        // Verify component renders without crashing
         expect(element.shadowRoot).toBeDefined();
     });
 
