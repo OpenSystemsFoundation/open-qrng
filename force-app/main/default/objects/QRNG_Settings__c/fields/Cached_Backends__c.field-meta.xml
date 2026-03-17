@@ -3,8 +3,6 @@
     <fullName>Cached_Backends__c</fullName>
     <label>Cached Backends</label>
     <description
-    >JSON cache of available quantum backends from the last sync. Updated when Test Connection succeeds.</description>
-    <length>32000</length>
-    <type>LongTextArea</type>
-    <visibleLines>3</visibleLines>
+    >JSON cache of available quantum backends from the last sync.</description>
+    <type>TextArea</type>
 </CustomField>
