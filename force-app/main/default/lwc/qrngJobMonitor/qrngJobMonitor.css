@@ -1,0 +1,35 @@
+.status-badge {
+    display: inline-block;
+    padding: 0.5rem 1.5rem;
+    border-radius: 1rem;
+    font-weight: bold;
+    font-size: 1rem;
+}
+.status-pending {
+    background: #e0e0e0;
+    color: #333;
+}
+.status-submitted {
+    background: #d4edda;
+    color: #155724;
+}
+.status-queued {
+    background: #fff3cd;
+    color: #856404;
+}
+.status-running {
+    background: #cce5ff;
+    color: #004085;
+}
+.status-completed {
+    background: #d4edda;
+    color: #155724;
+}
+.status-failed {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.status-label {
+    margin: 0;
+}

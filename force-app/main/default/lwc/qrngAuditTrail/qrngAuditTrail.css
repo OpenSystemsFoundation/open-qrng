@@ -1,0 +1,20 @@
+.timeline-item {
+    padding: 0.75rem;
+    border: 1px solid #e5e5e5;
+    border-radius: 0.375rem;
+    background: #fff;
+    transition: box-shadow 0.2s;
+}
+.timeline-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.quantum-badge {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    background: linear-gradient(135deg, #032d60, #0176d3);
+    color: white;
+    border-radius: 0.75rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}

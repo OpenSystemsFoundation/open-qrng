@@ -1,0 +1,25 @@
+<template>
+    <div class="gauge-container">
+        <h3 class="gauge-title">CHSH Bell Test</h3>
+        <div class="gauge" style={gaugeStyle}>
+            <div class="gauge-fill"></div>
+            <div class="gauge-cover">
+                <span class="gauge-value">{displayValue}</span>
+            </div>
+            <div class="classical-limit"></div>
+        </div>
+        <div class="gauge-labels">
+            <span class="label-min">0</span>
+            <span class="label-classical">S=2 (classical limit)</span>
+            <span class="label-max">2.83</span>
+        </div>
+        <div class="gauge-verdict">
+            <template if:true={isQuantum}>
+                <span class="verdict-quantum">Quantum Certified</span>
+            </template>
+            <template if:false={isQuantum}>
+                <span class="verdict-classical">Below Quantum Threshold</span>
+            </template>
+        </div>
+    </div>
+</template>

@@ -167,3 +167,42 @@ sf apex run test --code-coverage --result-format human --wait 10
 5. **Security first** — no raw API keys in code, no customer data in quantum circuits, no PII in logs
 6. **Governor limits** — every Apex transaction must document its callout/SOQL/DML budget
 7. **Deterministic assignments** — given the same quantum random bits, the assignment engine must always produce the same result (for audit verification)
+
+---
+
+## Branching & CI Strategy
+
+### Branching Rules
+
+- **`master` is the stable branch** — it must always be deployable and pass all tests
+- **Always create a feature branch from `master`** before starting new work — never commit directly to master
+- Feature branch naming: `feature/<short-description>` (e.g., `feature/bell-test-validation`, `feature/add-weighted-assignment`)
+- Bug fix branches: `fix/<short-description>` (e.g., `fix/poller-timeout`)
+- Plan/research branches: `plan/<short-description>` (e.g., `plan/named-credential-migration`)
+
+### Development Workflow
+
+```
+1. git checkout master && git pull
+2. git checkout -b feature/<name>
+3. Develop, commit, push to feature branch
+4. Open PR targeting master
+5. CI runs fast tests (Jest, ESLint, Prettier) on PR
+6. On merge to master: CI runs full tests (scratch org + Apex tests)
+```
+
+### CI Test Triggers
+
+| Event | What Runs |
+|---|---|
+| Push to any branch | LWC Jest, ESLint, Prettier (fast, ~35s) |
+| PR targeting master | LWC Jest, ESLint, Prettier (fast, ~35s) |
+| Merge/commit to master | Full suite: fast tests + scratch org + Apex deploy + Apex tests (~3-4 min) |
+
+### Rules for Agents
+
+- **Never commit directly to master** when developing features or plans
+- **Always start from a clean `master`**: `git checkout master && git pull` before branching
+- **No pre-commit hooks** — commits and pushes must never be blocked. CI catches issues; fix forward on the next commit
+- **Keep feature branches short-lived** — merge or close within a few days
+- **Delete feature branches after merge** — do not let stale branches accumulate

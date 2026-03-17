@@ -1,14 +1,18 @@
 {
-  "orgName": "QuantumFair Dev",
-  "edition": "Partner Developer",
-  "namespace": "OpenSF",
-  "features": ["EnableSetPasswordInApi"],
-  "settings": {
-    "lightningExperienceSettings": {
-      "enableS1DesktopEnabled": true
-    },
-    "mobileSettings": {
-      "enableS1EncryptedStoragePref2": false
+    "orgName": "OpenSF",
+    "edition": "Partner Developer",
+    "language": "en_US",
+    "namespace": "OpenSF",
+    "features": ["ContactsToMultipleAccounts"],
+    "settings": {
+        "mobileSettings": {
+            "enableS1EncryptedStoragePref2": false
+        },
+        "lightningExperienceSettings": {
+            "enableS1DesktopEnabled": true
+        },
+        "chatterSettings": {
+            "enableChatter": true
+        }
     }
-  }
 }

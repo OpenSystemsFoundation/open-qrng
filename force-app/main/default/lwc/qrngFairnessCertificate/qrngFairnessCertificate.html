@@ -1,0 +1,111 @@
+<template>
+    <div class="certificate-container">
+        <template if:true={certificate}>
+            <div class="certificate-header">
+                <div class="slds-grid">
+                    <div class="slds-col slds-grow">
+                        <h2 class="certificate-title">Fairness Certificate</h2>
+                        <p class="certificate-id">{certificate.Name}</p>
+                    </div>
+                    <div class="slds-col slds-shrink">
+                        <lightning-badge label={certificate.Status__c} class={statusBadgeClass}></lightning-badge>
+                    </div>
+                </div>
+            </div>
+
+            <div class="certificate-body">
+                <!-- Visual hash (pixel art from SHA-256) -->
+                <div class="slds-text-align_center slds-m-bottom_medium">
+                    <canvas lwc:ref="hashCanvas" width="128" height="128"></canvas>
+                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">Visual Hash</p>
+                </div>
+
+                <div class="slds-grid slds-wrap slds-gutters">
+                    <div class="slds-col slds-size_1-of-2 slds-m-bottom_small">
+                        <dl class="slds-dl_horizontal">
+                            <dt class="slds-dl_horizontal__label cert-label">IBM Job ID:</dt>
+                            <dd class="slds-dl_horizontal__detail">{certificate.IBM_Job_ID__c}</dd>
+                            <dt class="slds-dl_horizontal__label cert-label">Backend:</dt>
+                            <dd class="slds-dl_horizontal__detail">{certificate.Backend__c}</dd>
+                            <dt class="slds-dl_horizontal__label cert-label">Purpose:</dt>
+                            <dd class="slds-dl_horizontal__detail">{certificate.Purpose__c}</dd>
+                            <dt class="slds-dl_horizontal__label cert-label">Created:</dt>
+                            <dd class="slds-dl_horizontal__detail">{formattedDate}</dd>
+                        </dl>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2 slds-m-bottom_small">
+                        <template if:true={hasCHSH}>
+                            <c-qrng-bell-test-indicator s-value={certificate.CHSH_S_Value__c}></c-qrng-bell-test-indicator>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Hashes -->
+                <div class="slds-m-top_small">
+                    <h3 class="slds-text-heading_small slds-m-bottom_x-small">Integrity Hashes (SHA-256)</h3>
+                    <div class="hash-row">
+                        <span class="hash-label">Raw Bitstring:</span>
+                        <code class="hash-value">{certificate.Raw_Bitstring_Hash__c}</code>
+                    </div>
+                    <div class="hash-row">
+                        <span class="hash-label">Debiased:</span>
+                        <code class="hash-value">{certificate.Debiased_Bitstring_Hash__c}</code>
+                    </div>
+                    <template if:true={certificate.Assignment_Hash__c}>
+                        <div class="hash-row">
+                            <span class="hash-label">Assignment:</span>
+                            <code class="hash-value">{certificate.Assignment_Hash__c}</code>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Validation Results -->
+                <template if:true={validationResults}>
+                    <div class="slds-m-top_medium">
+                        <h3 class="slds-text-heading_small slds-m-bottom_x-small">Validation Results</h3>
+                        <div class="slds-grid slds-wrap slds-gutters_x-small">
+                            <div class="slds-col slds-size_1-of-3">
+                                <div class={frequencyTestClass}>
+                                    <lightning-icon icon-name={frequencyTestIcon} size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                                    Frequency Test
+                                </div>
+                            </div>
+                            <div class="slds-col slds-size_1-of-3">
+                                <div class={runsTestClass}>
+                                    <lightning-icon icon-name={runsTestIcon} size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                                    Runs Test
+                                </div>
+                            </div>
+                            <div class="slds-col slds-size_1-of-3">
+                                <div class={chiSquaredTestClass}>
+                                    <lightning-icon icon-name={chiSquaredTestIcon} size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                                    Chi-Squared
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Verify Button -->
+                <div class="slds-m-top_medium slds-text-align_center">
+                    <lightning-button
+                        label="Verify Integrity"
+                        variant="neutral"
+                        icon-name="utility:check"
+                        onclick={handleVerify}
+                        disabled={isVerifying}>
+                    </lightning-button>
+                    <template if:true={verificationResult}>
+                        <p class={verificationClass}>
+                            {verificationMessage}
+                        </p>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <template if:false={certificate}>
+            <lightning-spinner alternative-text="Loading certificate..." size="medium"></lightning-spinner>
+        </template>
+    </div>
+</template>

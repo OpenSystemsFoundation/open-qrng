@@ -1,0 +1,93 @@
+.gauge-container {
+    text-align: center;
+    padding: 1rem;
+}
+.gauge-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #706e6b;
+    margin-bottom: 0.5rem;
+}
+.gauge {
+    position: relative;
+    width: 160px;
+    height: 80px;
+    margin: 0 auto;
+    overflow: hidden;
+}
+.gauge-fill {
+    position: absolute;
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: conic-gradient(
+        from 180deg,
+        #ea001e 0deg,
+        #fe9339 90deg,
+        #fe9339 127deg,
+        #2e844a 127deg,
+        #0176d3 180deg,
+        transparent 180deg
+    );
+    clip-path: inset(0 0 50% 0);
+}
+.gauge-cover {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: white;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 5px;
+    clip-path: inset(0 0 50% 0);
+}
+.gauge-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #181818;
+}
+.classical-limit {
+    position: absolute;
+    width: 2px;
+    height: 20px;
+    background: #ea001e;
+    top: 0;
+    left: 50%;
+    transform-origin: bottom center;
+    transform: translateX(-50%) rotate(calc(var(--gauge-rotation, 127deg) - 90deg));
+}
+.gauge-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
+    color: #706e6b;
+}
+.label-classical {
+    color: #ea001e;
+    font-weight: 600;
+}
+.gauge-verdict {
+    margin-top: 0.5rem;
+}
+.verdict-quantum {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: linear-gradient(135deg, #032d60, #0176d3);
+    color: white;
+    border-radius: 1rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+.verdict-classical {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: #f3f3f3;
+    color: #706e6b;
+    border-radius: 1rem;
+    font-size: 0.8125rem;
+}

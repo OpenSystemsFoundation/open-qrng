@@ -1,0 +1,65 @@
+<template>
+    <lightning-card title="Job Monitor" icon-name="standard:process">
+        <div class="slds-p-around_medium">
+            <template if:true={job}>
+                <div class="slds-grid slds-gutters slds-m-bottom_medium">
+                    <div class="slds-col slds-size_1-of-2">
+                        <dl class="slds-dl_horizontal">
+                            <dt class="slds-dl_horizontal__label">Job:</dt>
+                            <dd class="slds-dl_horizontal__detail">{job.Name}</dd>
+                            <dt class="slds-dl_horizontal__label">Backend:</dt>
+                            <dd class="slds-dl_horizontal__detail">{job.Backend__c}</dd>
+                            <dt class="slds-dl_horizontal__label">Qubits:</dt>
+                            <dd class="slds-dl_horizontal__detail">{job.Num_Qubits__c}</dd>
+                            <dt class="slds-dl_horizontal__label">Shots:</dt>
+                            <dd class="slds-dl_horizontal__detail">{job.Shots__c}</dd>
+                        </dl>
+                    </div>
+                    <div class="slds-col slds-size_1-of-2 slds-text-align_center">
+                        <div class={statusClass}>
+                            <p class="status-label">{job.Status__c}</p>
+                        </div>
+                        <template if:true={isInProgress}>
+                            <lightning-spinner alternative-text="Processing" size="medium" class="slds-m-top_small"></lightning-spinner>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Progress path -->
+                <lightning-progress-indicator current-step={currentStep} type="path" class="slds-m-bottom_medium">
+                    <lightning-progress-step label="Submitted" value="Submitted"></lightning-progress-step>
+                    <lightning-progress-step label="Queued" value="Queued"></lightning-progress-step>
+                    <lightning-progress-step label="Running" value="Running"></lightning-progress-step>
+                    <lightning-progress-step label="Completed" value="Completed"></lightning-progress-step>
+                </lightning-progress-indicator>
+
+                <!-- Error message -->
+                <template if:true={job.Error_Message__c}>
+                    <div class="slds-notify slds-notify_alert slds-alert_error slds-m-top_small" role="alert">
+                        <p>{job.Error_Message__c}</p>
+                    </div>
+                </template>
+
+                <!-- Results section -->
+                <template if:true={isCompleted}>
+                    <div class="slds-m-top_medium">
+                        <template if:true={certificateId}>
+                            <c-qrng-fairness-certificate certificate-id={certificateId}></c-qrng-fairness-certificate>
+                        </template>
+                        <template if:true={job.Raw_Results__c}>
+                            <div class="slds-m-top_medium">
+                                <c-qrng-results-visualizer raw-results={job.Raw_Results__c} num-qubits={job.Num_Qubits__c}></c-qrng-results-visualizer>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </template>
+
+            <template if:false={job}>
+                <div class="slds-illustration slds-illustration_small slds-text-align_center">
+                    <p class="slds-text-body_regular">No active job. Submit a quantum circuit to get started.</p>
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+</template>

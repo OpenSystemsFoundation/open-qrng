@@ -1,0 +1,71 @@
+<template>
+    <lightning-card title="Audit Trail" icon-name="standard:entitlement">
+        <div class="slds-p-around_medium">
+            <template if:true={hasCertificates}>
+                <div class="slds-timeline">
+                    <template for:each={certificates} for:item="cert">
+                        <div key={cert.Id} class="timeline-item slds-m-bottom_small">
+                            <div class="slds-grid slds-gutters_small">
+                                <div class="slds-col slds-shrink">
+                                    <lightning-icon
+                                        icon-name={cert.iconName}
+                                        size="small"
+                                        class="slds-m-right_small">
+                                    </lightning-icon>
+                                </div>
+                                <div class="slds-col slds-grow">
+                                    <div class="slds-grid">
+                                        <div class="slds-col slds-grow">
+                                            <p class="slds-text-heading_small">
+                                                <a onclick={handleCertClick} data-id={cert.Id}>{cert.Name}</a>
+                                            </p>
+                                            <p class="slds-text-body_small">{cert.Purpose__c}</p>
+                                        </div>
+                                        <div class="slds-col slds-shrink slds-text-align_right">
+                                            <lightning-badge label={cert.Status__c} class={cert.badgeClass}></lightning-badge>
+                                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                                <lightning-formatted-date-time value={cert.CreatedDate} year="numeric" month="short" day="2-digit" hour="2-digit" minute="2-digit"></lightning-formatted-date-time>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <p class="slds-text-body_small slds-text-color_weak">
+                                        Backend: {cert.Backend__c} | IBM Job: {cert.IBM_Job_ID__c}
+                                    </p>
+                                    <template if:true={cert.CHSH_S_Value__c}>
+                                        <p class="slds-text-body_small">
+                                            CHSH S-Value: <strong>{cert.CHSH_S_Value__c}</strong>
+                                            <template if:true={cert.isQuantumCertified}>
+                                                <span class="quantum-badge">Quantum Certified</span>
+                                            </template>
+                                        </p>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+            <template if:false={hasCertificates}>
+                <div class="slds-text-align_center slds-p-around_large slds-text-color_weak">
+                    <p>No fairness certificates have been issued yet.</p>
+                    <p class="slds-m-top_small">Submit a quantum circuit to generate your first certificate.</p>
+                </div>
+            </template>
+
+            <!-- Certificate detail modal -->
+            <template if:true={selectedCertId}>
+                <section class="slds-modal slds-fade-in-open">
+                    <div class="slds-modal__container">
+                        <button class="slds-button slds-button_icon slds-modal__close" onclick={closeCertDetail}>
+                            <lightning-icon icon-name="utility:close" size="small"></lightning-icon>
+                        </button>
+                        <div class="slds-modal__content slds-p-around_medium">
+                            <c-qrng-fairness-certificate certificate-id={selectedCertId}></c-qrng-fairness-certificate>
+                        </div>
+                    </div>
+                </section>
+                <div class="slds-backdrop slds-backdrop_open" onclick={closeCertDetail}></div>
+            </template>
+        </div>
+    </lightning-card>
+</template>
