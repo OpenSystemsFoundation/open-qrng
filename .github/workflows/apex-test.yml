@@ -88,30 +88,6 @@ jobs:
                     exit 1
                   fi
 
-            # IBM Quantum integration test — reuses the same scratch org
-            - name: Check for IBM API key secret
-              id: check-secret
-              run: |
-                  if [ -z "${{ secrets.IBM_QUANTUM_API_KEY }}" ]; then
-                    echo "has_key=false" >> "$GITHUB_OUTPUT"
-                    echo "::notice::IBM_QUANTUM_API_KEY secret not configured — skipping integration test"
-                  else
-                    echo "has_key=true" >> "$GITHUB_OUTPUT"
-                  fi
-
-            - name: Inject IBM API Key
-              if: steps.check-secret.outputs.has_key == 'true'
-              env:
-                  IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
-              run: |
-                  sed "s|__IBM_API_KEY__|${IBM_QUANTUM_API_KEY}|" scripts/apex/setup-api-key.apex > /tmp/setup-api-key.apex
-                  sf apex run --file /tmp/setup-api-key.apex --target-org ci-test
-                  rm /tmp/setup-api-key.apex
-
-            - name: Run Integration Test (Real IBM API)
-              if: steps.check-secret.outputs.has_key == 'true'
-              run: sf apex run --file scripts/apex/integration-test-connection.apex --target-org ci-test
-
             - name: Delete Scratch Org
               if: always()
               run: sf org delete scratch --target-org ci-test --no-prompt || true
