@@ -35,6 +35,8 @@
     <tabs>QuantumFair</tabs>
     <tabs>Quantum_Job__c</tabs>
     <tabs>Fairness_Certificate__c</tabs>
+    <tabs>QRNG_Provider__c</tabs>
+    <tabs>QRNG_Backend__c</tabs>
     <uiType>Lightning</uiType>
     <utilityBar>QuantumFair_UtilityBar</utilityBar>
     <workspaceConfig>
@@ -46,6 +48,12 @@
         </mappings>
         <mappings>
             <tab>Quantum_Job__c</tab>
+        </mappings>
+        <mappings>
+            <tab>QRNG_Provider__c</tab>
+        </mappings>
+        <mappings>
+            <tab>QRNG_Backend__c</tab>
         </mappings>
     </workspaceConfig>
 </CustomApplication>

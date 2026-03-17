@@ -5,5 +5,5 @@
     <length>100</length>
     <type>Text</type>
     <required>false</required>
-    <defaultValue>&quot;ibm_kingston&quot;</defaultValue>
+    <defaultValue>&quot;&quot;</defaultValue>
 </CustomField>

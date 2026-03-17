@@ -13,15 +13,13 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 export default class QrngSetup extends LightningElement {
     @track apiKey = '';
     @track instanceCRN = '';
-    @track defaultBackend = 'ibm_kingston';
+    @track defaultBackend = '';
     @track defaultShots = 1024;
     @track useBellTest = false;
     @track isConnected = false;
     @track isTestingConnection = false;
     @track connectionMessage = '';
-    @track backendOptions = [
-        { label: 'ibm_kingston (Heron r2, 156 qubits)', value: 'ibm_kingston' }
-    ];
+    @track backendOptions = [];
     @track totalJobs = 0;
     @track completedJobs = 0;
     @track totalCertificates = 0;
@@ -35,7 +33,7 @@ export default class QrngSetup extends LightningElement {
     @wire(getSettings)
     wiredSettings({ data }) {
         if (data) {
-            this.defaultBackend = data.defaultBackend || 'ibm_kingston';
+            this.defaultBackend = data.defaultBackend || '';
             this.defaultShots = data.defaultShots || 1024;
             this.useBellTest = data.useBellTest || false;
             if (data.hasApiKey) {

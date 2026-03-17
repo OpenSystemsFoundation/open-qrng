@@ -4,7 +4,7 @@ import submitQRNGJob from '@salesforce/apex/QRNGSetupController.submitQRNGJob';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class QrngRequestForm extends LightningElement {
-    @track backend = 'ibm_kingston';
+    @track backend = '';
     @track numQubits = 8;
     @track shots = 1024;
     @track purpose = '';
@@ -12,14 +12,12 @@ export default class QrngRequestForm extends LightningElement {
     @track isSubmitting = false;
     @track showPreview = true;
 
-    backendOptions = [
-        { label: 'ibm_kingston (Heron r2)', value: 'ibm_kingston' }
-    ];
+    backendOptions = [];
 
     @wire(getSettings)
     wiredSettings({ data }) {
         if (data) {
-            this.backend = data.defaultBackend || 'ibm_kingston';
+            this.backend = data.defaultBackend || '';
             this.shots = data.defaultShots || 1024;
             this.useBellTest = data.useBellTest || false;
         }

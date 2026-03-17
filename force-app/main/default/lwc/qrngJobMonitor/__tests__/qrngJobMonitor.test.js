@@ -37,7 +37,7 @@ const MOCK_JOB_RUNNING = {
     Id: '001xx000003DGb1',
     Name: 'QJ-0001',
     External_Job_ID__c: 'job123',
-    Backend__c: 'ibm_kingston',
+    Backend__c: 'test_backend',
     Status__c: 'Running',
     Num_Qubits__c: 8,
     Shots__c: 1024
@@ -86,7 +86,7 @@ describe('c-qrng-job-monitor', () => {
         );
         const detailValues = Array.from(details).map((d) => d.textContent);
         expect(detailValues).toContain('QJ-0001');
-        expect(detailValues).toContain('ibm_kingston');
+        expect(detailValues).toContain('test_backend');
     });
 
     it('shows progress indicator with correct current step', async () => {

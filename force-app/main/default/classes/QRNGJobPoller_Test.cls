@@ -47,7 +47,7 @@ private class QRNGJobPoller_Test {
 
         Quantum_Job__c job = new Quantum_Job__c(
             External_Job_ID__c = 'job_test',
-            Backend__c = 'ibm_kingston',
+            Backend__c = 'test_backend',
             Status__c = 'Submitted',
             Shots__c = 8,
             Num_Qubits__c = 8,
@@ -72,7 +72,7 @@ private class QRNGJobPoller_Test {
 
         Quantum_Job__c job = new Quantum_Job__c(
             External_Job_ID__c = 'job_test',
-            Backend__c = 'ibm_kingston',
+            Backend__c = 'test_backend',
             Status__c = 'Submitted',
             Shots__c = 1024,
             Num_Qubits__c = 8,
@@ -101,7 +101,7 @@ private class QRNGJobPoller_Test {
 
         Quantum_Job__c job = new Quantum_Job__c(
             External_Job_ID__c = 'job_test',
-            Backend__c = 'ibm_kingston',
+            Backend__c = 'test_backend',
             Status__c = 'Submitted',
             Shots__c = 1024,
             Num_Qubits__c = 8,

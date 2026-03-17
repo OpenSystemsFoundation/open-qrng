@@ -4,7 +4,7 @@ private class QuantumAssignmentEngine_Test {
     static void testAssignUniform() {
         Quantum_Job__c job = new Quantum_Job__c(
             External_Job_ID__c = 'test_uniform',
-            Backend__c = 'ibm_kingston',
+            Backend__c = 'test_backend',
             Status__c = 'Completed',
             Shots__c = 1024,
             Num_Qubits__c = 8
@@ -48,7 +48,7 @@ private class QuantumAssignmentEngine_Test {
     static void testAssignWeighted() {
         Quantum_Job__c job = new Quantum_Job__c(
             External_Job_ID__c = 'test_weighted',
-            Backend__c = 'ibm_kingston',
+            Backend__c = 'test_backend',
             Status__c = 'Completed',
             Shots__c = 1024,
             Num_Qubits__c = 8
@@ -89,7 +89,7 @@ private class QuantumAssignmentEngine_Test {
     static void testSelectSubset() {
         Quantum_Job__c job = new Quantum_Job__c(
             External_Job_ID__c = 'test_subset',
-            Backend__c = 'ibm_kingston',
+            Backend__c = 'test_backend',
             Status__c = 'Completed',
             Shots__c = 1024,
             Num_Qubits__c = 8

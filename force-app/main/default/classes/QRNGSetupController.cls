@@ -69,15 +69,33 @@ public with sharing class QRNGSetupController {
                 backends.add(backend);
             }
 
-            // Cache the backends in settings
-            QRNG_Settings__c settingsToCache = QRNG_Settings__c.getOrgDefaults();
-            if (settingsToCache.Id == null) {
-                settingsToCache = new QRNG_Settings__c(
-                    SetupOwnerId = UserInfo.getOrganizationId()
+            // Ensure the IBM provider record exists
+            QRNG_Provider__c ibmProvider = ensureIBMProvider();
+
+            // Cache backends as QRNG_Backend__c records (child of Provider)
+            List<QRNG_Backend__c> backendRecords = new List<QRNG_Backend__c>();
+            for (Map<String, Object> b : backends) {
+                String backendName = (String) b.get('name');
+                QRNG_Backend__c rec = new QRNG_Backend__c(
+                    Name = backendName,
+                    Backend_Key__c = 'ibm:' + backendName,
+                    Provider__c = ibmProvider.Id,
+                    Status__c = String.valueOf(b.get('status')),
+                    Num_Qubits__c = b.get('qubits') != null
+                        ? Integer.valueOf(String.valueOf(b.get('qubits')))
+                        : 0,
+                    Last_Synced__c = DateTime.now()
                 );
+                backendRecords.add(rec);
             }
-            settingsToCache.Cached_Backends__c = JSON.serialize(backends);
-            upsert settingsToCache;
+            if (!backendRecords.isEmpty()) {
+                upsert backendRecords Backend_Key__c;
+            }
+
+            // Update provider last synced timestamp
+            ibmProvider.Last_Synced__c = DateTime.now();
+            ibmProvider.Status__c = 'Connected';
+            update ibmProvider;
 
             return backends;
         } catch (Exception e) {
@@ -230,7 +248,7 @@ public with sharing class QRNGSetupController {
         } else {
             settings.put('hasApiKey', false);
             settings.put('hasCRN', false);
-            settings.put('defaultBackend', 'ibm_kingston');
+            settings.put('defaultBackend', '');
             settings.put('defaultShots', 1024);
             settings.put('useBellTest', false);
             settings.put('useLeastBusy', false);
@@ -238,12 +256,40 @@ public with sharing class QRNGSetupController {
         }
         settings.put('sweeperActive', QRNGJobSweeper.isScheduled());
 
-        // Load cached backends
-        if (s != null && String.isNotBlank(s.Cached_Backends__c)) {
-            settings.put(
-                'cachedBackends',
-                JSON.deserializeUntyped(s.Cached_Backends__c)
-            );
+        // Load cached backends from QRNG_Backend__c records
+        List<QRNG_Backend__c> cachedBackends = [
+            SELECT
+                Name,
+                Backend_Key__c,
+                Status__c,
+                Num_Qubits__c,
+                Provider__c,
+                Provider__r.Name,
+                Queue_Length__c,
+                Is_Simulator__c,
+                Processor_Family__c,
+                Processor_Revision__c,
+                Max_Shots__c,
+                Avg_T1_us__c,
+                Avg_T2_us__c,
+                Median_Gate_Error__c,
+                Median_Readout_Error__c,
+                Last_Calibration__c,
+                Last_Synced__c
+            FROM QRNG_Backend__c
+            ORDER BY Name
+        ];
+        if (!cachedBackends.isEmpty()) {
+            List<Map<String, Object>> backendList = new List<Map<String, Object>>();
+            for (QRNG_Backend__c cb : cachedBackends) {
+                Map<String, Object> bMap = new Map<String, Object>();
+                bMap.put('name', cb.Name);
+                bMap.put('status', cb.Status__c);
+                bMap.put('qubits', cb.Num_Qubits__c);
+                bMap.put('provider', cb.Provider__r.Name);
+                backendList.add(bMap);
+            }
+            settings.put('cachedBackends', backendList);
         }
 
         return settings;
@@ -337,7 +383,7 @@ public with sharing class QRNGSetupController {
                 backendName = (settings != null &&
                     String.isNotBlank(settings.Default_Backend__c))
                     ? settings.Default_Backend__c
-                    : 'ibm_kingston';
+                    : IBMQuantumService.getLeastBusyBackend();
             }
             Integer numQ = numQubits != null ? numQubits : 8;
             Integer numShots = shots != null
@@ -678,6 +724,33 @@ public with sharing class QRNGSetupController {
                 'Failed to retrieve results: ' + e.getMessage()
             );
         }
+    }
+
+    /**
+     * Ensure the IBM Quantum provider record exists, creating it if needed.
+     * Returns the QRNG_Provider__c record for IBM.
+     */
+    private static QRNG_Provider__c ensureIBMProvider() {
+        List<QRNG_Provider__c> providers = [
+            SELECT Id, Name, Provider_Key__c, Status__c, Last_Synced__c
+            FROM QRNG_Provider__c
+            WHERE Provider_Key__c = 'ibm'
+            LIMIT 1
+        ];
+        if (!providers.isEmpty()) {
+            return providers[0];
+        }
+        QRNG_Provider__c ibm = new QRNG_Provider__c(
+            Name = 'IBM Quantum',
+            Provider_Key__c = 'ibm',
+            Provider_Class__c = 'IBMQuantumService',
+            Auth_Endpoint__c = 'https://iam.cloud.ibm.com/identity/token',
+            API_Base_URL__c = 'https://api.quantum-computing.ibm.com',
+            Is_Active__c = true,
+            Status__c = 'Connected'
+        );
+        insert ibm;
+        return ibm;
     }
 
     private static String normalizeIBMStatus(String ibmStatus) {

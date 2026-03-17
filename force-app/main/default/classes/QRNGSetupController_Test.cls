@@ -12,7 +12,7 @@ private class QRNGSetupController_Test {
         QRNGSetupController.saveSettings(
             'test-key',
             'crn:v1:bluemix:public:quantum-computing:us-east:a/123:456::',
-            'ibm_kingston',
+            'test_backend',
             2048,
             true,
             true,
@@ -25,7 +25,7 @@ private class QRNGSetupController_Test {
             'crn:v1:bluemix:public:quantum-computing:us-east:a/123:456::',
             settings.Instance_CRN__c
         );
-        System.assertEquals('ibm_kingston', settings.Default_Backend__c);
+        System.assertEquals('test_backend', settings.Default_Backend__c);
         System.assertEquals(2048, settings.Default_Shots__c);
         System.assertEquals(true, settings.Use_Bell_Test__c);
         System.assertEquals(true, settings.Use_Least_Busy__c);
@@ -54,7 +54,7 @@ private class QRNGSetupController_Test {
     static void testGetJobDetails() {
         Quantum_Job__c job = new Quantum_Job__c(
             External_Job_ID__c = 'test_details',
-            Backend__c = 'ibm_kingston',
+            Backend__c = 'test_backend',
             Status__c = 'Completed',
             Shots__c = 1024,
             Num_Qubits__c = 8

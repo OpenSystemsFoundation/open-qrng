@@ -100,7 +100,7 @@ public with sharing class QuantumRandomAssignment {
                     : (settings != null &&
                           String.isNotBlank(settings.Default_Backend__c)
                           ? settings.Default_Backend__c
-                          : 'ibm_kingston');
+                          : IBMQuantumService.getLeastBusyBackend());
                 Integer numQubits = req.numQubits != null ? req.numQubits : 8;
                 Integer shots = settings != null &&
                     settings.Default_Shots__c != null

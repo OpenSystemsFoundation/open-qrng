@@ -13,7 +13,7 @@ private class IBMQuantumService_Test {
                 req.getMethod() == 'POST'
             ) {
                 res.setStatusCode(200);
-                res.setBody('{"id":"job_abc123","backend":"ibm_kingston"}');
+                res.setBody('{"id":"job_abc123","backend":"test_backend"}');
             } else if (
                 req.getEndpoint().contains('/v1/jobs/') &&
                 req.getEndpoint().contains('/results')
@@ -30,7 +30,7 @@ private class IBMQuantumService_Test {
             } else if (req.getEndpoint().contains('/v1/backends')) {
                 res.setStatusCode(200);
                 res.setBody(
-                    '{"devices":[{"name":"ibm_kingston","status":"online","qubits":156}]}'
+                    '{"devices":[{"name":"test_backend","status":"online","qubits":156}]}'
                 );
             }
             return res;
@@ -49,7 +49,7 @@ private class IBMQuantumService_Test {
         Test.startTest();
         Id jobId = IBMQuantumService.submitJob(
             qasm,
-            'ibm_kingston',
+            'test_backend',
             1024,
             'Test purpose',
             false,
@@ -63,7 +63,7 @@ private class IBMQuantumService_Test {
             WHERE Id = :jobId
         ];
         System.assertEquals('job_abc123', job.External_Job_ID__c);
-        System.assertEquals('ibm_kingston', job.Backend__c);
+        System.assertEquals('test_backend', job.Backend__c);
     }
 
     @IsTest
@@ -108,7 +108,7 @@ private class IBMQuantumService_Test {
         Test.stopTest();
 
         System.assert(
-            backends.contains('ibm_kingston'),
+            backends.contains('test_backend'),
             'Should contain backend info'
         );
     }

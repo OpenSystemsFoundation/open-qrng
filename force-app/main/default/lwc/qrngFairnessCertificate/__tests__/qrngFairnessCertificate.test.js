@@ -29,7 +29,7 @@ const MOCK_CERTIFICATE = {
     Id: 'a01xx000001234',
     Name: 'CERT-0001',
     External_Job_ID__c: 'job_abc123',
-    Backend__c: 'ibm_kingston',
+    Backend__c: 'test_backend',
     Status__c: 'Certified',
     Raw_Bitstring_Hash__c:
         'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',

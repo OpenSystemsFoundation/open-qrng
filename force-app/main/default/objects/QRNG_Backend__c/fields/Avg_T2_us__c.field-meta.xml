@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Avg_T2_us__c</fullName>
+    <description>Average T2 dephasing time in microseconds</description>
+    <externalId>false</externalId>
+    <label>Avg T2 (us)</label>
+    <precision>10</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

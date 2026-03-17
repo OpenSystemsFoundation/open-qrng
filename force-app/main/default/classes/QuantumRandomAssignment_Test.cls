@@ -9,7 +9,7 @@ private class QuantumRandomAssignment_Test {
                     '{"access_token":"test-token","token_type":"Bearer","expires_in":3600}'
                 );
             } else {
-                res.setBody('{"id":"job_flow_test","backend":"ibm_kingston"}');
+                res.setBody('{"id":"job_flow_test","backend":"test_backend"}');
             }
             return res;
         }

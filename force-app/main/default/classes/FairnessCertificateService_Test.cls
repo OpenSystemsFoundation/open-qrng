@@ -4,7 +4,7 @@ private class FairnessCertificateService_Test {
     static void setup() {
         Quantum_Job__c job = new Quantum_Job__c(
             External_Job_ID__c = 'test_job_001',
-            Backend__c = 'ibm_kingston',
+            Backend__c = 'test_backend',
             Status__c = 'Completed',
             Circuit_QASM__c = 'OPENQASM 3.0; bit[1] meas;',
             Shots__c = 1024,

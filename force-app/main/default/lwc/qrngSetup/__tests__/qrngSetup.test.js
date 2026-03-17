@@ -52,7 +52,7 @@ function flushPromises() {
 
 const MOCK_SETTINGS = {
     hasApiKey: true,
-    defaultBackend: 'ibm_kingston',
+    defaultBackend: 'test_backend',
     defaultShots: 1024,
     useBellTest: false
 };
@@ -89,7 +89,7 @@ describe('c-qrng-setup', () => {
 
         const combobox = element.shadowRoot.querySelector('lightning-combobox');
         expect(combobox).not.toBeNull();
-        expect(combobox.value).toBe('ibm_kingston');
+        expect(combobox.value).toBe('test_backend');
     });
 
     it('displays connection status badge', () => {
@@ -133,7 +133,7 @@ describe('c-qrng-setup', () => {
         expect(saveSettings).toHaveBeenCalledWith({
             apiKey: null,
             instanceCRN: '',
-            defaultBackend: 'ibm_kingston',
+            defaultBackend: 'test_backend',
             defaultShots: 1024,
             useBellTest: false,
             useLeastBusy: false,
