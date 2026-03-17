@@ -35,14 +35,6 @@ function flushPromises() {
     return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-// For tests with fake timers, manually advance to flush microtask queue
-async function flushWithFakeTimers() {
-    jest.advanceTimersByTime(0);
-    await Promise.resolve();
-    jest.advanceTimersByTime(0);
-    await Promise.resolve();
-}
-
 const MOCK_JOB_RUNNING = {
     name: 'QJ-0001',
     externalJobId: 'job123',
@@ -265,7 +257,7 @@ describe('c-qrng-job-monitor', () => {
     // ── Polling: starts when in-progress status (lines 56-58) ───
     it('starts polling when status is Submitted', async () => {
         jest.useFakeTimers();
-        const element = createComponent({ jobId: '001xx000003DGb1' });
+        createComponent({ jobId: '001xx000003DGb1' });
 
         getJobStatusDTO.emit(MOCK_JOB_SUBMITTED);
         // Flush with fake timers: advance 0ms to run microtasks
@@ -283,7 +275,7 @@ describe('c-qrng-job-monitor', () => {
 
     it('does not double-start polling on repeated wire emissions', async () => {
         jest.useFakeTimers();
-        const element = createComponent({ jobId: '001xx000003DGb1' });
+        createComponent({ jobId: '001xx000003DGb1' });
 
         getJobStatusDTO.emit(MOCK_JOB_SUBMITTED);
         jest.advanceTimersByTime(0);
@@ -375,7 +367,7 @@ describe('c-qrng-job-monitor', () => {
 
     // ── handleFailedEvent (lines 125-133) ───────────────────────
     it('handles failed platform event for matching job id', async () => {
-        const element = createComponent({ jobId: '001xx000003DGb1' });
+        createComponent({ jobId: '001xx000003DGb1' });
 
         getJobStatusDTO.emit(MOCK_JOB_RUNNING);
         await flushPromises();
@@ -395,7 +387,7 @@ describe('c-qrng-job-monitor', () => {
     });
 
     it('ignores failed event for different job id', async () => {
-        const element = createComponent({ jobId: '001xx000003DGb1' });
+        createComponent({ jobId: '001xx000003DGb1' });
 
         getJobStatusDTO.emit(MOCK_JOB_RUNNING);
         await flushPromises();

@@ -230,7 +230,7 @@ describe('c-qrng-job-status-panel', () => {
     });
 
     it('loads certificate when wire emits Completed status', async () => {
-        const element = createComponent();
+        createComponent();
         getCertificateByJobId.mockResolvedValue({ Id: 'cert-001' });
 
         getJobStatusDTO.emit(MOCK_DTO_COMPLETED);
