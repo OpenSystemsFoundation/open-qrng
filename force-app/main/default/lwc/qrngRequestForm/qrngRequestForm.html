@@ -7,51 +7,180 @@
             <div class="slds-grid slds-gutters">
                 <!-- Parameters (left column) -->
                 <div class="slds-col slds-size_1-of-2">
+                    <!-- Backend selection -->
                     <lightning-combobox
                         label="Backend"
                         value={backend}
                         options={backendOptions}
                         onchange={handleBackendChange}
+                        field-level-help="The IBM Quantum processor that will execute your circuit. Each backend has different qubit counts, queue lengths, and error rates."
                         class="slds-m-bottom_small"
                     >
                     </lightning-combobox>
+                    <template if:true={selectedBackendInfo}>
+                        <div
+                            class="backend-info slds-m-bottom_small"
+                        >
+                            <span
+                                class={selectedBackendStatusClass}
+                            >
+                                {selectedBackendInfo.status}
+                            </span>
+                            <template
+                                if:false={selectedBackendInfo.isSimulator}
+                            >
+                                <span class="info-chip">
+                                    {selectedBackendInfo.processorFamily}
+                                </span>
+                            </template>
+                            <template
+                                if:true={selectedBackendInfo.isSimulator}
+                            >
+                                <span
+                                    class="info-chip simulator"
+                                >
+                                    Simulator
+                                </span>
+                            </template>
+                            <span class="info-chip">
+                                {selectedBackendInfo.qubits}
+                                qubits
+                            </span>
+                            <template
+                                if:true={selectedBackendInfo.maxShots}
+                            >
+                                <span class="info-chip">
+                                    max
+                                    {selectedBackendInfo.maxShots}
+                                    shots
+                                </span>
+                            </template>
+                            <template
+                                if:true={hasQueueLength}
+                            >
+                                <span
+                                    class="info-chip queue"
+                                >
+                                    {selectedBackendInfo.queueLength}
+                                    in queue
+                                </span>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- Bell Test toggle (prominent position) -->
+                    <div
+                        class="bell-test-toggle slds-m-bottom_small"
+                    >
+                        <div
+                            class="slds-grid slds-grid_vertical-center"
+                        >
+                            <div class="slds-col slds-grow">
+                                <span class="toggle-label"
+                                    >Bell Test Mode</span
+                                >
+                                <p
+                                    class="toggle-description"
+                                >
+                                    Runs a CHSH Bell test to
+                                    cryptographically
+                                    certify that randomness
+                                    came from quantum
+                                    mechanics, not a
+                                    classical source.
+                                    Produces a
+                                    <strong
+                                        >S-score &gt;
+                                        2.0</strong
+                                    >
+                                    as proof.
+                                </p>
+                            </div>
+                            <div
+                                class="slds-col slds-no-flex"
+                            >
+                                <label
+                                    class="toggle-switch"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={useBellTest}
+                                        onchange={handleBellTestChange}
+                                    />
+                                    <span
+                                        class="toggle-slider"
+                                    ></span>
+                                </label>
+                            </div>
+                        </div>
+                        <template if:true={useBellTest}>
+                            <div class="bell-info">
+                                <lightning-icon
+                                    icon-name="utility:info"
+                                    size="xx-small"
+                                    class="slds-m-right_xx-small"
+                                ></lightning-icon>
+                                Qubits must be even
+                                (paired). Each pair forms an
+                                entangled Bell state for the
+                                CHSH inequality test.
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Number of Qubits -->
                     <lightning-input
                         type="number"
                         label="Number of Qubits"
                         value={numQubits}
                         onchange={handleQubitsChange}
-                        min="1"
-                        max="127"
-                        class="slds-m-bottom_small"
+                        min={minQubits}
+                        max={maxQubits}
+                        step={qubitStep}
+                        field-level-help={qubitsHelpText}
+                        message-when-range-underflow={qubitsUnderflowMessage}
+                        message-when-range-overflow={qubitsOverflowMessage}
+                        message-when-step-mismatch={qubitsStepMessage}
+                        class="slds-m-bottom_x-small"
                     >
                     </lightning-input>
+                    <p
+                        class="field-hint slds-m-bottom_small"
+                    >
+                        {qubitsDescription}
+                    </p>
+
+                    <!-- Shots -->
                     <lightning-input
                         type="number"
                         label="Shots"
                         value={shots}
                         onchange={handleShotsChange}
                         min="100"
-                        max="8192"
-                        class="slds-m-bottom_small"
+                        max={maxShots}
+                        step="1"
+                        field-level-help="Number of times the circuit is executed. More shots = more random bits and better statistical accuracy, but longer queue times."
+                        message-when-range-overflow={shotsOverflowMessage}
+                        class="slds-m-bottom_x-small"
                     >
                     </lightning-input>
+                    <p
+                        class="field-hint slds-m-bottom_small"
+                    >
+                        {shotsDescription}
+                    </p>
+
+                    <!-- Purpose -->
                     <lightning-textarea
                         label="Purpose"
                         value={purpose}
                         onchange={handlePurposeChange}
                         placeholder="Describe what this randomness will be used for"
                         max-length="255"
+                        field-level-help="Recorded on the fairness certificate for audit purposes. Describes what decision this randomness supports."
                         class="slds-m-bottom_small"
                     >
                     </lightning-textarea>
-                    <lightning-input
-                        type="checkbox"
-                        label="Use Bell Test (stronger certification)"
-                        checked={useBellTest}
-                        onchange={handleBellTestChange}
-                        class="slds-m-bottom_medium"
-                    >
-                    </lightning-input>
                 </div>
 
                 <!-- Circuit Diagram (right column) -->

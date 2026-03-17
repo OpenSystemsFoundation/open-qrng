@@ -169,6 +169,10 @@ export default class QrngJobStatusPanel extends LightningElement {
         return this._dto?.rawResults;
     }
 
+    get debiasedResults() {
+        return this._dto?.debiasedResults;
+    }
+
     get hasResults() {
         return this.isCompleted && this._dto?.rawResults;
     }

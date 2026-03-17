@@ -829,6 +829,10 @@ public with sharing class QRNGSetupController {
                 bMap.put('status', cb.Status__c);
                 bMap.put('qubits', cb.Num_Qubits__c);
                 bMap.put('provider', cb.Provider__r.Name);
+                bMap.put('maxShots', cb.Max_Shots__c);
+                bMap.put('queueLength', cb.Queue_Length__c);
+                bMap.put('isSimulator', cb.Is_Simulator__c);
+                bMap.put('processorFamily', cb.Processor_Family__c);
                 backendList.add(bMap);
             }
             settings.put('cachedBackends', backendList);

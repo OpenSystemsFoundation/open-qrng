@@ -1,94 +1,190 @@
-.gauge-container {
-    text-align: center;
+.bell-container {
     padding: 1rem;
 }
-.gauge-title {
+
+.bell-title {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #706e6b;
-    margin-bottom: 0.5rem;
-}
-.gauge {
-    position: relative;
-    width: 160px;
-    height: 80px;
-    margin: 0 auto;
-    overflow: hidden;
-}
-.gauge-fill {
-    position: absolute;
-    width: 160px;
-    height: 160px;
-    border-radius: 50%;
-    background: conic-gradient(
-        from 180deg,
-        #ea001e 0deg,
-        #fe9339 90deg,
-        #fe9339 127deg,
-        #2e844a 127deg,
-        #0176d3 180deg,
-        transparent 180deg
-    );
-    clip-path: inset(0 0 50% 0);
-}
-.gauge-cover {
-    position: absolute;
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    background: white;
-    top: 20px;
-    left: 20px;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    padding-bottom: 5px;
-    clip-path: inset(0 0 50% 0);
-}
-.gauge-value {
-    font-size: 1.5rem;
-    font-weight: bold;
     color: #181818;
+    margin-bottom: 0.25rem;
 }
-.classical-limit {
+
+.bell-subtitle {
+    font-size: 0.75rem;
+    color: #706e6b;
+    margin-bottom: 1rem;
+    line-height: 1.4;
+}
+
+/* ── Bar chart ──────────────────────────────────────── */
+.bar-chart {
+    position: relative;
+}
+
+.zone-labels {
+    display: flex;
+    margin-bottom: 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.zone-label {
+    text-align: center;
+}
+
+.classical-label {
+    /* 0 to 2.0 out of 2.828 = 70.7% */
+    width: 70.7%;
+    color: #706e6b;
+}
+
+.quantum-label {
+    /* 2.0 to 2.414 (midpoint to Tsirelson) = ~14.6% */
+    width: 14.65%;
+    color: #0176d3;
+}
+
+.max-label {
+    /* 2.414 to 2.828 = ~14.6% */
+    width: 14.65%;
+    color: #032d60;
+}
+
+/* ── Bar track ──────────────────────────────────────── */
+.bar-track {
+    position: relative;
+    display: flex;
+    height: 28px;
+    border-radius: 4px;
+    overflow: visible;
+}
+
+.bar-zone {
+    height: 100%;
+}
+
+.classical-zone {
+    width: 70.7%;
+    background: linear-gradient(90deg, #e5e5e5 0%, #c9c7c5 100%);
+    border-radius: 4px 0 0 4px;
+}
+
+.quantum-zone {
+    width: 14.65%;
+    background: linear-gradient(90deg, #b9d6f3 0%, #0176d3 100%);
+}
+
+.max-zone {
+    width: 14.65%;
+    background: linear-gradient(90deg, #0176d3 0%, #032d60 100%);
+    border-radius: 0 4px 4px 0;
+}
+
+/* ── Markers ────────────────────────────────────────── */
+.bar-marker {
     position: absolute;
-    width: 2px;
-    height: 20px;
-    background: #ea001e;
     top: 0;
-    left: 50%;
-    transform-origin: bottom center;
-    transform: translateX(-50%)
-        rotate(calc(var(--gauge-rotation, 127deg) - 90deg));
+    width: 2px;
+    height: 100%;
+    z-index: 1;
 }
-.gauge-labels {
+
+.limit-marker {
+    left: 70.7%;
+    background: #181818;
+}
+
+.tsirelson-marker {
+    left: 85.35%;
+    background: rgba(3, 45, 96, 0.4);
+}
+
+.marker-label {
+    position: absolute;
+    bottom: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.625rem;
+    color: #706e6b;
+    white-space: nowrap;
+}
+
+/* ── Value indicator ────────────────────────────────── */
+.value-indicator {
+    position: absolute;
+    top: -28px;
+    transform: translateX(-50%);
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.value-label {
+    font-size: 0.875rem;
+    font-weight: 700;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.value-indicator.quantum .value-label {
+    background: #0176d3;
+    color: #fff;
+}
+
+.value-indicator.classical .value-label {
+    background: #706e6b;
+    color: #fff;
+}
+
+.value-arrow {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+}
+
+.value-indicator.quantum .value-arrow {
+    border-top: 5px solid #0176d3;
+}
+
+.value-indicator.classical .value-arrow {
+    border-top: 5px solid #706e6b;
+}
+
+/* ── Scale labels ───────────────────────────────────── */
+.scale-labels {
     display: flex;
     justify-content: space-between;
-    margin-top: 0.25rem;
-    font-size: 0.6875rem;
+    margin-top: 1.25rem;
+    font-size: 0.625rem;
     color: #706e6b;
 }
-.label-classical {
-    color: #ea001e;
-    font-weight: 600;
+
+/* ── Verdict ────────────────────────────────────────── */
+.bell-verdict {
+    margin-top: 1rem;
+    text-align: center;
 }
-.gauge-verdict {
-    margin-top: 0.5rem;
-}
-.verdict-quantum {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    background: linear-gradient(135deg, #032d60, #0176d3);
-    color: white;
+
+.verdict-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.375rem 0.75rem;
     border-radius: 1rem;
     font-size: 0.8125rem;
     font-weight: 600;
 }
-.verdict-classical {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
+
+.verdict-badge.quantum {
+    background: linear-gradient(135deg, #032d60, #0176d3);
+    color: #fff;
+}
+
+.verdict-badge.classical {
     background: #f3f3f3;
     color: #706e6b;
-    border-radius: 1rem;
-    font-size: 0.8125rem;
 }
