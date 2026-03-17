@@ -32,68 +32,72 @@ jobs:
             - name: Run Apex Tests
               run: |
                   mkdir -p apex-results
-                  sf apex run test --target-org ci-test --code-coverage --json --wait 15 > apex-results/test-run.json 2>&1 || true
-                  cat apex-results/test-run.json | node -e "
-                    let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
-                      const j=JSON.parse(d);
-                      const summary=j.result?.summary||{};
-                      const tests=j.result?.tests||[];
-                      const total=tests.length;
-                      const failed=tests.filter(t=>t.Outcome==='Fail');
-                      const passed=tests.filter(t=>t.Outcome==='Pass');
+                  sf apex run test --target-org ci-test --code-coverage --result-format json --wait 15 > apex-results/test-run.json 2>&1 || true
+                  node -e "
+                    const fs=require('fs');
+                    const raw=fs.readFileSync('apex-results/test-run.json','utf8');
+                    /* SF CLI may prefix non-JSON warnings; find the JSON start */
+                    const jsonStart=raw.indexOf('{');
+                    if(jsonStart<0){console.error('No JSON found in output');console.log(raw);process.exit(1)}
+                    const j=JSON.parse(raw.substring(jsonStart));
 
-                      /* Show each test with progress counter */
-                      console.log('');
-                      console.log('='.repeat(60));
-                      console.log('  APEX TEST RESULTS');
-                      console.log('='.repeat(60));
-                      console.log('');
+                    /* SF CLI nests under result or at top level depending on version */
+                    const r=j.result||j;
+                    const summary=r.summary||{};
+                    const tests=r.tests||[];
+                    const total=tests.length;
+                    const failed=tests.filter(t=>t.Outcome==='Fail');
+                    const passed=tests.filter(t=>t.Outcome==='Pass');
 
-                      tests.forEach((t,i)=>{
-                        const num=String(i+1).padStart(String(total).length,' ');
-                        const cls=t.ApexClass?.Name||'Unknown';
-                        const method=t.MethodName||'unknown';
-                        const ms=t.RunTime!=null?t.RunTime+'ms':'--';
-                        const icon=t.Outcome==='Pass'?'PASS':'FAIL';
-                        console.log('  ('+num+'/'+total+') ['+icon+'] '+cls+'.'+method+' ('+ms+')');
-                      });
+                    console.log('');
+                    console.log('='.repeat(60));
+                    console.log('  APEX TEST RESULTS');
+                    console.log('='.repeat(60));
+                    console.log('');
 
-                      /* Summary */
-                      console.log('');
-                      console.log('-'.repeat(60));
-                      console.log('  SUMMARY');
-                      console.log('-'.repeat(60));
-                      console.log('  Outcome:      '+summary.outcome);
-                      console.log('  Tests ran:    '+summary.testsRan);
-                      console.log('  Passed:       '+passed.length);
-                      console.log('  Failed:       '+failed.length);
-                      console.log('  Pass rate:    '+summary.passRate);
-                      console.log('  Org coverage: '+summary.orgWideCoverage);
-                      console.log('-'.repeat(60));
-
-                      /* Show failure details */
-                      if(failed.length>0){
-                        console.log('');
-                        console.log('!'.repeat(60));
-                        console.log('  FAILED TESTS');
-                        console.log('!'.repeat(60));
-                        failed.forEach((t,i)=>{
-                          console.log('');
-                          console.log('  '+(i+1)+') '+t.ApexClass?.Name+'.'+t.MethodName);
-                          console.log('     Message: '+t.Message);
-                          if(t.StackTrace){
-                            t.StackTrace.split('\\n').forEach(line=>{
-                              console.log('     '+line);
-                            });
-                          }
-                        });
-                        console.log('');
-                        console.log('!'.repeat(60));
-                      }
-
-                      console.log('');
-                      if(summary.outcome!=='Passed'){process.exit(1)}
+                    tests.forEach((t,i)=>{
+                      const num=String(i+1).padStart(String(total).length,' ');
+                      const cls=(t.ApexClass&&t.ApexClass.Name)||t.FullName||'Unknown';
+                      const method=t.MethodName||'unknown';
+                      const ms=t.RunTime!=null?t.RunTime+'ms':'--';
+                      const icon=t.Outcome==='Pass'?'PASS':'FAIL';
+                      console.log('  ('+num+'/'+total+') ['+icon+'] '+cls+'.'+method+' ('+ms+')');
                     });
+
+                    console.log('');
+                    console.log('-'.repeat(60));
+                    console.log('  SUMMARY');
+                    console.log('-'.repeat(60));
+                    console.log('  Outcome:      '+(summary.outcome||'Unknown'));
+                    console.log('  Tests ran:    '+(summary.testsRan||total));
+                    console.log('  Passed:       '+passed.length);
+                    console.log('  Failed:       '+failed.length);
+                    console.log('  Pass rate:    '+(summary.passRate||(total?Math.round(passed.length/total*100)+'%':'N/A')));
+                    console.log('  Org coverage: '+(summary.orgWideCoverage||'N/A'));
+                    console.log('-'.repeat(60));
+
+                    if(failed.length>0){
+                      console.log('');
+                      console.log('!'.repeat(60));
+                      console.log('  FAILED TESTS');
+                      console.log('!'.repeat(60));
+                      failed.forEach((t,i)=>{
+                        console.log('');
+                        const cls=(t.ApexClass&&t.ApexClass.Name)||t.FullName||'Unknown';
+                        console.log('  '+(i+1)+') '+cls+'.'+t.MethodName);
+                        console.log('     Message: '+t.Message);
+                        if(t.StackTrace){
+                          t.StackTrace.split('\\n').forEach(line=>{
+                            console.log('     '+line);
+                          });
+                        }
+                      });
+                      console.log('');
+                      console.log('!'.repeat(60));
+                    }
+
+                    console.log('');
+                    if(failed.length>0||(summary.outcome&&summary.outcome!=='Passed')){process.exit(1)}
                   "
 
             - name: Check Coverage Threshold
