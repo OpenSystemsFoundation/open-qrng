@@ -76,11 +76,21 @@ public with sharing class QRNGSetupController {
             List<QRNG_Backend__c> backendRecords = new List<QRNG_Backend__c>();
             for (Map<String, Object> b : backends) {
                 String backendName = (String) b.get('name');
+                // Extract status — could be a string or {"name":"online"} map
+                Object statusObj = b.get('status');
+                String statusStr;
+                if (statusObj instanceof Map<String, Object>) {
+                    statusStr = (String) ((Map<String, Object>) statusObj)
+                        .get('name');
+                } else {
+                    statusStr = String.valueOf(statusObj);
+                }
+
                 QRNG_Backend__c rec = new QRNG_Backend__c(
                     Name = backendName,
                     Backend_Key__c = 'ibm:' + backendName,
                     Provider__c = ibmProvider.Id,
-                    Status__c = String.valueOf(b.get('status')),
+                    Status__c = statusStr,
                     Num_Qubits__c = b.get('qubits') != null
                         ? Integer.valueOf(String.valueOf(b.get('qubits')))
                         : 0,
@@ -267,6 +277,16 @@ public with sharing class QRNGSetupController {
     @AuraEnabled
     public static List<QRNG_Backend__c> refreshAllBackendHealth() {
         try {
+            // Ensure backends are synced first
+            Integer backendCount = [
+                SELECT COUNT()
+                FROM QRNG_Backend__c
+            ];
+            if (backendCount == 0) {
+                // Sync backends from IBM
+                getAvailableBackends();
+            }
+
             List<QRNG_Backend__c> backends = [
                 SELECT
                     Id,
@@ -290,9 +310,8 @@ public with sharing class QRNGSetupController {
                 WHERE
                     Provider__r.Is_Active__c = TRUE
                     AND Is_Simulator__c = FALSE
-                    AND Status__c = 'online'
                 ORDER BY Name
-                LIMIT 5
+                LIMIT 10
             ];
 
             List<QRNG_Backend__c> toUpdate = new List<QRNG_Backend__c>();
@@ -554,18 +573,11 @@ public with sharing class QRNGSetupController {
             if (String.isNotBlank(backend)) {
                 backendName = backend;
             } else if (settings != null && settings.Use_Least_Busy__c == true) {
-                // Try stored backends first (no API call)
-                backendName = getLeastBusyFromStored();
-                // Fall back to API if no stored data
-                if (String.isBlank(backendName)) {
-                    backendName = IBMQuantumService.getLeastBusyBackend();
-                }
+                // Always call live API for real-time queue data
+                backendName = IBMQuantumService.getLeastBusyBackend();
             }
-            if (String.isBlank(backendName)) {
-                backendName = (settings != null &&
-                    String.isNotBlank(settings.Default_Backend__c))
-                    ? settings.Default_Backend__c
-                    : getLeastBusyFromStored();
+            if (String.isBlank(backendName) && settings != null) {
+                backendName = settings.Default_Backend__c;
             }
             Integer numQ = numQubits != null ? numQubits : 8;
             Integer numShots = shots != null
@@ -933,20 +945,6 @@ public with sharing class QRNGSetupController {
         );
         insert ibm;
         return ibm;
-    }
-
-    /**
-     * Get the least busy online backend from stored QRNG_Backend__c records.
-     */
-    private static String getLeastBusyFromStored() {
-        List<QRNG_Backend__c> backends = [
-            SELECT Name
-            FROM QRNG_Backend__c
-            WHERE Status__c = 'online' AND Is_Simulator__c = FALSE
-            ORDER BY Queue_Length__c ASC NULLS LAST
-            LIMIT 1
-        ];
-        return backends.isEmpty() ? null : backends[0].Name;
     }
 
     private static String normalizeIBMStatus(String ibmStatus) {
