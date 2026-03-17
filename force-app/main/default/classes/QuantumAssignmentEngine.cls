@@ -4,7 +4,6 @@
  * Each assignment is deterministically derived from the quantum bits.
  */
 public with sharing class QuantumAssignmentEngine {
-
     /**
      * Uniform assignment: distribute records evenly across assignees.
      * For each record, consume ceil(log2(assigneeCount)) bits and mod to select.
@@ -28,7 +27,11 @@ public with sharing class QuantumAssignmentEngine {
         Integer bitOffset = 0;
 
         for (Integer i = 0; i < recordIds.size(); i++) {
-            String bits = QRNGResultParser.consumeBits(randomBits, bitOffset, bitsNeeded);
+            String bits = QRNGResultParser.consumeBits(
+                randomBits,
+                bitOffset,
+                bitsNeeded
+            );
             Integer value = QRNGResultParser.bitsToInteger(bits);
             Integer assigneeIndex = Math.mod(value, assigneeIds.size());
 
@@ -84,7 +87,11 @@ public with sharing class QuantumAssignmentEngine {
         Integer bitOffset = 0;
 
         for (Integer i = 0; i < recordIds.size(); i++) {
-            String bits = QRNGResultParser.consumeBits(randomBits, bitOffset, bitsPerSelection);
+            String bits = QRNGResultParser.consumeBits(
+                randomBits,
+                bitOffset,
+                bitsPerSelection
+            );
             Integer value = QRNGResultParser.bitsToInteger(bits);
             Double normalizedValue = (Double) value / 1024.0;
 
@@ -127,7 +134,11 @@ public with sharing class QuantumAssignmentEngine {
     ) {
         if (sampleSize > recordIds.size()) {
             throw new QRNGException(
-                'Sample size (' + sampleSize + ') exceeds population (' + recordIds.size() + ')'
+                'Sample size (' +
+                    sampleSize +
+                    ') exceeds population (' +
+                    recordIds.size() +
+                    ')'
             );
         }
 
@@ -137,7 +148,11 @@ public with sharing class QuantumAssignmentEngine {
         Integer bitOffset = 0;
 
         for (Integer i = shuffled.size() - 1; i > 0; i--) {
-            String bits = QRNGResultParser.consumeBits(randomBits, bitOffset, bitsNeeded);
+            String bits = QRNGResultParser.consumeBits(
+                randomBits,
+                bitOffset,
+                bitsNeeded
+            );
             Integer j = Math.mod(QRNGResultParser.bitsToInteger(bits), i + 1);
 
             // Swap

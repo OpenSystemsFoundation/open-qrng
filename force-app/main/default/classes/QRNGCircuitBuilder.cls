@@ -6,7 +6,6 @@
  * Native gates for IBM Heron r2: rz, sx, x, ecr
  */
 public with sharing class QRNGCircuitBuilder {
-
     /**
      * Build a standard QRNG circuit: H + measure on each qubit
      * Each shot produces numQubits random bits
@@ -14,7 +13,9 @@ public with sharing class QRNGCircuitBuilder {
     public static String buildStandardCircuit(Integer numQubits) {
         // Validate input
         if (numQubits == null || numQubits < 1 || numQubits > 127) {
-            throw new QRNGException('Number of qubits must be between 1 and 127');
+            throw new QRNGException(
+                'Number of qubits must be between 1 and 127'
+            );
         }
 
         String qasm = 'OPENQASM 3.0;\n';
@@ -43,7 +44,9 @@ public with sharing class QRNGCircuitBuilder {
      */
     public static String buildBellTestCircuit(Integer numPairs) {
         if (numPairs == null || numPairs < 1 || numPairs > 63) {
-            throw new QRNGException('Number of Bell pairs must be between 1 and 63');
+            throw new QRNGException(
+                'Number of Bell pairs must be between 1 and 63'
+            );
         }
 
         Integer totalQubits = numPairs * 2;
@@ -52,8 +55,8 @@ public with sharing class QRNGCircuitBuilder {
         qasm += 'bit[' + totalQubits + '] meas;\n';
 
         for (Integer i = 0; i < numPairs; i++) {
-            Integer qA = i * 2;      // First qubit of pair
-            Integer qB = i * 2 + 1;  // Second qubit of pair
+            Integer qA = i * 2; // First qubit of pair
+            Integer qB = i * 2 + 1; // Second qubit of pair
 
             // Hadamard on qubit A: rz(π/2) → sx → rz(π/2)
             qasm += 'rz(pi/2) $' + qA + ';\n';
@@ -81,7 +84,10 @@ public with sharing class QRNGCircuitBuilder {
     /**
      * Calculate total random bits per execution
      */
-    public static Integer calculateBitsPerExecution(Integer numQubits, Integer shots) {
+    public static Integer calculateBitsPerExecution(
+        Integer numQubits,
+        Integer shots
+    ) {
         return numQubits * shots;
     }
 }

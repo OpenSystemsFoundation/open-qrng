@@ -1,11 +1,12 @@
 @IsTest
 private class QRNGValidator_Test {
-
     // Generate a pseudo-random bitstring for testing
     private static String generateTestBits(Integer length) {
         String bits = '';
         for (Integer i = 0; i < length; i++) {
-            bits += Math.mod(Math.abs(Crypto.getRandomInteger()), 2) == 0 ? '0' : '1';
+            bits += Math.mod(Math.abs(Crypto.getRandomInteger()), 2) == 0
+                ? '0'
+                : '1';
         }
         return bits;
     }

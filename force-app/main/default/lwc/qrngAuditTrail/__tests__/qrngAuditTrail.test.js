@@ -1,0 +1,174 @@
+import { createElement } from 'lwc';
+import QrngAuditTrail from 'c/qrngAuditTrail';
+
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.getAuditTrail',
+    () => {
+        const {
+            createApexTestWireAdapter
+        } = require('@salesforce/sfdx-lwc-jest');
+        return { default: createApexTestWireAdapter(jest.fn()) };
+    },
+    { virtual: true }
+);
+
+import getAuditTrail from '@salesforce/apex/QRNGSetupController.getAuditTrail';
+
+function flushPromises() {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+const MOCK_AUDIT_DATA = [
+    {
+        Id: 'a01xx000001',
+        Name: 'CERT-0001',
+        IBM_Job_ID__c: 'job_abc123',
+        Backend__c: 'ibm_kingston',
+        Status__c: 'Certified',
+        Purpose__c: 'Lead assignment',
+        CHSH_S_Value__c: null,
+        CreatedDate: '2026-03-17T10:00:00.000Z'
+    },
+    {
+        Id: 'a01xx000002',
+        Name: 'CERT-0002',
+        IBM_Job_ID__c: 'job_def456',
+        Backend__c: 'ibm_kingston',
+        Status__c: 'Failed',
+        Purpose__c: 'Audit sampling',
+        CHSH_S_Value__c: 2.5,
+        CreatedDate: '2026-03-16T09:00:00.000Z'
+    }
+];
+
+describe('c-qrng-audit-trail', () => {
+    afterEach(() => {
+        while (document.body.firstChild) {
+            document.body.removeChild(document.body.firstChild);
+        }
+    });
+
+    function createComponent() {
+        const element = createElement('c-qrng-audit-trail', {
+            is: QrngAuditTrail
+        });
+        document.body.appendChild(element);
+        return element;
+    }
+
+    it('shows empty state message when wire returns empty array', async () => {
+        const element = createComponent();
+
+        getAuditTrail.emit([]);
+        await flushPromises();
+
+        const emptyMsg = element.shadowRoot.querySelector(
+            '.slds-text-color_weak'
+        );
+        expect(emptyMsg).not.toBeNull();
+        expect(emptyMsg.textContent).toContain(
+            'No fairness certificates have been issued yet'
+        );
+    });
+
+    it('renders timeline items when wire returns data', async () => {
+        const element = createComponent();
+
+        getAuditTrail.emit(MOCK_AUDIT_DATA);
+        await flushPromises();
+
+        const timelineItems =
+            element.shadowRoot.querySelectorAll('.timeline-item');
+        expect(timelineItems).toHaveLength(2);
+    });
+
+    it('computes iconName as standard:task2 for Certified, standard:incident for Failed', async () => {
+        const element = createComponent();
+
+        getAuditTrail.emit(MOCK_AUDIT_DATA);
+        await flushPromises();
+
+        const icons = element.shadowRoot.querySelectorAll('lightning-icon');
+        // First cert is Certified -> standard:task2
+        expect(icons[0].iconName).toBe('standard:task2');
+        // Second cert is Failed -> standard:incident
+        expect(icons[1].iconName).toBe('standard:incident');
+    });
+
+    it('computes badgeClass with slds-theme_success for Certified', async () => {
+        const element = createComponent();
+
+        getAuditTrail.emit(MOCK_AUDIT_DATA);
+        await flushPromises();
+
+        const badges = element.shadowRoot.querySelectorAll('lightning-badge');
+        // First cert is Certified
+        expect(badges[0].className).toContain('slds-theme_success');
+        // Second cert is Failed
+        expect(badges[1].className).toContain('slds-theme_error');
+    });
+
+    it('computes isQuantumCertified as true when CHSH > 2.0', async () => {
+        const element = createComponent();
+
+        getAuditTrail.emit(MOCK_AUDIT_DATA);
+        await flushPromises();
+
+        // Second cert has CHSH_S_Value__c = 2.5, so it should show Quantum Certified
+        const quantumBadges =
+            element.shadowRoot.querySelectorAll('.quantum-badge');
+        expect(quantumBadges).toHaveLength(1);
+        expect(quantumBadges[0].textContent).toBe('Quantum Certified');
+    });
+
+    it('click on cert name sets selectedCertId (opens modal)', async () => {
+        const element = createComponent();
+
+        getAuditTrail.emit(MOCK_AUDIT_DATA);
+        await flushPromises();
+
+        const certLink = element.shadowRoot.querySelector(
+            'a[data-id="a01xx000001"]'
+        );
+        expect(certLink).not.toBeNull();
+
+        certLink.click();
+        await flushPromises();
+
+        // Modal should now be visible
+        const modal = element.shadowRoot.querySelector('.slds-modal');
+        expect(modal).not.toBeNull();
+
+        // Embedded certificate component should receive the selectedCertId
+        const certComponent = element.shadowRoot.querySelector(
+            'c-qrng-fairness-certificate'
+        );
+        expect(certComponent).not.toBeNull();
+        expect(certComponent.certificateId).toBe('a01xx000001');
+    });
+
+    it('closeCertDetail clears selectedCertId', async () => {
+        const element = createComponent();
+
+        getAuditTrail.emit(MOCK_AUDIT_DATA);
+        await flushPromises();
+
+        // Open modal
+        const certLink = element.shadowRoot.querySelector(
+            'a[data-id="a01xx000001"]'
+        );
+        certLink.click();
+        await flushPromises();
+
+        let modal = element.shadowRoot.querySelector('.slds-modal');
+        expect(modal).not.toBeNull();
+
+        // Close modal via close button
+        const closeBtn = element.shadowRoot.querySelector('.slds-modal__close');
+        closeBtn.click();
+        await flushPromises();
+
+        modal = element.shadowRoot.querySelector('.slds-modal');
+        expect(modal).toBeNull();
+    });
+});

@@ -1,18 +1,26 @@
 <template>
-    <lightning-card title="QuantumFair" icon-name="custom:custom68">
+    <lightning-card
+        title="QuantumFair"
+        icon-name="custom:custom68"
+    >
         <div class="slds-p-around_medium">
             <lightning-tabset>
                 <lightning-tab label="Dashboard">
                     <div class="slds-p-around_small">
-                        <c-qrng-request-form onjobsubmitted={handleJobSubmitted}></c-qrng-request-form>
+                        <c-qrng-request-form
+                            onjobsubmitted={handleJobSubmitted}
+                        ></c-qrng-request-form>
                         <template if:true={activeJobId}>
                             <div class="slds-m-top_medium">
-                                <c-qrng-job-monitor job-id={activeJobId} onjobcomplete={handleJobComplete}></c-qrng-job-monitor>
+                                <c-qrng-job-monitor
+                                    job-id={activeJobId}
+                                    onjobcomplete={handleJobComplete}
+                                ></c-qrng-job-monitor>
                             </div>
                         </template>
                     </div>
                 </lightning-tab>
-                <lightning-tab label="Setup" >
+                <lightning-tab label="Setup">
                     <c-qrng-setup></c-qrng-setup>
                 </lightning-tab>
                 <lightning-tab label="Audit Trail">

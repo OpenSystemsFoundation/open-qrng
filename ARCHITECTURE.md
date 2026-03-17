@@ -13,12 +13,12 @@ QuantumFair is a managed Salesforce package that provides **certified quantum ra
 
 ### Constraints
 
-| Constraint | Decision |
-|---|---|
-| No external servers | Everything runs on Salesforce — Apex, LWC, Platform Events, Custom Objects |
-| Zero cost to maintain | No Heroku, no AWS, no middleware. Apex calls IBM Quantum REST API directly |
-| BYOQ | Each org provides their own IBM Quantum API key via Named Credentials |
-| Open-source | Apache-2.0 license, full source on GitHub, free AppExchange listing |
+| Constraint                  | Decision                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| No external servers         | Everything runs on Salesforce — Apex, LWC, Platform Events, Custom Objects     |
+| Zero cost to maintain       | No Heroku, no AWS, no middleware. Apex calls IBM Quantum REST API directly     |
+| BYOQ                        | Each org provides their own IBM Quantum API key via Named Credentials          |
+| Open-source                 | Apache-2.0 license, full source on GitHub, free AppExchange listing            |
 | No Python/Qiskit dependency | Apex generates ISA-compliant OpenQASM 3.0 directly (trivial for QRNG circuits) |
 
 ---
@@ -102,6 +102,7 @@ For Bell-test certification (CHSH inequality violation proves quantum origin), t
 ### Backend Configuration — `QRNGBackendConfig.cls`
 
 Queries the IBM `/backends/{name}/configuration` endpoint to retrieve:
+
 - Native gate set (validates our decomposition)
 - Qubit coupling map (ensures we use connected physical qubits)
 - Number of qubits available
@@ -208,6 +209,7 @@ The job ID is stored in `Quantum_Job__c` and async polling begins.
 5. Send Custom Notification to requesting user on completion/failure
 
 **Governor limit safety:**
+
 - Each Queueable execution = 1 transaction with fresh limits
 - No depth limit on chaining — can poll indefinitely
 - Single callout per poll (well within 100 callout limit)
@@ -234,6 +236,7 @@ IBM Sampler returns measurement results as bitstring samples:
 ```
 
 The parser:
+
 1. Extracts raw bitstrings from the Sampler response
 2. Concatenates into a single random bit pool
 3. Applies **von Neumann debiasing** (pairs of bits: 01→0, 10→1, 00/11→discard) to correct for any hardware bias
@@ -243,12 +246,12 @@ The parser:
 
 Runs lightweight randomness checks before certifying:
 
-| Test | What It Checks | Pass Criteria |
-|---|---|---|
-| **Frequency (monobit)** | Proportion of 0s vs 1s | Within 2σ of 50% |
-| **Runs test** | Length of consecutive identical bits | Consistent with random sequence |
-| **Chi-squared on distribution** | Uniformity of N-bit blocks | p-value > 0.01 |
-| **CHSH violation** (Bell-test mode) | S parameter from entangled measurements | S > 2.0 (classical limit) |
+| Test                                | What It Checks                          | Pass Criteria                   |
+| ----------------------------------- | --------------------------------------- | ------------------------------- |
+| **Frequency (monobit)**             | Proportion of 0s vs 1s                  | Within 2σ of 50%                |
+| **Runs test**                       | Length of consecutive identical bits    | Consistent with random sequence |
+| **Chi-squared on distribution**     | Uniformity of N-bit blocks              | p-value > 0.01                  |
+| **CHSH violation** (Bell-test mode) | S parameter from entangled measurements | S > 2.0 (classical limit)       |
 
 If validation fails, the job is flagged and the certificate is not issued. The user is notified to retry (likely hardware noise issue).
 
@@ -256,23 +259,23 @@ If validation fails, the job is flagged and the certificate is not issued. The u
 
 On successful validation, creates a `Fairness_Certificate__c` record:
 
-| Field | Type | Description |
-|---|---|---|
-| `Certificate_ID__c` | Auto-Number | Unique public identifier |
-| `Quantum_Job__c` | Lookup | Link to the IBM job record |
-| `IBM_Job_ID__c` | Text | IBM's job ID (externally verifiable) |
-| `Backend__c` | Text | QPU used (e.g., `ibm_kingston`) |
-| `Circuit_QASM__c` | Long Text | Exact OpenQASM submitted |
-| `Raw_Bitstring_Hash__c` | Text | SHA-256 hash of raw measurement data |
-| `Debiased_Bitstring_Hash__c` | Text | SHA-256 hash of processed random values |
-| `Assignment_Hash__c` | Text | SHA-256 hash of the resulting assignment |
-| `Validation_Results__c` | Long Text (JSON) | Statistical test results |
-| `CHSH_S_Value__c` | Number | Bell-test S value (if applicable) |
-| `Created_By_User__c` | Lookup(User) | Who requested the random assignment |
-| `Purpose__c` | Text | Description of what the randomness was used for |
-| `Status__c` | Picklist | Certified / Failed / Pending |
+| Field                        | Type             | Description                                     |
+| ---------------------------- | ---------------- | ----------------------------------------------- |
+| `Certificate_ID__c`          | Auto-Number      | Unique public identifier                        |
+| `Quantum_Job__c`             | Lookup           | Link to the IBM job record                      |
+| `IBM_Job_ID__c`              | Text             | IBM's job ID (externally verifiable)            |
+| `Backend__c`                 | Text             | QPU used (e.g., `ibm_kingston`)                 |
+| `Circuit_QASM__c`            | Long Text        | Exact OpenQASM submitted                        |
+| `Raw_Bitstring_Hash__c`      | Text             | SHA-256 hash of raw measurement data            |
+| `Debiased_Bitstring_Hash__c` | Text             | SHA-256 hash of processed random values         |
+| `Assignment_Hash__c`         | Text             | SHA-256 hash of the resulting assignment        |
+| `Validation_Results__c`      | Long Text (JSON) | Statistical test results                        |
+| `CHSH_S_Value__c`            | Number           | Bell-test S value (if applicable)               |
+| `Created_By_User__c`         | Lookup(User)     | Who requested the random assignment             |
+| `Purpose__c`                 | Text             | Description of what the randomness was used for |
+| `Status__c`                  | Picklist         | Certified / Failed / Pending                    |
 
-**Audit chain:** Certificate → links to → Quantum_Job__c (with IBM job ID) → links to → assigned records via `QRNG_Assignment__c` junction object. Any auditor can verify: circuit was run on IBM hardware (job ID verifiable via IBM API), measurements are statistically random, and the assignment follows deterministically from the measurements.
+**Audit chain:** Certificate → links to → Quantum_Job**c (with IBM job ID) → links to → assigned records via `QRNG_Assignment**c` junction object. Any auditor can verify: circuit was run on IBM hardware (job ID verifiable via IBM API), measurements are statistically random, and the assignment follows deterministically from the measurements.
 
 ---
 
@@ -283,6 +286,7 @@ On successful validation, creates a `Fairness_Certificate__c` record:
 Converts quantum random bits into fair assignments for common Salesforce use cases:
 
 **Uniform distribution** (e.g., round-robin lead assignment):
+
 ```
 Input:  50 leads, 5 reps, quantum random bits
 Method: For each lead, consume ceil(log2(5)) random bits → mod 5 → assign to rep
@@ -290,6 +294,7 @@ Output: Assignment map with certificate link
 ```
 
 **Weighted distribution** (e.g., leads weighted by rep capacity):
+
 ```
 Input:  Items, assignees with weights, quantum random bits
 Method: CDF-based selection using quantum random values
@@ -297,6 +302,7 @@ Output: Assignment respecting weight proportions
 ```
 
 **Subset selection** (e.g., audit sampling):
+
 ```
 Input:  Population of N records, sample size K, quantum random bits
 Method: Fisher-Yates shuffle using quantum random bits → take first K
@@ -312,6 +318,7 @@ Output: Unbiased sample with certificate
 ```
 
 Inputs exposed to Flow Builder:
+
 - `recordIds` — List of record IDs to assign
 - `assigneeIds` — List of User/Queue IDs to assign to
 - `assignmentType` — Uniform / Weighted / Subset
@@ -361,6 +368,7 @@ Design:
 ```
 
 **Implementation approach:**
+
 - `<canvas>` element in the LWC template
 - `renderedCallback()` draws the circuit using `ctx.fillRect()`, `ctx.strokeRect()`, `ctx.fillText()`, `ctx.beginPath()`/`ctx.lineTo()`
 - Dynamically scales to the number of qubits in the circuit
@@ -391,6 +399,7 @@ import { subscribe, unsubscribe } from 'lightning/empApi';
 ```
 
 **States rendered:**
+
 1. **Submitted** — circuit diagram shown, pulsing animation
 2. **Queued** — position in IBM queue (from job metadata), estimated wait
 3. **Running** — execution progress indicator
@@ -511,6 +520,7 @@ Layer 1: External Credential (encrypted at rest by Salesforce)
 ### Integrity Verification
 
 The certificate stores three SHA-256 hashes:
+
 1. **Raw bitstring hash** — hash of the exact measurement output from IBM
 2. **Debiased hash** — hash of the post-processed random values
 3. **Assignment hash** — hash of the final assignment mapping
@@ -677,16 +687,16 @@ For orgs needing high-volume randomness without burning IBM minutes on every req
 
 ## Governor Limit Budget
 
-| Operation | Limit | Usage |
-|---|---|---|
-| Callouts per transaction | 100 | 2 per poll cycle (auth check + status) |
-| Callout timeout | 120s | IBM API responds in <5s typically |
-| Heap size (async) | 12 MB | Results for 8192 shots × 127 qubits ≈ 1 MB |
-| Queueable chain depth | Unlimited | ~3–10 polls per job |
-| Platform Events published/tx | 250 | 1 per job completion |
-| SOQL queries per tx | 100 | ~5 per poll cycle |
-| DML rows per tx | 10,000 | Certificate + assignments well within |
-| Platform Cache (Org) | 10 MB (default) | Bearer token ≈ 2 KB |
+| Operation                    | Limit           | Usage                                      |
+| ---------------------------- | --------------- | ------------------------------------------ |
+| Callouts per transaction     | 100             | 2 per poll cycle (auth check + status)     |
+| Callout timeout              | 120s            | IBM API responds in <5s typically          |
+| Heap size (async)            | 12 MB           | Results for 8192 shots × 127 qubits ≈ 1 MB |
+| Queueable chain depth        | Unlimited       | ~3–10 polls per job                        |
+| Platform Events published/tx | 250             | 1 per job completion                       |
+| SOQL queries per tx          | 100             | ~5 per poll cycle                          |
+| DML rows per tx              | 10,000          | Certificate + assignments well within      |
+| Platform Cache (Org)         | 10 MB (default) | Bearer token ≈ 2 KB                        |
 
 ---
 
@@ -707,18 +717,19 @@ Developers in the subscriber org can implement this interface and register their
 
 Any subscriber-org automation (Flow, Apex trigger, external system via CometD) can listen for this event and react to completed QRNG jobs. Fields:
 
-- `Job_Id__c` — Quantum_Job__c record ID
-- `Certificate_Id__c` — Fairness_Certificate__c record ID
+- `Job_Id__c` — Quantum_Job\_\_c record ID
+- `Certificate_Id__c` — Fairness_Certificate\_\_c record ID
 - `Num_Random_Bits__c` — Number of debiased random bits available
 - `Status__c` — Certified / Failed
 
 ### Flow Builder Integration
 
 The `QuantumRandomAssignment` invocable action can be used in:
+
 - Record-Triggered Flows (e.g., auto-assign new leads)
 - Screen Flows (e.g., admin-initiated audit sampling)
 - Scheduled Flows (e.g., weekly fair rotation)
-- Platform Event-Triggered Flows (chained from QRNG_Complete__e)
+- Platform Event-Triggered Flows (chained from QRNG_Complete\_\_e)
 
 ---
 
@@ -728,13 +739,13 @@ The `QuantumRandomAssignment` invocable action can be used in:
 
 **Estimated IBM minutes for development:**
 
-| Phase | Minutes | Notes |
-|---|---|---|
-| Circuit validation (standard QRNG) | ~2 min | Simple H+measure circuits |
-| Circuit validation (Bell-test) | ~3 min | Entangled pair circuits |
-| Statistical validation tuning | ~5 min | Calibrate pass/fail thresholds |
-| End-to-end integration tests | ~5 min | Full Salesforce → IBM → results flow |
-| **Total development** | **~15 min** | QRNG circuits are trivial for quantum hardware |
+| Phase                              | Minutes     | Notes                                          |
+| ---------------------------------- | ----------- | ---------------------------------------------- |
+| Circuit validation (standard QRNG) | ~2 min      | Simple H+measure circuits                      |
+| Circuit validation (Bell-test)     | ~3 min      | Entangled pair circuits                        |
+| Statistical validation tuning      | ~5 min      | Calibrate pass/fail thresholds                 |
+| End-to-end integration tests       | ~5 min      | Full Salesforce → IBM → results flow           |
+| **Total development**              | **~15 min** | QRNG circuits are trivial for quantum hardware |
 
 The remaining budget (185 min) is available for the QuantumPareto optimizer (C₁) or future features.
 

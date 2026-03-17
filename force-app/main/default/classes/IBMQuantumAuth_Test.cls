@@ -1,13 +1,18 @@
 @IsTest
 private class IBMQuantumAuth_Test {
-
     @IsTest
     static void testGetAccessTokenNoApiKey() {
         try {
             IBMQuantumAuth.getAccessToken();
-            System.assert(false, 'Should throw exception when no API key configured');
+            System.assert(
+                false,
+                'Should throw exception when no API key configured'
+            );
         } catch (QRNGException e) {
-            System.assert(e.getMessage().contains('not configured'), 'Should indicate missing config');
+            System.assert(
+                e.getMessage().contains('not configured'),
+                'Should indicate missing config'
+            );
         }
     }
 
@@ -18,7 +23,11 @@ private class IBMQuantumAuth_Test {
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
 
         String token = IBMQuantumAuth.getAccessToken();
-        System.assertEquals('test-token-123', token, 'Should return cached token');
+        System.assertEquals(
+            'test-token-123',
+            token,
+            'Should return cached token'
+        );
     }
 
     @IsTest
@@ -29,7 +38,10 @@ private class IBMQuantumAuth_Test {
 
         try {
             IBMQuantumAuth.getAccessToken();
-            System.assert(false, 'Should throw when refreshing with no API key');
+            System.assert(
+                false,
+                'Should throw when refreshing with no API key'
+            );
         } catch (QRNGException e) {
             System.assert(true, 'Exception thrown as expected');
         }
@@ -49,6 +61,10 @@ private class IBMQuantumAuth_Test {
     @IsTest
     static void testTestApiKeyFalse() {
         Boolean result = IBMQuantumAuth.testApiKey();
-        System.assertEquals(false, result, 'Should return false when no API key configured');
+        System.assertEquals(
+            false,
+            result,
+            'Should return false when no API key configured'
+        );
     }
 }

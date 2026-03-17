@@ -1,12 +1,16 @@
 <template>
-    <lightning-card title="Request Quantum Random Assignment" icon-name="standard:crypto_transaction">
+    <lightning-card
+        title="Request Quantum Random Assignment"
+        icon-name="standard:crypto_transaction"
+    >
         <div class="slds-p-around_medium">
             <lightning-combobox
                 label="Backend"
                 value={backend}
                 options={backendOptions}
                 onchange={handleBackendChange}
-                class="slds-m-bottom_small">
+                class="slds-m-bottom_small"
+            >
             </lightning-combobox>
             <lightning-input
                 type="number"
@@ -15,7 +19,8 @@
                 onchange={handleQubitsChange}
                 min="1"
                 max="127"
-                class="slds-m-bottom_small">
+                class="slds-m-bottom_small"
+            >
             </lightning-input>
             <lightning-input
                 type="number"
@@ -24,7 +29,8 @@
                 onchange={handleShotsChange}
                 min="100"
                 max="8192"
-                class="slds-m-bottom_small">
+                class="slds-m-bottom_small"
+            >
             </lightning-input>
             <lightning-textarea
                 label="Purpose"
@@ -32,20 +38,25 @@
                 onchange={handlePurposeChange}
                 placeholder="Describe what this randomness will be used for"
                 max-length="255"
-                class="slds-m-bottom_small">
+                class="slds-m-bottom_small"
+            >
             </lightning-textarea>
             <lightning-input
                 type="checkbox"
                 label="Use Bell Test (stronger certification)"
                 checked={useBellTest}
                 onchange={handleBellTestChange}
-                class="slds-m-bottom_medium">
+                class="slds-m-bottom_medium"
+            >
             </lightning-input>
 
             <!-- Circuit Preview -->
             <template if:true={showPreview}>
                 <div class="slds-m-bottom_medium">
-                    <c-qrng-circuit-visualizer num-qubits={effectiveQubits} use-bell-test={useBellTest}></c-qrng-circuit-visualizer>
+                    <c-qrng-circuit-visualizer
+                        num-qubits={effectiveQubits}
+                        use-bell-test={useBellTest}
+                    ></c-qrng-circuit-visualizer>
                 </div>
             </template>
 
@@ -55,14 +66,22 @@
                     variant="brand"
                     onclick={handleSubmit}
                     disabled={isSubmitting}
-                    icon-name="utility:sparkle">
+                    icon-name="utility:sparkle"
+                >
                 </lightning-button>
             </div>
 
             <template if:true={isSubmitting}>
-                <div class="slds-m-top_medium slds-text-align_center">
-                    <lightning-spinner alternative-text="Submitting..." size="small"></lightning-spinner>
-                    <p class="slds-m-top_small">Submitting circuit to IBM Quantum...</p>
+                <div
+                    class="slds-m-top_medium slds-text-align_center"
+                >
+                    <lightning-spinner
+                        alternative-text="Submitting..."
+                        size="small"
+                    ></lightning-spinner>
+                    <p class="slds-m-top_small">
+                        Submitting circuit to IBM Quantum...
+                    </p>
                 </div>
             </template>
         </div>

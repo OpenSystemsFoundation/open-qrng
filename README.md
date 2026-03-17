@@ -18,14 +18,14 @@ QuantumFair uses real IBM Quantum hardware to generate true randomness — prova
 
 ## Use Cases
 
-| Process | Why Fairness Matters |
-|---|---|
-| Lead distribution | Reps contest "unfair" lead quality |
-| A/B test assignment | Statistical validity requires true randomness |
-| Audit sample selection | Regulators require unbiased sampling |
-| Incentive lotteries | Employee trust, legal requirements |
-| Case assignment | Whistleblower protection, bias avoidance |
-| Interview panel selection | Demonstrable non-bias (EU AI Act) |
+| Process                   | Why Fairness Matters                          |
+| ------------------------- | --------------------------------------------- |
+| Lead distribution         | Reps contest "unfair" lead quality            |
+| A/B test assignment       | Statistical validity requires true randomness |
+| Audit sample selection    | Regulators require unbiased sampling          |
+| Incentive lotteries       | Employee trust, legal requirements            |
+| Case assignment           | Whistleblower protection, bias avoidance      |
+| Interview panel selection | Demonstrable non-bias (EU AI Act)             |
 
 ## Requirements
 

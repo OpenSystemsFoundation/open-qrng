@@ -1,14 +1,17 @@
 @IsTest
 private class QRNGJobPoller_Test {
-
     private class MockCompletedJob implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest req) {
             HttpResponse res = new HttpResponse();
             res.setStatusCode(200);
             if (req.getEndpoint().contains('/results')) {
-                res.setBody('{"results":[{"data":{"meas":{"samples":["01100110","10011001","11100011","00110101","10101010","01010101","11001100","00111100"]}}}]}');
+                res.setBody(
+                    '{"results":[{"data":{"meas":{"samples":["01100110","10011001","11100011","00110101","10101010","01010101","11001100","00111100"]}}}]}'
+                );
             } else {
-                res.setBody('{"id":"job_test","status":"Completed","state":{"status":"Completed"}}');
+                res.setBody(
+                    '{"id":"job_test","status":"Completed","state":{"status":"Completed"}}'
+                );
             }
             return res;
         }
@@ -18,7 +21,9 @@ private class QRNGJobPoller_Test {
         public HttpResponse respond(HttpRequest req) {
             HttpResponse res = new HttpResponse();
             res.setStatusCode(200);
-            res.setBody('{"id":"job_test","status":"Queued","state":{"status":"Queued"}}');
+            res.setBody(
+                '{"id":"job_test","status":"Queued","state":{"status":"Queued"}}'
+            );
             return res;
         }
     }
@@ -27,7 +32,9 @@ private class QRNGJobPoller_Test {
         public HttpResponse respond(HttpRequest req) {
             HttpResponse res = new HttpResponse();
             res.setStatusCode(200);
-            res.setBody('{"id":"job_test","status":"Failed","state":{"status":"Failed"},"error":{"message":"Hardware error"}}');
+            res.setBody(
+                '{"id":"job_test","status":"Failed","state":{"status":"Failed"},"error":{"message":"Hardware error"}}'
+            );
             return res;
         }
     }
@@ -78,7 +85,11 @@ private class QRNGJobPoller_Test {
         System.enqueueJob(poller);
         Test.stopTest();
 
-        job = [SELECT Id, Status__c, Poll_Count__c FROM Quantum_Job__c WHERE Id = :job.Id];
+        job = [
+            SELECT Id, Status__c, Poll_Count__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
         System.assertEquals('Queued', job.Status__c);
     }
 
@@ -103,9 +114,16 @@ private class QRNGJobPoller_Test {
         System.enqueueJob(poller);
         Test.stopTest();
 
-        job = [SELECT Id, Status__c, Error_Message__c FROM Quantum_Job__c WHERE Id = :job.Id];
+        job = [
+            SELECT Id, Status__c, Error_Message__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
         System.assertEquals('Failed', job.Status__c);
-        System.assert(job.Error_Message__c.contains('Failed'), 'Should contain failure info');
+        System.assert(
+            job.Error_Message__c.contains('Failed'),
+            'Should contain failure info'
+        );
     }
 
     @IsTest

@@ -22,7 +22,7 @@ export default class QrngSetup extends LightningElement {
     @track totalCertificates = 0;
 
     @wire(getSettings)
-    wiredSettings({ error, data }) {
+    wiredSettings({ data }) {
         if (data) {
             this.defaultBackend = data.defaultBackend || 'ibm_kingston';
             this.defaultShots = data.defaultShots || 1024;
@@ -34,7 +34,7 @@ export default class QrngSetup extends LightningElement {
     }
 
     @wire(getUsageStats)
-    wiredStats({ error, data }) {
+    wiredStats({ data }) {
         if (data) {
             this.totalJobs = data.totalJobs || 0;
             this.completedJobs = data.completedJobs || 0;
@@ -47,7 +47,9 @@ export default class QrngSetup extends LightningElement {
     }
 
     get connectionBadgeClass() {
-        return this.isConnected ? 'slds-badge slds-theme_success' : 'slds-badge';
+        return this.isConnected
+            ? 'slds-badge slds-theme_success'
+            : 'slds-badge';
     }
 
     handleApiKeyChange(event) {

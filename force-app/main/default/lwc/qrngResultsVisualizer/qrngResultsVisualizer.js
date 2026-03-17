@@ -7,6 +7,7 @@ export default class QrngResultsVisualizer extends LightningElement {
     _resizeObserver;
     _distribution = {};
     _totalSamples = 0;
+    _lastComputedInput = '';
 
     get hasData() {
         return this.rawResults && this.rawResults.length > 0;
@@ -43,10 +44,14 @@ export default class QrngResultsVisualizer extends LightningElement {
     }
 
     computeDistribution() {
-        this._distribution = {};
-        this._totalSamples = 0;
         const bits = this.rawResults;
         const n = parseInt(this.numQubits, 10) || 8;
+        const inputKey = `${bits}|${n}`;
+        if (inputKey === this._lastComputedInput) return;
+        this._lastComputedInput = inputKey;
+
+        this._distribution = {};
+        this._totalSamples = 0;
 
         // Split raw results into chunks of numQubits
         for (let i = 0; i + n <= bits.length; i += n) {
@@ -76,8 +81,7 @@ export default class QrngResultsVisualizer extends LightningElement {
 
         const maxCount = Math.max(...entries.map((e) => e[1]));
         const idealCount =
-            this._totalSamples /
-            Math.pow(2, parseInt(this.numQubits, 10) || 8);
+            this._totalSamples / Math.pow(2, parseInt(this.numQubits, 10) || 8);
 
         // Chart dimensions
         const marginLeft = 50;
@@ -90,10 +94,7 @@ export default class QrngResultsVisualizer extends LightningElement {
         // Limit display to top 32 entries if too many
         const displayEntries =
             entries.length > 32 ? entries.slice(0, 32) : entries;
-        const barWidth = Math.max(
-            2,
-            chartWidth / displayEntries.length - 2
-        );
+        const barWidth = Math.max(2, chartWidth / displayEntries.length - 2);
         const barGap = 2;
 
         // Draw bars
@@ -117,10 +118,7 @@ export default class QrngResultsVisualizer extends LightningElement {
             // Label (only if bars are wide enough)
             if (barWidth > 12 && displayEntries.length <= 16) {
                 ctx.save();
-                ctx.translate(
-                    x + barWidth / 2,
-                    marginTop + chartHeight + 5
-                );
+                ctx.translate(x + barWidth / 2, marginTop + chartHeight + 5);
                 ctx.rotate(Math.PI / 4);
                 ctx.font = '10px monospace';
                 ctx.fillStyle = '#706e6b';
@@ -133,9 +131,7 @@ export default class QrngResultsVisualizer extends LightningElement {
         // Ideal line (dashed)
         if (idealCount > 0 && idealCount <= maxCount) {
             const idealY =
-                marginTop +
-                chartHeight -
-                (idealCount / maxCount) * chartHeight;
+                marginTop + chartHeight - (idealCount / maxCount) * chartHeight;
             ctx.beginPath();
             ctx.setLineDash([5, 5]);
             ctx.strokeStyle = '#0176d3';

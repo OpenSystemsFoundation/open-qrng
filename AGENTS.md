@@ -24,18 +24,18 @@ This file defines AI agent roles for developing the QuantumFair Salesforce manag
 
 ### Key Classes (from ARCHITECTURE.md)
 
-| Class | Responsibility |
-|---|---|
-| `QRNGCircuitBuilder` | Generate ISA-compliant OpenQASM 3.0 |
-| `IBMQuantumAuth` | IAM token exchange + Platform Cache |
-| `IBMQuantumService` | REST client — submit, poll, results |
-| `QRNGJobPoller` | Queueable chain for async polling |
-| `QRNGResultParser` | Bitstring extraction + von Neumann debiasing |
-| `QRNGValidator` | Statistical randomness tests |
-| `FairnessCertificateService` | Certificate creation + hashing |
-| `QuantumAssignmentEngine` | Random assignment algorithms |
-| `QuantumRandomAssignment` | @InvocableMethod for Flow Builder |
-| `QRNGSetupController` | LWC controller for admin setup |
+| Class                        | Responsibility                               |
+| ---------------------------- | -------------------------------------------- |
+| `QRNGCircuitBuilder`         | Generate ISA-compliant OpenQASM 3.0          |
+| `IBMQuantumAuth`             | IAM token exchange + Platform Cache          |
+| `IBMQuantumService`          | REST client — submit, poll, results          |
+| `QRNGJobPoller`              | Queueable chain for async polling            |
+| `QRNGResultParser`           | Bitstring extraction + von Neumann debiasing |
+| `QRNGValidator`              | Statistical randomness tests                 |
+| `FairnessCertificateService` | Certificate creation + hashing               |
+| `QuantumAssignmentEngine`    | Random assignment algorithms                 |
+| `QuantumRandomAssignment`    | @InvocableMethod for Flow Builder            |
+| `QRNGSetupController`        | LWC controller for admin setup               |
 
 ---
 
@@ -59,18 +59,18 @@ This file defines AI agent roles for developing the QuantumFair Salesforce manag
 
 ### Component Map
 
-| Component | Purpose |
-|---|---|
-| `quantumFairApp` | Main app shell |
-| `qrngSetup` | Admin config panel |
-| `qrngRequestForm` | Assignment request form |
-| `qrngJobMonitor` | Real-time job status (empApi) |
-| `qrngCircuitVisualizer` | Canvas 2D circuit diagram |
-| `qrngResultsVisualizer` | Canvas 2D measurement charts |
-| `qrngFairnessCertificate` | Certificate document view |
-| `qrngAssignmentTable` | Results table |
-| `qrngAuditTrail` | Historical timeline |
-| `qrngBellTestIndicator` | CSS gauge for CHSH value |
+| Component                 | Purpose                       |
+| ------------------------- | ----------------------------- |
+| `quantumFairApp`          | Main app shell                |
+| `qrngSetup`               | Admin config panel            |
+| `qrngRequestForm`         | Assignment request form       |
+| `qrngJobMonitor`          | Real-time job status (empApi) |
+| `qrngCircuitVisualizer`   | Canvas 2D circuit diagram     |
+| `qrngResultsVisualizer`   | Canvas 2D measurement charts  |
+| `qrngFairnessCertificate` | Certificate document view     |
+| `qrngAssignmentTable`     | Results table                 |
+| `qrngAuditTrail`          | Historical timeline           |
+| `qrngBellTestIndicator`   | CSS gauge for CHSH value      |
 
 ---
 
@@ -193,10 +193,10 @@ sf apex run test --code-coverage --result-format human --wait 10
 
 ### CI Test Triggers
 
-| Event | What Runs |
-|---|---|
-| Push to any branch | LWC Jest, ESLint, Prettier (fast, ~35s) |
-| PR targeting master | LWC Jest, ESLint, Prettier (fast, ~35s) |
+| Event                  | What Runs                                                                  |
+| ---------------------- | -------------------------------------------------------------------------- |
+| Push to any branch     | LWC Jest, ESLint, Prettier (fast, ~35s)                                    |
+| PR targeting master    | LWC Jest, ESLint, Prettier (fast, ~35s)                                    |
 | Merge/commit to master | Full suite: fast tests + scratch org + Apex deploy + Apex tests (~3-4 min) |
 
 ### Rules for Agents

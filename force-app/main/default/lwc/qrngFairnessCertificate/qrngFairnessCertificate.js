@@ -10,7 +10,7 @@ export default class QrngFairnessCertificate extends LightningElement {
     @track isVerifying = false;
 
     @wire(getCertificate, { certificateId: '$certificateId' })
-    wiredCert({ data, error }) {
+    wiredCert({ data }) {
         if (data) {
             this.certificate = data;
             if (data.Validation_Results__c) {
@@ -18,7 +18,7 @@ export default class QrngFairnessCertificate extends LightningElement {
                     this.validationResults = JSON.parse(
                         data.Validation_Results__c
                     );
-                } catch (e) {
+                } catch {
                     this.validationResults = null;
                 }
             }
@@ -61,9 +61,7 @@ export default class QrngFairnessCertificate extends LightningElement {
     get frequencyTestClass() {
         return (
             'test-badge ' +
-            (this.validationResults?.frequencyTest
-                ? 'test-pass'
-                : 'test-fail')
+            (this.validationResults?.frequencyTest ? 'test-pass' : 'test-fail')
         );
     }
     get runsTestIcon() {
@@ -85,9 +83,7 @@ export default class QrngFairnessCertificate extends LightningElement {
     get chiSquaredTestClass() {
         return (
             'test-badge ' +
-            (this.validationResults?.chiSquaredTest
-                ? 'test-pass'
-                : 'test-fail')
+            (this.validationResults?.chiSquaredTest ? 'test-pass' : 'test-fail')
         );
     }
 
@@ -114,7 +110,7 @@ export default class QrngFairnessCertificate extends LightningElement {
             this.verificationResult = await verifyCertificate({
                 certificateId: this.certificateId
             });
-        } catch (error) {
+        } catch {
             this.verificationResult = { integrityVerified: false };
         } finally {
             this.isVerifying = false;
@@ -142,12 +138,7 @@ export default class QrngFairnessCertificate extends LightningElement {
             const hue = (val * 22.5) % 360;
             const lightness = 40 + val * 3;
             ctx.fillStyle = `hsl(${hue}, 70%, ${lightness}%)`;
-            ctx.fillRect(
-                col * cellSize,
-                row * cellSize,
-                cellSize,
-                cellSize
-            );
+            ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
         }
 
         // Border

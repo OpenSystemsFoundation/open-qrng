@@ -1,0 +1,101 @@
+name: Apex Tests
+
+on:
+    push:
+        branches: [master]
+    pull_request:
+        branches: [master]
+
+jobs:
+    # Run fast tests first as a gate
+    lint-and-test:
+        name: Lint & LWC Tests
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Check formatting
+              run: npm run prettier:verify
+
+            - name: Lint
+              run: npm run lint
+
+            - name: LWC Jest tests
+              run: npm run test:unit:coverage
+
+    # Only run Apex tests if fast tests pass
+    apex-test:
+        name: Apex Tests (Scratch Org)
+        needs: lint-and-test
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install Salesforce CLI
+              run: npm install -g @salesforce/cli
+
+            - name: Authenticate DevHub
+              run: |
+                  echo "${{ secrets.SFDX_AUTH_URL }}" > sfdx_auth.txt
+                  sf org login sfdx-url --sfdx-url-file sfdx_auth.txt --alias devhub --set-default-dev-hub
+                  rm sfdx_auth.txt
+
+            - name: Create Scratch Org
+              run: sf org create scratch --definition-file config/project-scratch-def.json --alias ci-test --duration-days 1 --wait 10
+
+            - name: Deploy Source
+              run: sf project deploy start --target-org ci-test --ignore-conflicts
+
+            - name: Run Apex Tests
+              run: |
+                  mkdir -p apex-results
+                  sf apex run test --target-org ci-test --code-coverage --json --wait 15 > apex-results/test-run.json 2>&1 || true
+                  cat apex-results/test-run.json | node -e "
+                    let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+                      const j=JSON.parse(d);
+                      const summary=j.result?.summary||{};
+                      console.log('Outcome:', summary.outcome);
+                      console.log('Tests Ran:', summary.testsRan);
+                      console.log('Pass Rate:', summary.passRate);
+                      console.log('Org Coverage:', summary.orgWideCoverage);
+                      if(summary.outcome!=='Passed'){process.exit(1)}
+                    });
+                  "
+
+            - name: Check Coverage Threshold
+              run: |
+                  COVERAGE=$(cat apex-results/test-run.json | node -e "
+                    let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+                      const j=JSON.parse(d);
+                      const cov=j.result?.summary?.orgWideCoverage||'0%';
+                      console.log(parseInt(cov));
+                    });
+                  ")
+                  echo "Org-wide Apex coverage: ${COVERAGE}%"
+                  if [ "$COVERAGE" -lt 75 ]; then
+                    echo "::error::Apex code coverage ${COVERAGE}% is below the 75% threshold"
+                    exit 1
+                  fi
+
+            - name: Delete Scratch Org
+              if: always()
+              run: sf org delete scratch --target-org ci-test --no-prompt || true
+
+            - name: Upload Apex Test Results
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: apex-test-results
+                  path: apex-results/
+                  retention-days: 14

@@ -1,6 +1,5 @@
 @IsTest
 private class FairnessCertificateService_Test {
-
     @TestSetup
     static void setup() {
         Quantum_Job__c job = new Quantum_Job__c(
@@ -23,7 +22,11 @@ private class FairnessCertificateService_Test {
         Quantum_Job__c job = [SELECT Id FROM Quantum_Job__c LIMIT 1];
         String validationJson = '{"passed":true,"frequencyTest":true,"runsTest":true}';
 
-        Id certId = FairnessCertificateService.createCertificate(job.Id, validationJson, 'Certified');
+        Id certId = FairnessCertificateService.createCertificate(
+            job.Id,
+            validationJson,
+            'Certified'
+        );
 
         Fairness_Certificate__c cert = [
             SELECT Id, Status__c, IBM_Job_ID__c, Raw_Bitstring_Hash__c
@@ -38,20 +41,37 @@ private class FairnessCertificateService_Test {
     @IsTest
     static void testUpdateAssignmentHash() {
         Quantum_Job__c job = [SELECT Id FROM Quantum_Job__c LIMIT 1];
-        Id certId = FairnessCertificateService.createCertificate(job.Id, '{}', 'Certified');
+        Id certId = FairnessCertificateService.createCertificate(
+            job.Id,
+            '{}',
+            'Certified'
+        );
 
-        FairnessCertificateService.updateAssignmentHash(certId, 'test assignment data');
+        FairnessCertificateService.updateAssignmentHash(
+            certId,
+            'test assignment data'
+        );
 
-        Fairness_Certificate__c cert = [SELECT Assignment_Hash__c FROM Fairness_Certificate__c WHERE Id = :certId];
+        Fairness_Certificate__c cert = [
+            SELECT Assignment_Hash__c
+            FROM Fairness_Certificate__c
+            WHERE Id = :certId
+        ];
         System.assertNotEquals(null, cert.Assignment_Hash__c);
     }
 
     @IsTest
     static void testVerifyCertificate() {
         Quantum_Job__c job = [SELECT Id FROM Quantum_Job__c LIMIT 1];
-        Id certId = FairnessCertificateService.createCertificate(job.Id, '{}', 'Certified');
+        Id certId = FairnessCertificateService.createCertificate(
+            job.Id,
+            '{}',
+            'Certified'
+        );
 
-        Map<String, Object> result = FairnessCertificateService.verifyCertificate(certId);
+        Map<String, Object> result = FairnessCertificateService.verifyCertificate(
+            certId
+        );
         System.assertEquals(true, result.get('integrityVerified'));
     }
 
@@ -61,8 +81,20 @@ private class FairnessCertificateService_Test {
         String hash2 = FairnessCertificateService.computeSHA256('hello');
         String hash3 = FairnessCertificateService.computeSHA256('world');
 
-        System.assertEquals(hash1, hash2, 'Same input should produce same hash');
-        System.assertNotEquals(hash1, hash3, 'Different inputs should produce different hashes');
-        System.assertEquals(64, hash1.length(), 'SHA-256 hex should be 64 chars');
+        System.assertEquals(
+            hash1,
+            hash2,
+            'Same input should produce same hash'
+        );
+        System.assertNotEquals(
+            hash1,
+            hash3,
+            'Different inputs should produce different hashes'
+        );
+        System.assertEquals(
+            64,
+            hash1.length(),
+            'SHA-256 hex should be 64 chars'
+        );
     }
 }

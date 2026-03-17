@@ -6,14 +6,20 @@
  * Governor limits: 1-2 callouts per invocation
  */
 public with sharing class IBMQuantumService {
-
     private static final String BASE_URL = 'https://quantum.cloud.ibm.com/api';
 
     /**
      * Submit a QRNG job to IBM Quantum Runtime.
      * Creates Quantum_Job__c record and returns its Id.
      */
-    public static Id submitJob(String openqasm, String backend, Integer shots, String purpose, Boolean useBellTest, Integer numQubits) {
+    public static Id submitJob(
+        String openqasm,
+        String backend,
+        Integer shots,
+        String purpose,
+        Boolean useBellTest,
+        Integer numQubits
+    ) {
         // Callout first (before any DML to avoid mixed DML/callout error)
         String ibmJobId;
         try {
@@ -67,7 +73,11 @@ public with sharing class IBMQuantumService {
     /**
      * Call IBM API to submit a job
      */
-    public static String callSubmitJob(String openqasm, String backend, Integer shots) {
+    public static String callSubmitJob(
+        String openqasm,
+        String backend,
+        Integer shots
+    ) {
         String token = IBMQuantumAuth.getAccessToken();
 
         // Build request body per IBM Qiskit Runtime API
@@ -79,7 +89,7 @@ public with sharing class IBMQuantumService {
         List<Object> pubs = new List<Object>();
         List<Object> pub = new List<Object>();
         pub.add(openqasm);
-        pub.add(null);  // no observables
+        pub.add(null); // no observables
         pub.add(shots);
         pubs.add(pub);
         params.put('pubs', pubs);
@@ -98,10 +108,17 @@ public with sharing class IBMQuantumService {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200 && res.getStatusCode() != 201) {
-            throw new QRNGException('IBM job submission failed: ' + res.getStatusCode() + ' ' + res.getBody());
+            throw new QRNGException(
+                'IBM job submission failed: ' +
+                    res.getStatusCode() +
+                    ' ' +
+                    res.getBody()
+            );
         }
 
-        Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+        Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(
+            res.getBody()
+        );
         return (String) responseMap.get('id');
     }
 
@@ -121,7 +138,9 @@ public with sharing class IBMQuantumService {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200) {
-            throw new QRNGException('Failed to get job status: ' + res.getStatusCode());
+            throw new QRNGException(
+                'Failed to get job status: ' + res.getStatusCode()
+            );
         }
 
         return (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
@@ -143,7 +162,9 @@ public with sharing class IBMQuantumService {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200) {
-            throw new QRNGException('Failed to get job results: ' + res.getStatusCode());
+            throw new QRNGException(
+                'Failed to get job results: ' + res.getStatusCode()
+            );
         }
 
         return res.getBody();
@@ -165,7 +186,9 @@ public with sharing class IBMQuantumService {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200) {
-            throw new QRNGException('Failed to get backends: ' + res.getStatusCode());
+            throw new QRNGException(
+                'Failed to get backends: ' + res.getStatusCode()
+            );
         }
 
         return res.getBody();
