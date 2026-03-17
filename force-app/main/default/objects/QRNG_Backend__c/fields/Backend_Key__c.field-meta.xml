@@ -6,7 +6,7 @@
     <externalId>true</externalId>
     <label>Backend Key</label>
     <length>100</length>
-    <required>true</required>
+    <required>false</required>
     <type>Text</type>
     <unique>true</unique>
 </CustomField>
