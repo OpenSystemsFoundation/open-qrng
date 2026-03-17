@@ -110,8 +110,8 @@ jobs:
                     });
                   ")
                   echo "Org-wide Apex coverage: ${COVERAGE}%"
-                  if [ "$COVERAGE" -lt 70 ]; then
-                    echo "::error::Apex code coverage ${COVERAGE}% is below the 70% threshold"
+                  if [ "$COVERAGE" -lt 75 ]; then
+                    echo "::error::Apex code coverage ${COVERAGE}% is below the 75% threshold"
                     exit 1
                   fi
 
