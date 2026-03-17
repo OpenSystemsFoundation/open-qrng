@@ -132,6 +132,7 @@ describe('c-qrng-setup', () => {
 
         expect(saveSettings).toHaveBeenCalledWith({
             apiKey: null,
+            instanceCRN: '',
             defaultBackend: 'ibm_kingston',
             defaultShots: 1024,
             useBellTest: false

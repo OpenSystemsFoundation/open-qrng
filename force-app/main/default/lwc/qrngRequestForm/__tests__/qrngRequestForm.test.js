@@ -140,7 +140,7 @@ describe('c-qrng-request-form', () => {
         expect(handler.mock.calls[0][0].detail.jobId).toBe('001xx000003DGb1');
     });
 
-    it('shows error toast when purpose is empty on submit', async () => {
+    it('submits job without purpose (purpose is optional)', async () => {
         const element = createComponent();
 
         const handler = jest.fn();
@@ -155,8 +155,7 @@ describe('c-qrng-request-form', () => {
         await flushPromises();
 
         expect(handler).toHaveBeenCalled();
-        expect(handler.mock.calls[0][0].detail.variant).toBe('warning');
-        expect(handler.mock.calls[0][0].detail.message).toContain('purpose');
+        expect(handler.mock.calls[0][0].detail.variant).toBe('success');
     });
 
     it('toggles useBellTest when bell test checkbox is changed', async () => {
