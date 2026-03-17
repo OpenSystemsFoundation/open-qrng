@@ -1,5 +1,9 @@
 {
     "permissions": {
-        "allow": ["Bash(npx sfdx-lwc-jest:*)", "Bash(npx jest:*)"]
+        "allow": [
+            "Bash(npx sfdx-lwc-jest:*)",
+            "Bash(npx jest:*)",
+            "Bash(gh run:*)"
+        ]
     }
 }
