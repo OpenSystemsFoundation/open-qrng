@@ -25,20 +25,10 @@
                         Total samples: {totalSamples}
                     </div>
                     <div
-                        class="slds-col slds-text-align_center"
+                        class="slds-col slds-text-align_right"
                     >
                         Unique bitstrings: {uniqueCount} /
                         {possibleCount}
-                    </div>
-                    <div
-                        class="slds-col slds-text-align_right"
-                    >
-                        <template if:true={isTruncated}>
-                            <span class="truncated-notice">
-                                Showing top {displayLimit}
-                                of {uniqueCount}
-                            </span>
-                        </template>
                     </div>
                 </div>
             </template>
@@ -72,23 +62,11 @@
                         {debiasedTotalSamples}
                     </div>
                     <div
-                        class="slds-col slds-text-align_center"
+                        class="slds-col slds-text-align_right"
                     >
                         Unique bitstrings:
                         {debiasedUniqueCount} /
                         {possibleCount}
-                    </div>
-                    <div
-                        class="slds-col slds-text-align_right"
-                    >
-                        <template
-                            if:true={isDebiasedTruncated}
-                        >
-                            <span class="truncated-notice">
-                                Showing top {displayLimit}
-                                of {debiasedUniqueCount}
-                            </span>
-                        </template>
                     </div>
                 </div>
             </template>

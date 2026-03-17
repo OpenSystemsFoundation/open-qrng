@@ -23,8 +23,3 @@ canvas {
     margin-bottom: 0.5rem;
     line-height: 1.4;
 }
-
-.truncated-notice {
-    color: #fe9339;
-    font-style: italic;
-}

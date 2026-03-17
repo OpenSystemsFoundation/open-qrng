@@ -1,6 +1,7 @@
 import { LightningElement, api } from 'lwc';
 
-const MAX_DISPLAY_ENTRIES = 64;
+const MIN_BAR_WIDTH = 14;
+const BAR_GAP = 2;
 
 export default class QrngResultsVisualizer extends LightningElement {
     @api rawResults = '';
@@ -44,18 +45,6 @@ export default class QrngResultsVisualizer extends LightningElement {
         return Math.pow(2, n);
     }
 
-    get displayLimit() {
-        return MAX_DISPLAY_ENTRIES;
-    }
-
-    get isTruncated() {
-        return this.uniqueCount > MAX_DISPLAY_ENTRIES;
-    }
-
-    get isDebiasedTruncated() {
-        return this.debiasedUniqueCount > MAX_DISPLAY_ENTRIES;
-    }
-
     renderedCallback() {
         if (this.hasData) {
             this._computeDistribution(
@@ -94,8 +83,7 @@ export default class QrngResultsVisualizer extends LightningElement {
                             this.refs.chartCanvas,
                             this.refs.chartContainer,
                             this._distribution,
-                            this._totalSamples,
-                            'Raw'
+                            this._totalSamples
                         );
                     }
                     if (this.hasDebiasedData) {
@@ -103,8 +91,7 @@ export default class QrngResultsVisualizer extends LightningElement {
                             this.refs.debiasedCanvas,
                             this.refs.debiasedContainer,
                             this._debiasedDistribution,
-                            this._debiasedTotalSamples,
-                            'Debiased'
+                            this._debiasedTotalSamples
                         );
                     }
                 });
@@ -141,49 +128,46 @@ export default class QrngResultsVisualizer extends LightningElement {
     _drawChart(canvas, container, distribution, totalSamples) {
         if (!canvas || !container) return;
 
-        const width = container.clientWidth || 600;
         const qubits = parseInt(this.numQubits, 10) || 8;
+        const entries = Object.entries(distribution).sort((a, b) =>
+            a[0].localeCompare(b[0])
+        );
+        if (entries.length === 0) return;
+
+        const containerWidth = container.clientWidth || 600;
+        const marginLeft = 50;
+        const marginRight = 20;
+        const marginTop = 20;
+        const marginBottom = Math.max(60, qubits * 6 + 30);
+
+        // Calculate width: ensure every bar gets at least MIN_BAR_WIDTH
+        const totalBarSpace = MIN_BAR_WIDTH + BAR_GAP;
+        const neededChartWidth = entries.length * totalBarSpace;
+        const width = Math.max(
+            containerWidth,
+            neededChartWidth + marginLeft + marginRight
+        );
         const height = Math.max(300, 200 + qubits * 6);
+
         canvas.width = width;
         canvas.height = height;
 
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, width, height);
 
-        // Sort by bitstring value, take top entries by count if too many
-        let entries = Object.entries(distribution).sort((a, b) =>
-            a[0].localeCompare(b[0])
-        );
-        if (entries.length === 0) return;
+        const chartWidth = width - marginLeft - marginRight;
+        const chartHeight = height - marginTop - marginBottom;
 
-        // If more than MAX_DISPLAY_ENTRIES, show the top ones by count
-        const truncated = entries.length > MAX_DISPLAY_ENTRIES;
-        if (truncated) {
-            entries.sort((a, b) => b[1] - a[1]);
-            entries = entries.slice(0, MAX_DISPLAY_ENTRIES);
-            entries.sort((a, b) => a[0].localeCompare(b[0]));
-        }
+        const actualBarSpace = chartWidth / entries.length;
+        const barWidth = Math.max(2, actualBarSpace - BAR_GAP);
 
         const maxCount = Math.max(...entries.map((e) => e[1]));
         const idealCount = totalSamples / Math.pow(2, qubits);
 
-        // Chart dimensions
-        const n = qubits;
-        const marginLeft = 50;
-        const marginBottom = Math.max(60, n * 6 + 30);
-        const marginTop = 20;
-        const marginRight = 20;
-        const chartWidth = width - marginLeft - marginRight;
-        const chartHeight = height - marginTop - marginBottom;
-
-        const totalBarSpace = chartWidth / entries.length;
-        const barGap = Math.max(1, Math.min(4, totalBarSpace * 0.15));
-        const barWidth = Math.max(2, totalBarSpace - barGap);
-
         // Draw bars
         entries.forEach(([label, count], i) => {
             const barHeight = Math.max(1, (count / maxCount) * chartHeight);
-            const x = marginLeft + i * totalBarSpace;
+            const x = marginLeft + i * actualBarSpace;
             const y = marginTop + chartHeight - barHeight;
 
             // Color based on deviation from ideal
@@ -198,8 +182,8 @@ export default class QrngResultsVisualizer extends LightningElement {
 
             ctx.fillRect(x, y, barWidth, barHeight);
 
-            // Count value on top of bar (only if bars are wide enough)
-            if (totalBarSpace > 14) {
+            // Count value on top of bar
+            if (actualBarSpace > 14) {
                 ctx.font = '10px monospace';
                 ctx.fillStyle = '#181818';
                 ctx.textAlign = 'center';
@@ -207,8 +191,8 @@ export default class QrngResultsVisualizer extends LightningElement {
                 ctx.fillText(count.toString(), x + barWidth / 2, y - 2);
             }
 
-            // Bitstring label below x-axis (only if bars are wide enough)
-            if (totalBarSpace > 8) {
+            // Bitstring label below x-axis
+            if (actualBarSpace > 8) {
                 ctx.save();
                 ctx.translate(x + barWidth / 2, marginTop + chartHeight + 4);
                 ctx.rotate(Math.PI / 4);
