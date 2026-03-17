@@ -141,26 +141,29 @@ private class QRNGCircuitBuilder_Test {
     static void testBuildBellTestCircuitHas4BasisConfigs() {
         // Need at least 4 pairs to test all 4 CHSH basis configurations
         String qasm = QRNGCircuitBuilder.buildBellTestCircuit(4);
-        // Ry(θ) decomposition: rz(-pi/2) · sx · rz(pi-(θ)) · sx · rz(-pi/2)
-        // Config 0: Alice 0, Bob π/4 → rz(pi-(pi/4))
+
+        // All angles are now emitted as decimal literals to avoid
+        // IBM QASM parser issues with symbolic expressions.
+        // Ry(θ) decomposition middle gate: rz(π - θ)
+        //   Bob π/4  → rz(3π/4)  ≈ rz(2.356...)
+        //   Bob -π/4 → rz(5π/4)  ≈ rz(3.926...)
+        //   Alice π/2 → rz(π/2)  ≈ rz(1.570...)
         System.assert(
-            qasm.contains('rz(pi-(pi/4))'),
-            'Should contain Ry(π/4) decomposition for Bob config 0'
+            qasm.contains('rz(2.356'),
+            'Should contain Ry(π/4) middle gate rz(3π/4) as decimal'
         );
-        // Config 1: Alice 0, Bob -π/4 → rz(pi-(-pi/4))
         System.assert(
-            qasm.contains('rz(pi-(-pi/4))'),
-            'Should contain Ry(-π/4) decomposition for Bob config 1'
+            qasm.contains('rz(3.926'),
+            'Should contain Ry(-π/4) middle gate rz(5π/4) as decimal'
         );
-        // Config 2: Alice π/2 → rz(pi-(pi/2))
         System.assert(
-            qasm.contains('rz(pi-(pi/2))'),
-            'Should contain Ry(π/2) decomposition for Alice configs 2-3'
+            qasm.contains('rz(1.570'),
+            'Should contain Ry(π/2) middle gate rz(π/2) as decimal'
         );
-        // All Ry decompositions should have rz(-pi/2) bookends
+        // All Ry decompositions should have rz(-π/2) bookends as decimal
         System.assert(
-            qasm.contains('rz(-pi/2)'),
-            'Should contain rz(-pi/2) from Ry decomposition'
+            qasm.contains('rz(-1.570'),
+            'Should contain rz(-π/2) from Ry decomposition as decimal'
         );
     }
 

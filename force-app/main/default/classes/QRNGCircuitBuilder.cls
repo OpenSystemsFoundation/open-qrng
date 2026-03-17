@@ -140,12 +140,21 @@ public with sharing class QRNGCircuitBuilder {
         //   E(π/2, π/4) = cos(π/4) = 1/√2
         //   E(π/2, -π/4) = cos(3π/4) = -1/√2
         //   S = |1/√2 + 1/√2 + 1/√2 - (-1/√2)| = 4/√2 = 2√2
-        List<String> aliceAngles = new List<String>{ '0', '0', 'pi/2', 'pi/2' };
-        List<String> bobAngles = new List<String>{
-            'pi/4',
-            '-pi/4',
-            'pi/4',
-            '-pi/4'
+        //
+        // Angles are pre-computed as radians (Double) to emit clean decimal
+        // literals in QASM. Symbolic expressions like rz(pi-(pi/4)) can be
+        // mishandled by IBM's runtime QASM parser.
+        List<Double> aliceAngles = new List<Double>{
+            0.0,
+            0.0,
+            Math.PI / 2,
+            Math.PI / 2
+        };
+        List<Double> bobAngles = new List<Double>{
+            Math.PI / 4,
+            -(Math.PI / 4),
+            Math.PI / 4,
+            -(Math.PI / 4)
         };
 
         Integer totalQubits = numPairs * 2;
@@ -176,17 +185,16 @@ public with sharing class QRNGCircuitBuilder {
 
             // --- Apply CHSH measurement basis rotations ---
             // Ry(θ) decomposed into ISA native gates (rz, sx):
-            //   Ry(θ) = Rz(π/2) · SX · Rz(θ + π) · SX · Rz(-π/2)
-            // This rotates the measurement basis by angle θ in the Y-Z plane,
-            // so measuring in Z after Ry(-θ) is equivalent to measuring at angle θ.
+            //   Ry(θ) = Rz(-π/2) · SX · Rz(π - θ) · SX · Rz(-π/2)
+            // This rotates the measurement basis by angle θ in the Z-X plane.
 
-            // Alice's basis rotation (0 or π/4)
-            String aliceAngle = aliceAngles[basisConfig];
-            if (aliceAngle != '0') {
+            // Alice's basis rotation (0 or π/2)
+            Double aliceAngle = aliceAngles[basisConfig];
+            if (Math.abs(aliceAngle) > 1e-10) {
                 qasm += ryDecomposition(qA, aliceAngle);
             }
 
-            // Bob's basis rotation (π/8 or 3π/8)
+            // Bob's basis rotation (π/4 or -π/4)
             qasm += ryDecomposition(qB, bobAngles[basisConfig]);
         }
 
@@ -212,24 +220,26 @@ public with sharing class QRNGCircuitBuilder {
 
     /**
      * Decompose Ry(θ) into ISA-native gates for IBM Heron r2.
-     * Ry(θ) = Rz(π/2) · SX · Rz(θ + π) · SX · Rz(-π/2)
      *
      * Derivation: Ry(θ) = U3(θ, 0, 0), and the general U3 decomposition is:
      *   U3(θ, φ, λ) = Rz(φ - π/2) · SX · Rz(π - θ) · SX · Rz(λ - π/2)
      * Setting φ = 0, λ = 0:
      *   Ry(θ) = Rz(-π/2) · SX · Rz(π - θ) · SX · Rz(-π/2)
      *
-     * Note: Rz(-π/2) = Rz(3*π/2) in [0, 2π) convention, but OpenQASM
-     * accepts negative angles so we use -pi/2 directly.
+     * All angles are emitted as pre-computed decimal literals to avoid
+     * expression-parsing issues in IBM's runtime QASM compiler (e.g.
+     * rz(pi-(-pi/4)) was silently misparsed, producing wrong rotations).
      */
-    private static String ryDecomposition(Integer qubit, String theta) {
+    private static String ryDecomposition(Integer qubit, Double theta) {
         String q = '$' + qubit;
+        Double rzOuter = -(Math.PI / 2);
+        Double rzMiddle = Math.PI - theta;
         String qasm = '';
-        qasm += 'rz(-pi/2) ' + q + ';\n';
+        qasm += 'rz(' + rzOuter + ') ' + q + ';\n';
         qasm += 'sx ' + q + ';\n';
-        qasm += 'rz(pi-(' + theta + ')) ' + q + ';\n';
+        qasm += 'rz(' + rzMiddle + ') ' + q + ';\n';
         qasm += 'sx ' + q + ';\n';
-        qasm += 'rz(-pi/2) ' + q + ';\n';
+        qasm += 'rz(' + rzOuter + ') ' + q + ';\n';
         return qasm;
     }
 
