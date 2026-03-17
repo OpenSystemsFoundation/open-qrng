@@ -63,16 +63,15 @@ jobs:
             - name: Check Coverage Threshold
               run: |
                   if [ -f apex-results/test-result-codecoverage.json ]; then
-                    COVERAGE=$(python3 -c "
-                  import json, sys
-                  with open('apex-results/test-result-codecoverage.json') as f:
-                      data = json.load(f)
-                  # Last entry is org-wide coverage
-                  if isinstance(data, list) and len(data) > 0:
-                      print(int(float(data[-1].get('coveredPercent', 0))))
-                  else:
-                      print(0)
-                  ")
+                    COVERAGE=$(node -e "
+                      const data = require('./apex-results/test-result-codecoverage.json');
+                      let covered = 0, total = 0;
+                      for (const cls of data) {
+                        covered += cls.numLinesCovered || 0;
+                        total += (cls.numLinesCovered || 0) + (cls.numLinesUncovered || 0);
+                      }
+                      console.log(total > 0 ? Math.floor(covered / total * 100) : 0);
+                    ")
                     echo "Org-wide Apex coverage: ${COVERAGE}%"
                     if [ "$COVERAGE" -lt 75 ]; then
                       echo "::error::Apex code coverage ${COVERAGE}% is below the 75% threshold"
