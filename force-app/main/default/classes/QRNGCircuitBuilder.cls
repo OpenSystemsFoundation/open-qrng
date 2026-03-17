@@ -135,7 +135,12 @@ public with sharing class QRNGCircuitBuilder {
         // CHSH basis angles for optimal violation:
         // Alice measures at 0 or π/4; Bob measures at π/8 or 3π/8
         List<String> aliceAngles = new List<String>{ '0', '0', 'pi/4', 'pi/4' };
-        List<String> bobAngles = new List<String>{ 'pi/8', '3*pi/8', 'pi/8', '3*pi/8' };
+        List<String> bobAngles = new List<String>{
+            'pi/8',
+            '3*pi/8',
+            'pi/8',
+            '3*pi/8'
+        };
 
         Integer totalQubits = numPairs * 2;
         String qasm = 'OPENQASM 3.0;\n';

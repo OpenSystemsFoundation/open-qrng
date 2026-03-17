@@ -200,6 +200,41 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Extended NIST Tests -->
+                        <template
+                            if:true={hasExtendedResults}
+                        >
+                            <h4
+                                class="slds-text-title_caps slds-m-top_small slds-m-bottom_xx-small"
+                            >
+                                Extended NIST Tests
+                            </h4>
+                            <div
+                                class="slds-grid slds-wrap slds-gutters_x-small"
+                            >
+                                <template
+                                    for:each={extendedTests}
+                                    for:item="test"
+                                >
+                                    <div
+                                        key={test.key}
+                                        class="slds-col slds-size_1-of-4"
+                                    >
+                                        <div
+                                            class={test.badgeClass}
+                                        >
+                                            <lightning-icon
+                                                icon-name={test.iconName}
+                                                size="x-small"
+                                                class="slds-m-right_xx-small"
+                                            ></lightning-icon>
+                                            {test.label}
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
                     </div>
                 </template>
 

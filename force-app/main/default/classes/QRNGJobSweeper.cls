@@ -199,16 +199,45 @@ public class QRNGJobSweeper implements Schedulable {
             Map<String, Object> validation = QRNGValidator.validate(
                 debiasedBits
             );
-            String validationJson = JSON.serialize(validation);
             Boolean passed = validation.containsKey('passed')
                 ? (Boolean) validation.get('passed')
                 : true;
+
+            // CHSH for Bell test jobs
+            if (job.Use_Bell_Test__c == true) {
+                Integer numPairs = numQubits / 2;
+                List<String> shots = new List<String>();
+                for (
+                    Integer i = 0;
+                    i + numQubits <= rawBits.length();
+                    i += numQubits
+                ) {
+                    shots.add(rawBits.substring(i, i + numQubits));
+                }
+                Double sValue = QRNGValidator.calculateCHSH(shots, numPairs);
+                validation.put('chshSValue', sValue);
+                validation.put('bellTestPassed', sValue > 2.0);
+                if (sValue <= 2.0) {
+                    passed = false;
+                    validation.put('passed', false);
+                }
+            }
+
+            String validationJson = JSON.serialize(validation);
+            job.Validation_Results__c = validationJson;
+            update job;
+
             String certStatus = passed ? 'Certified' : 'Failed';
             Id certId = FairnessCertificateService.createCertificate(
                 job.Id,
                 validationJson,
                 certStatus
             );
+
+            // Enqueue async extended tests
+            if (!Test.isRunningTest()) {
+                System.enqueueJob(new QRNGValidationRunner(job.Id));
+            }
 
             QRNG_Complete__e completeEvent = new QRNG_Complete__e(
                 Job_Id__c = job.Id,

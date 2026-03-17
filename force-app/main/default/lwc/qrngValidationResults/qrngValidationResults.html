@@ -1,0 +1,202 @@
+<template>
+    <lightning-card
+        title="Randomness Validation"
+        icon-name="standard:calibration"
+    >
+        <div slot="actions">
+            <lightning-button
+                label="Run All Tests"
+                icon-name="utility:play"
+                variant="brand"
+                onclick={handleRunTests}
+                disabled={isRunning}
+            ></lightning-button>
+        </div>
+
+        <div class="slds-p-around_medium">
+            <template if:true={hasResults}>
+                <!-- Overall Status -->
+                <div
+                    class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_medium"
+                >
+                    <div>
+                        <span class={overallStatusClass}
+                            >{overallStatusLabel}</span
+                        >
+                        <span
+                            class="slds-text-body_small slds-text-color_weak slds-m-left_small"
+                        >
+                            {bitCount} bits analyzed
+                            &middot; {onesProportion} ones
+                        </span>
+                    </div>
+                    <template if:true={lastRunTimestamp}>
+                        <span
+                            class="slds-text-body_small slds-text-color_weak"
+                        >
+                            Last run: {lastRunTimestamp}
+                        </span>
+                    </template>
+                </div>
+
+                <!-- Critical Tests Section -->
+                <div class="slds-m-bottom_medium">
+                    <h3
+                        class="slds-text-heading_small slds-m-bottom_x-small section-header"
+                    >
+                        Critical Gate Tests
+                        <span
+                            class="slds-text-body_small slds-text-color_weak"
+                            >&mdash; blocks
+                            certification</span
+                        >
+                    </h3>
+                    <div class="test-grid">
+                        <template
+                            for:each={criticalTests}
+                            for:item="test"
+                        >
+                            <div
+                                key={test.key}
+                                class={test.badgeClass}
+                            >
+                                <lightning-icon
+                                    icon-name={test.iconName}
+                                    variant={test.iconVariant}
+                                    size="x-small"
+                                    class="slds-m-right_xx-small"
+                                ></lightning-icon>
+                                <div>
+                                    <span class="test-label"
+                                        >{test.label}</span
+                                    >
+                                    <span class="test-desc"
+                                        >{test.description}</span
+                                    >
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Bell Test Section (if applicable) -->
+                <template if:true={hasBellResults}>
+                    <div class="slds-m-bottom_medium">
+                        <h3
+                            class="slds-text-heading_small slds-m-bottom_x-small section-header"
+                        >
+                            Quantum Origin Proof
+                            <span
+                                class="slds-text-body_small slds-text-color_weak"
+                                >&mdash; CHSH S =
+                                {chshSValue}</span
+                            >
+                        </h3>
+                        <div class="test-grid">
+                            <template
+                                for:each={bellTests}
+                                for:item="test"
+                            >
+                                <div
+                                    key={test.key}
+                                    class={test.badgeClass}
+                                >
+                                    <lightning-icon
+                                        icon-name={test.iconName}
+                                        variant={test.iconVariant}
+                                        size="x-small"
+                                        class="slds-m-right_xx-small"
+                                    ></lightning-icon>
+                                    <div>
+                                        <span
+                                            class="test-label"
+                                            >{test.label}</span
+                                        >
+                                        <span
+                                            class="test-desc"
+                                            >{test.description}</span
+                                        >
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Extended Tests Section -->
+                <div class="slds-m-bottom_small">
+                    <h3
+                        class="slds-text-heading_small slds-m-bottom_x-small section-header"
+                    >
+                        Extended NIST Tests
+                        <template
+                            if:false={hasExtendedResults}
+                        >
+                            <span
+                                class="slds-text-body_small slds-text-color_weak"
+                                >&mdash; pending (click Run
+                                All Tests)</span
+                            >
+                        </template>
+                    </h3>
+                    <div class="test-grid">
+                        <template
+                            for:each={extendedTests}
+                            for:item="test"
+                        >
+                            <div
+                                key={test.key}
+                                class={test.badgeClass}
+                            >
+                                <lightning-icon
+                                    icon-name={test.iconName}
+                                    variant={test.iconVariant}
+                                    size="x-small"
+                                    class="slds-m-right_xx-small"
+                                ></lightning-icon>
+                                <div>
+                                    <span class="test-label"
+                                        >{test.label}</span
+                                    >
+                                    <span class="test-desc"
+                                        >{test.description}</span
+                                    >
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
+            <template if:false={hasResults}>
+                <div
+                    class="slds-illustration slds-illustration_small slds-text-align_center"
+                >
+                    <p
+                        class="slds-text-body_regular slds-text-color_weak"
+                    >
+                        No validation results yet. Complete
+                        the job or click "Run All Tests" to
+                        validate.
+                    </p>
+                </div>
+            </template>
+
+            <!-- Loading -->
+            <template if:true={isRunning}>
+                <div
+                    class="slds-align_absolute-center slds-m-top_medium"
+                >
+                    <lightning-spinner
+                        alternative-text="Running tests..."
+                        size="small"
+                    ></lightning-spinner>
+                    <span class="slds-m-left_small"
+                        >Running all randomness
+                        tests...</span
+                    >
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+</template>

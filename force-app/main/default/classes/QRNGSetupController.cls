@@ -142,6 +142,118 @@ public with sharing class QRNGSetupController {
     // ── Methods ─────────────────────────────────────────────────────
 
     /**
+     * Run all randomness validation tests on demand for a completed job.
+     * Runs both critical (frequency, runs, chi-squared) and extended
+     * (approximate entropy, serial, CUSUM, longest run) tests synchronously.
+     * Returns the merged results as a map.
+     */
+    @AuraEnabled
+    public static Map<String, Object> runValidationTests(Id jobId) {
+        Quantum_Job__c job = [
+            SELECT
+                Id,
+                Status__c,
+                Debiased_Results__c,
+                Raw_Results__c,
+                Use_Bell_Test__c,
+                Num_Qubits__c,
+                Validation_Results__c
+            FROM Quantum_Job__c
+            WHERE Id = :jobId
+            LIMIT 1
+        ];
+
+        if (job.Status__c != 'Completed') {
+            throw new QRNGException(
+                'Cannot run validation on a job that has not completed.'
+            );
+        }
+        if (String.isBlank(job.Debiased_Results__c)) {
+            throw new QRNGException(
+                'No debiased results available for validation.'
+            );
+        }
+
+        // Run critical tests
+        Map<String, Object> results = QRNGValidator.validate(
+            job.Debiased_Results__c
+        );
+
+        // Run extended tests
+        Map<String, Object> extendedResults = QRNGValidator.validateExtended(
+            job.Debiased_Results__c
+        );
+        results.putAll(extendedResults);
+
+        // Add CHSH if Bell test
+        if (
+            job.Use_Bell_Test__c == true &&
+            String.isNotBlank(job.Raw_Results__c)
+        ) {
+            Integer numQubits = job.Num_Qubits__c != null
+                ? (Integer) job.Num_Qubits__c
+                : 8;
+            Integer numPairs = numQubits / 2;
+            // Re-parse raw results to get individual bitstrings for CHSH
+            // Raw results is concatenated — split into shot-sized chunks
+            String raw = job.Raw_Results__c;
+            List<String> bitstrings = new List<String>();
+            for (Integer i = 0; i + numQubits <= raw.length(); i += numQubits) {
+                bitstrings.add(raw.substring(i, i + numQubits));
+            }
+            Double sValue = QRNGValidator.calculateCHSH(bitstrings, numPairs);
+            results.put('chshSValue', sValue);
+            results.put('bellTestPassed', sValue > 2.0);
+        }
+
+        results.put('allTestsCompleted', true);
+        results.put('manualRunTimestamp', DateTime.now().format());
+
+        // Store on job
+        String resultsJson = JSON.serialize(results);
+        job.Validation_Results__c = resultsJson;
+        update job;
+
+        // Update certificate too
+        List<Fairness_Certificate__c> certs = [
+            SELECT Id
+            FROM Fairness_Certificate__c
+            WHERE Quantum_Job__c = :jobId
+            ORDER BY CreatedDate DESC
+            LIMIT 1
+        ];
+        if (!certs.isEmpty()) {
+            certs[0].Validation_Results__c = resultsJson;
+            if (results.containsKey('chshSValue')) {
+                certs[0].CHSH_S_Value__c = (Double) results.get('chshSValue');
+            }
+            update certs;
+        }
+
+        return results;
+    }
+
+    /**
+     * Get validation results for a job (from stored JSON).
+     */
+    @AuraEnabled(cacheable=true)
+    public static Map<String, Object> getValidationResults(Id jobId) {
+        Quantum_Job__c job = [
+            SELECT Id, Validation_Results__c
+            FROM Quantum_Job__c
+            WHERE Id = :jobId
+            LIMIT 1
+        ];
+
+        if (String.isNotBlank(job.Validation_Results__c)) {
+            return (Map<String, Object>) JSON.deserializeUntyped(
+                job.Validation_Results__c
+            );
+        }
+        return new Map<String, Object>();
+    }
+
+    /**
      * Get job status data as a DTO for the record page LWC.
      */
     @AuraEnabled(cacheable=true)

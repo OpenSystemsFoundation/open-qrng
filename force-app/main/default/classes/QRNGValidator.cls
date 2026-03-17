@@ -221,6 +221,264 @@ public with sharing class QRNGValidator {
         return sValue;
     }
 
+    // ── Extended tests (async — run via QRNGValidationRunner) ──────
+
+    /**
+     * Run all extended validation tests on the debiased bitstring.
+     * These are heavier than the critical gate tests but still O(n).
+     */
+    public static Map<String, Object> validateExtended(String bits) {
+        Map<String, Object> results = new Map<String, Object>();
+
+        if (String.isBlank(bits) || bits.length() < 100) {
+            results.put('extendedPassed', false);
+            results.put('error', 'Insufficient bits for extended validation');
+            return results;
+        }
+
+        Boolean approxEntropyPass = approximateEntropyTest(bits, 2);
+        Boolean serialPass = serialTest(bits, 3);
+        Boolean cusumPass = cumulativeSumsTest(bits);
+        Boolean longestRunPass = longestRunOfOnesTest(bits);
+
+        results.put('approximateEntropyTest', approxEntropyPass);
+        results.put('serialTest', serialPass);
+        results.put('cumulativeSumsTest', cusumPass);
+        results.put('longestRunOfOnesTest', longestRunPass);
+        results.put(
+            'extendedPassed',
+            approxEntropyPass && serialPass && cusumPass && longestRunPass
+        );
+
+        return results;
+    }
+
+    /**
+     * Approximate Entropy test (NIST SP 800-22 §2.12).
+     * Checks the frequency of overlapping m-bit and (m+1)-bit patterns.
+     * Low entropy indicates predictable repetition.
+     *
+     * @param bits The bitstring to test
+     * @param m Block length (typically 2 or 3)
+     */
+    public static Boolean approximateEntropyTest(String bits, Integer m) {
+        Integer n = bits.length();
+        if (n < 100) {
+            return true;
+        }
+
+        // Compute phi(m) and phi(m+1)
+        Double phiM = computePhi(bits, m);
+        Double phiM1 = computePhi(bits, m + 1);
+
+        // ApEn = phi(m) - phi(m+1)
+        Double apEn = phiM - phiM1;
+
+        // Chi-squared statistic: chi2 = 2n * (ln2 - ApEn)
+        Double chi2 = 2.0 * n * (Math.log(2) - apEn);
+
+        // Degrees of freedom = 2^m
+        Integer df = (Integer) Math.pow(2, m);
+
+        // Approximate: pass if chi2 < 3 * df (p ≈ 0.01)
+        return chi2 < 3.0 * df;
+    }
+
+    private static Double computePhi(String bits, Integer m) {
+        Integer n = bits.length();
+        // Augmented sequence (circular)
+        String augmented = bits + bits.substring(0, m - 1);
+
+        // Count occurrences of each m-bit pattern
+        Map<String, Integer> counts = new Map<String, Integer>();
+        for (Integer i = 0; i < n; i++) {
+            String pattern = augmented.substring(i, i + m);
+            if (counts.containsKey(pattern)) {
+                counts.put(pattern, counts.get(pattern) + 1);
+            } else {
+                counts.put(pattern, 1);
+            }
+        }
+
+        // phi = sum of (C_i)^2 / n, then take log
+        Double sum = 0;
+        for (Integer c : counts.values()) {
+            Double freq = (Double) c / n;
+            if (freq > 0) {
+                sum += freq * Math.log(freq);
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * Serial test (NIST SP 800-22 §2.11).
+     * Tests uniformity of overlapping m-bit patterns.
+     * Generalizes the frequency test to higher-order patterns.
+     *
+     * @param bits The bitstring to test
+     * @param m Pattern length (typically 3)
+     */
+    public static Boolean serialTest(String bits, Integer m) {
+        Integer n = bits.length();
+        if (n < 100 || m < 1) {
+            return true;
+        }
+
+        // Compute psi-squared for m, m-1, m-2
+        Double psiM = computePsiSquared(bits, m);
+        Double psiM1 = (m > 1) ? computePsiSquared(bits, m - 1) : 0;
+        Double psiM2 = (m > 2) ? computePsiSquared(bits, m - 2) : 0;
+
+        // ∇psi² = psi²(m) - psi²(m-1)
+        // ∇²psi² = psi²(m) - 2*psi²(m-1) + psi²(m-2)
+        Double delPsi = psiM - psiM1;
+        Double del2Psi = psiM - 2 * psiM1 + psiM2;
+
+        // Both should be chi-squared distributed with 2^(m-1) and 2^(m-2) df
+        Integer df1 = (Integer) Math.pow(2, m - 1);
+        Integer df2 = (Integer) Math.pow(2, m - 2);
+
+        // Pass if both are within 3*df (approximate p=0.01)
+        return delPsi < 3.0 * df1 && del2Psi < 3.0 * df2;
+    }
+
+    private static Double computePsiSquared(String bits, Integer m) {
+        Integer n = bits.length();
+        String augmented = bits + bits.substring(0, m - 1);
+
+        Map<String, Integer> counts = new Map<String, Integer>();
+        for (Integer i = 0; i < n; i++) {
+            String pattern = augmented.substring(i, i + m);
+            if (counts.containsKey(pattern)) {
+                counts.put(pattern, counts.get(pattern) + 1);
+            } else {
+                counts.put(pattern, 1);
+            }
+        }
+
+        Double sum = 0;
+        for (Integer c : counts.values()) {
+            sum += (Double) c * c;
+        }
+
+        Integer numPatterns = (Integer) Math.pow(2, m);
+        return (numPatterns * sum / n) - n;
+    }
+
+    /**
+     * Cumulative Sums (CUSUM) test (NIST SP 800-22 §2.13).
+     * Detects drift/trends in the bitstring — a biased device that
+     * starts fair and degrades mid-run would fail this.
+     */
+    public static Boolean cumulativeSumsTest(String bits) {
+        Integer n = bits.length();
+        if (n < 100) {
+            return true;
+        }
+
+        // Convert bits to ±1 and compute running sum
+        Integer maxExcursion = 0;
+        Integer sum = 0;
+
+        for (Integer i = 0; i < n; i++) {
+            sum += bits.substring(i, i + 1) == '1' ? 1 : -1;
+            Integer absSum = Math.abs(sum);
+            if (absSum > maxExcursion) {
+                maxExcursion = absSum;
+            }
+        }
+
+        // Also check backward direction
+        Integer maxExcursionRev = 0;
+        sum = 0;
+        for (Integer i = n - 1; i >= 0; i--) {
+            sum += bits.substring(i, i + 1) == '1' ? 1 : -1;
+            Integer absSum = Math.abs(sum);
+            if (absSum > maxExcursionRev) {
+                maxExcursionRev = absSum;
+            }
+        }
+
+        // Expected max excursion for random walk of length n: ~sqrt(n)
+        // Fail if max excursion exceeds 3*sqrt(n) (very conservative)
+        Double threshold = 3.0 * Math.sqrt(n);
+
+        return maxExcursion <= threshold && maxExcursionRev <= threshold;
+    }
+
+    /**
+     * Longest Run of Ones test (NIST SP 800-22 §2.4).
+     * Checks that the longest consecutive run of 1s is consistent
+     * with a random sequence. Catches clustered bias.
+     */
+    public static Boolean longestRunOfOnesTest(String bits) {
+        Integer n = bits.length();
+        if (n < 128) {
+            return true;
+        }
+
+        // Use block size of 8 and categorize longest runs
+        Integer blockSize = 8;
+        Integer numBlocks = n / blockSize;
+        if (numBlocks < 16) {
+            return true;
+        }
+
+        // Expected distribution for blocks of size 8:
+        // Category 0: longest run ≤ 1
+        // Category 1: longest run = 2
+        // Category 2: longest run = 3
+        // Category 3: longest run ≥ 4
+        // Expected proportions: [0.2148, 0.3672, 0.2305, 0.1875]
+        List<Double> expectedProportions = new List<Double>{
+            0.2148,
+            0.3672,
+            0.2305,
+            0.1875
+        };
+
+        List<Integer> observed = new List<Integer>{ 0, 0, 0, 0 };
+
+        for (Integer b = 0; b < numBlocks; b++) {
+            String block = bits.substring(b * blockSize, (b + 1) * blockSize);
+            Integer longestRun = 0;
+            Integer currentRun = 0;
+            for (Integer i = 0; i < blockSize; i++) {
+                if (block.substring(i, i + 1) == '1') {
+                    currentRun++;
+                    if (currentRun > longestRun) {
+                        longestRun = currentRun;
+                    }
+                } else {
+                    currentRun = 0;
+                }
+            }
+
+            if (longestRun <= 1) {
+                observed[0]++;
+            } else if (longestRun == 2) {
+                observed[1]++;
+            } else if (longestRun == 3) {
+                observed[2]++;
+            } else {
+                observed[3]++;
+            }
+        }
+
+        // Chi-squared test
+        Double chiSquared = 0;
+        for (Integer i = 0; i < 4; i++) {
+            Double expected = expectedProportions[i] * numBlocks;
+            if (expected > 0) {
+                chiSquared += Math.pow(observed[i] - expected, 2) / expected;
+            }
+        }
+
+        // df = 3, critical value at p=0.01 ~ 11.34
+        return chiSquared <= 11.34;
+    }
+
     private static Integer countOnes(String bits) {
         Integer count = 0;
         for (Integer i = 0; i < bits.length(); i++) {

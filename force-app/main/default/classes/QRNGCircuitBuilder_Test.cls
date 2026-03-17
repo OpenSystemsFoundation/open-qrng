@@ -221,14 +221,18 @@ private class QRNGCircuitBuilder_Test {
             new List<Integer>{ 30, 31 }
         };
         Map<Integer, Double> readoutErrors = new Map<Integer, Double>{
-            0 => 0.02, 1 => 0.02,
-            10 => 0.01, 11 => 0.01,
-            20 => 0.03, 21 => 0.03,
-            30 => 0.02, 31 => 0.02
+            0 => 0.02,
+            1 => 0.02,
+            10 => 0.01,
+            11 => 0.01,
+            20 => 0.03,
+            21 => 0.03,
+            30 => 0.02,
+            31 => 0.02
         };
         Map<String, Double> gateErrors = new Map<String, Double>{
             '0-1' => 0.05,
-            '10-11' => 0.01,  // best gate
+            '10-11' => 0.01, // best gate
             '20-21' => 0.08,
             '30-31' => 0.03
         };
@@ -380,16 +384,18 @@ private class QRNGCircuitBuilder_Test {
     static void testSelectBestPairsWithGateErrors() {
         // Test that gate errors are weighted more heavily (70%) than readout (30%)
         List<List<Integer>> couplingMap = new List<List<Integer>>{
-            new List<Integer>{ 0, 1 },   // readout 0.02, gate 0.10
-            new List<Integer>{ 10, 11 }  // readout 0.05, gate 0.01
+            new List<Integer>{ 0, 1 }, // readout 0.02, gate 0.10
+            new List<Integer>{ 10, 11 } // readout 0.05, gate 0.01
         };
         Map<Integer, Double> readoutErrors = new Map<Integer, Double>{
-            0 => 0.01, 1 => 0.01,    // readout sum = 0.02 (better)
-            10 => 0.025, 11 => 0.025 // readout sum = 0.05 (worse)
+            0 => 0.01,
+            1 => 0.01, // readout sum = 0.02 (better)
+            10 => 0.025,
+            11 => 0.025 // readout sum = 0.05 (worse)
         };
         Map<String, Double> gateErrors = new Map<String, Double>{
-            '0-1' => 0.10,   // bad gate
-            '10-11' => 0.01  // good gate
+            '0-1' => 0.10, // bad gate
+            '10-11' => 0.01 // good gate
         };
         List<QRNGCircuitBuilder.CoupledPair> pairs = QRNGCircuitBuilder.selectBestPairs(
             1,
@@ -400,7 +406,11 @@ private class QRNGCircuitBuilder_Test {
         // (10,11): 0.3*0.05 + 0.7*0.01 = 0.022
         // (0,1):   0.3*0.02 + 0.7*0.10 = 0.076
         // So (10,11) should win despite worse readout
-        System.assertEquals(10, pairs[0].q0, 'Gate fidelity should dominate scoring');
+        System.assertEquals(
+            10,
+            pairs[0].q0,
+            'Gate fidelity should dominate scoring'
+        );
         System.assertEquals(11, pairs[0].q1);
     }
 
@@ -416,9 +426,12 @@ private class QRNGCircuitBuilder_Test {
             new List<Integer>{ 10, 11 } // isolated pair
         };
         Map<Integer, Double> readoutErrors = new Map<Integer, Double>{
-            0 => 0.01, 1 => 0.01,
-            2 => 0.01, 3 => 0.01,
-            10 => 0.02, 11 => 0.02
+            0 => 0.01,
+            1 => 0.01,
+            2 => 0.01,
+            3 => 0.01,
+            10 => 0.02,
+            11 => 0.02
         };
         List<QRNGCircuitBuilder.CoupledPair> pairs = QRNGCircuitBuilder.selectBestPairs(
             2,
@@ -429,7 +442,11 @@ private class QRNGCircuitBuilder_Test {
         // (0,1) is best. (2,3) would be next but qubit 2 is neighbor of qubit 1.
         // So second pair should be (10,11) which is isolated.
         System.assertEquals(0, pairs[0].q0, 'First pair should be (0,1)');
-        System.assertEquals(10, pairs[1].q0, 'Second pair should be isolated (10,11) due to crosstalk');
+        System.assertEquals(
+            10,
+            pairs[1].q0,
+            'Second pair should be isolated (10,11) due to crosstalk'
+        );
     }
 
     @IsTest
@@ -446,7 +463,11 @@ private class QRNGCircuitBuilder_Test {
             couplingMap,
             null
         );
-        System.assertEquals(2, pairs.size(), 'Should fall back and find 2 pairs');
+        System.assertEquals(
+            2,
+            pairs.size(),
+            'Should fall back and find 2 pairs'
+        );
     }
 
     @IsTest

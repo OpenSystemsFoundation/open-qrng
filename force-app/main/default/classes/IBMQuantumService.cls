@@ -435,7 +435,9 @@ public with sharing class IBMQuantumService {
 
                         // Extract gate error from parameters
                         if (gate.containsKey('parameters')) {
-                            List<Object> params = (List<Object>) gate.get('parameters');
+                            List<Object> params = (List<Object>) gate.get(
+                                'parameters'
+                            );
                             for (Object pObj : params) {
                                 Map<String, Object> param = (Map<String, Object>) pObj;
                                 String paramName = (String) param.get('name');

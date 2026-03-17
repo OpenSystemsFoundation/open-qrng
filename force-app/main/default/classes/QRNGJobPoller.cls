@@ -127,19 +127,6 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
         String rawBits = QRNGResultParser.concatenateBitstrings(bitstrings);
         String debiasedBits = QRNGResultParser.vonNeumannDebias(rawBits);
 
-        // Update job record
-        job.Status__c = 'Completed';
-        job.Raw_Results__c = rawBits.left(131072);
-        job.Debiased_Results__c = debiasedBits.left(131072);
-        job.Completed_At__c = DateTime.now();
-        if (job.Submitted_At__c != null) {
-            job.Execution_Time_ms__c =
-                DateTime.now().getTime() - job.Submitted_At__c.getTime();
-        }
-        // Extract queue time from IBM timestamps
-        job.Queue_Time_ms__c = extractQueueTimeMs(statusResponse);
-        update job;
-
         // Critical realtime gate: frequency test (blocks certification)
         Map<String, Object> validationResults = QRNGValidator.validate(
             debiasedBits
@@ -161,13 +148,32 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
             }
         }
 
+        // Single update with results + validation in one DML
+        String validationJson = JSON.serialize(validationResults);
+        job.Status__c = 'Completed';
+        job.Raw_Results__c = rawBits.left(131072);
+        job.Debiased_Results__c = debiasedBits.left(131072);
+        job.Completed_At__c = DateTime.now();
+        if (job.Submitted_At__c != null) {
+            job.Execution_Time_ms__c =
+                DateTime.now().getTime() - job.Submitted_At__c.getTime();
+        }
+        job.Queue_Time_ms__c = extractQueueTimeMs(statusResponse);
+        job.Validation_Results__c = validationJson;
+        update job;
+
         // Create certificate
         String certStatus = isValid ? 'Certified' : 'Failed';
         Id certId = FairnessCertificateService.createCertificate(
             job.Id,
-            JSON.serialize(validationResults),
+            validationJson,
             certStatus
         );
+
+        // Enqueue async extended validation tests (non-blocking)
+        if (!Test.isRunningTest()) {
+            System.enqueueJob(new QRNGValidationRunner(job.Id));
+        }
 
         // Publish completion event
         QRNG_Complete__e completeEvent = new QRNG_Complete__e(

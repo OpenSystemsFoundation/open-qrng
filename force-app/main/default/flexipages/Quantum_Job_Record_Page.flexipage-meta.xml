@@ -39,6 +39,12 @@
         </itemInstances>
         <itemInstances>
             <componentInstance>
+                <componentName>qrngValidationResults</componentName>
+                <identifier>qrngValidationResults1</identifier>
+            </componentInstance>
+        </itemInstances>
+        <itemInstances>
+            <componentInstance>
                 <componentName>force:detailPanel</componentName>
                 <identifier>force_detailPanel</identifier>
             </componentInstance>
