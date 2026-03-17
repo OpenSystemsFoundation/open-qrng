@@ -3,6 +3,45 @@
  * Handles connection testing, backend listing, settings management, and job submission.
  */
 public with sharing class QRNGSetupController {
+    // ── DTOs ────────────────────────────────────────────────────────
+
+    public class BackendHealthDTO {
+        @AuraEnabled
+        public String id;
+        @AuraEnabled
+        public String name;
+        @AuraEnabled
+        public String status;
+        @AuraEnabled
+        public Integer qubits;
+        @AuraEnabled
+        public Integer queueLength;
+        @AuraEnabled
+        public Boolean isSimulator;
+        @AuraEnabled
+        public String processorFamily;
+        @AuraEnabled
+        public String processorRevision;
+        @AuraEnabled
+        public Integer maxShots;
+        @AuraEnabled
+        public Decimal avgT1;
+        @AuraEnabled
+        public Decimal avgT2;
+        @AuraEnabled
+        public Decimal gateError;
+        @AuraEnabled
+        public Decimal readoutError;
+        @AuraEnabled
+        public DateTime lastCalibration;
+        @AuraEnabled
+        public DateTime lastSynced;
+        @AuraEnabled
+        public String provider;
+    }
+
+    // ── Methods ─────────────────────────────────────────────────────
+
     /**
      * Test the IBM Quantum connection
      */
@@ -243,7 +282,7 @@ public with sharing class QRNGSetupController {
      * Get all backend health data from stored QRNG_Backend__c records.
      */
     @AuraEnabled
-    public static List<Map<String, Object>> getAllBackendHealth() {
+    public static List<BackendHealthDTO> getAllBackendHealth() {
         List<QRNG_Backend__c> records = [
             SELECT
                 Id,
@@ -268,28 +307,34 @@ public with sharing class QRNGSetupController {
             ORDER BY Queue_Length__c ASC NULLS LAST
         ];
 
-        List<Map<String, Object>> result = new List<Map<String, Object>>();
+        List<BackendHealthDTO> result = new List<BackendHealthDTO>();
         for (QRNG_Backend__c b : records) {
-            Map<String, Object> m = new Map<String, Object>();
-            m.put('id', b.Id);
-            m.put('name', b.Name);
-            m.put('status', b.Status__c);
-            m.put('qubits', b.Num_Qubits__c);
-            m.put('queueLength', b.Queue_Length__c);
-            m.put('isSimulator', b.Is_Simulator__c);
-            m.put('processorFamily', b.Processor_Family__c);
-            m.put('processorRevision', b.Processor_Revision__c);
-            m.put('maxShots', b.Max_Shots__c);
-            m.put('avgT1', b.Avg_T1_us__c);
-            m.put('avgT2', b.Avg_T2_us__c);
-            m.put('gateError', b.Median_Gate_Error__c);
-            m.put('readoutError', b.Median_Readout_Error__c);
-            m.put('lastCalibration', b.Last_Calibration__c);
-            m.put('lastSynced', b.Last_Synced__c);
-            m.put('provider', b.Provider__r.Name);
-            result.add(m);
+            result.add(toDTO(b));
         }
         return result;
+    }
+
+    private static BackendHealthDTO toDTO(QRNG_Backend__c b) {
+        BackendHealthDTO dto = new BackendHealthDTO();
+        dto.id = b.Id;
+        dto.name = b.Name;
+        dto.status = b.Status__c;
+        dto.qubits = b.Num_Qubits__c != null ? (Integer) b.Num_Qubits__c : 0;
+        dto.queueLength = b.Queue_Length__c != null
+            ? (Integer) b.Queue_Length__c
+            : null;
+        dto.isSimulator = b.Is_Simulator__c;
+        dto.processorFamily = b.Processor_Family__c;
+        dto.processorRevision = b.Processor_Revision__c;
+        dto.maxShots = b.Max_Shots__c != null ? (Integer) b.Max_Shots__c : null;
+        dto.avgT1 = b.Avg_T1_us__c;
+        dto.avgT2 = b.Avg_T2_us__c;
+        dto.gateError = b.Median_Gate_Error__c;
+        dto.readoutError = b.Median_Readout_Error__c;
+        dto.lastCalibration = b.Last_Calibration__c;
+        dto.lastSynced = b.Last_Synced__c;
+        dto.provider = b.Provider__r.Name;
+        return dto;
     }
 
     /**
@@ -298,7 +343,7 @@ public with sharing class QRNGSetupController {
      * Governor limits: 2 callouts per backend (auth cached after first).
      */
     @AuraEnabled
-    public static List<Map<String, Object>> refreshAllBackendHealth() {
+    public static List<BackendHealthDTO> refreshAllBackendHealth() {
         try {
             // Ensure backends are synced first
             Integer backendCount = [
