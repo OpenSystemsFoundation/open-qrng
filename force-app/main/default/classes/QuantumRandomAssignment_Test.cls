@@ -20,6 +20,11 @@ private class QuantumRandomAssignment_Test {
         Test.setMock(HttpCalloutMock.class, new MockIBMApi());
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+        QRNG_Settings__c s = new QRNG_Settings__c(
+            SetupOwnerId = UserInfo.getOrganizationId(),
+            Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
+        );
+        upsert s;
 
         QuantumRandomAssignment.AssignmentRequest req = new QuantumRandomAssignment.AssignmentRequest();
         req.recordIds = new List<String>{

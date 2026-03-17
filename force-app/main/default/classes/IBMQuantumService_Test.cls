@@ -40,9 +40,14 @@ private class IBMQuantumService_Test {
     @IsTest
     static void testSubmitJob() {
         Test.setMock(HttpCalloutMock.class, new MockSubmitSuccess());
-        // Pre-set auth token to avoid IAM callout during submit
+        // Pre-set auth token and CRN
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+        QRNG_Settings__c s = new QRNG_Settings__c(
+            SetupOwnerId = UserInfo.getOrganizationId(),
+            Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
+        );
+        upsert s;
 
         String qasm = QRNGCircuitBuilder.buildStandardCircuit(4);
 
