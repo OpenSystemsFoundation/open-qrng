@@ -43,16 +43,17 @@ private class QRNGJobPollScheduler_Test {
         QRNGJobPollScheduler.scheduleNextPoll(job.Id, 'test_schedule', 0);
         Test.stopTest();
 
-        // Verify a scheduled job was created
+        // Verify our specific scheduled job was created
+        String expectedName = 'QRNGPoll_' + job.Id + '_0';
         List<CronTrigger> triggers = [
             SELECT Id, CronJobDetail.Name
             FROM CronTrigger
-            WHERE CronJobDetail.Name LIKE 'QRNGPoll_%'
+            WHERE CronJobDetail.Name = :expectedName
         ];
         System.assertEquals(
             1,
             triggers.size(),
-            'Expected one scheduled poll job'
+            'Expected scheduled poll job: ' + expectedName
         );
     }
 }

@@ -119,6 +119,7 @@ sf apex run test --code-coverage --result-format human --wait 10
 
 - All Jest tests pass
 - All Apex tests pass with 90%+ coverage per class
+- **Org-wide Apex coverage must be 75%+ minimum** — this is a Salesforce production deployment requirement. Never lower this threshold; always write the missing tests.
 - ESLint: zero errors, zero warnings
 - Prettier: all files formatted
 - No `.only` or `.skip` in committed test files
