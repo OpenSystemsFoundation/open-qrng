@@ -1,11 +1,11 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(npx sfdx-lwc-jest:*)",
-      "Bash(npx jest:*)",
-      "Bash(gh run:*)",
-      "Bash(sf data:*)",
-      "Bash(npx prettier:*)"
-    ]
-  }
+    "permissions": {
+        "allow": [
+            "Bash(npx sfdx-lwc-jest:*)",
+            "Bash(npx jest:*)",
+            "Bash(gh run:*)",
+            "Bash(sf data:*)",
+            "Bash(npx prettier:*)"
+        ]
+    }
 }
