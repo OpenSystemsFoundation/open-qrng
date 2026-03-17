@@ -287,14 +287,18 @@ export default class QrngSetup extends LightningElement {
     }
 
     formatTime(val) {
-        if (val == null) return '—';
-        if (val > 1000) return (val / 1000).toFixed(1) + ' ms';
-        return val.toFixed(1) + ' us';
+        if (val == null || val === undefined) return '—';
+        const n = Number(val);
+        if (isNaN(n)) return '—';
+        if (n > 1000) return (n / 1000).toFixed(1) + ' ms';
+        return n.toFixed(1) + ' us';
     }
 
     formatPercent(val) {
-        if (val == null) return '—';
-        return (val * 100).toFixed(3) + '%';
+        if (val == null || val === undefined) return '—';
+        const n = Number(val);
+        if (isNaN(n)) return '—';
+        return (n * 100).toFixed(3) + '%';
     }
 
     buildBackendOptions(backends) {
