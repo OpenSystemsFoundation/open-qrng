@@ -1,0 +1,14 @@
+{
+  "orgName": "QuantumFair Dev",
+  "edition": "Partner Developer",
+  "namespace": "OpenSF",
+  "features": ["EnableSetPasswordInApi"],
+  "settings": {
+    "lightningExperienceSettings": {
+      "enableS1DesktopEnabled": true
+    },
+    "mobileSettings": {
+      "enableS1EncryptedStoragePref2": false
+    }
+  }
+}
