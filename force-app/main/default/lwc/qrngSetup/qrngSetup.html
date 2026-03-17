@@ -216,58 +216,76 @@
                         ></lightning-spinner>
                     </template>
                     <template if:true={hasBackendHealth}>
-                        <div
-                            class="slds-grid slds-wrap slds-gutters"
-                        >
-                            <div
-                                class="slds-col slds-size_1-of-2 slds-p-around_x-small"
+                        <div class="slds-scrollable_x">
+                            <table
+                                class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped"
                             >
-                                <div class="stat-card">
-                                    <p class="stat-value">
-                                        {formattedT1}
-                                    </p>
-                                    <p class="stat-label">
-                                        Avg T1 (relaxation)
-                                    </p>
-                                </div>
-                            </div>
-                            <div
-                                class="slds-col slds-size_1-of-2 slds-p-around_x-small"
-                            >
-                                <div class="stat-card">
-                                    <p class="stat-value">
-                                        {formattedT2}
-                                    </p>
-                                    <p class="stat-label">
-                                        Avg T2 (coherence)
-                                    </p>
-                                </div>
-                            </div>
-                            <div
-                                class="slds-col slds-size_1-of-2 slds-p-around_x-small"
-                            >
-                                <div class="stat-card">
-                                    <p class="stat-value">
-                                        {formattedGateError}
-                                    </p>
-                                    <p class="stat-label">
-                                        Avg Gate Error
-                                    </p>
-                                </div>
-                            </div>
-                            <div
-                                class="slds-col slds-size_1-of-2 slds-p-around_x-small"
-                            >
-                                <div class="stat-card">
-                                    <p class="stat-value">
-                                        {formattedReadoutError}
-                                    </p>
-                                    <p class="stat-label">
-                                        Avg Readout Error
-                                    </p>
-                                </div>
-                            </div>
+                                <thead>
+                                    <tr>
+                                        <th>Backend</th>
+                                        <th>Status</th>
+                                        <th>Qubits</th>
+                                        <th>Queue</th>
+                                        <th>Processor</th>
+                                        <th>Avg T1</th>
+                                        <th>Avg T2</th>
+                                        <th>Gate Err</th>
+                                        <th>Readout Err</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template
+                                        for:each={backendHealthList}
+                                        for:item="b"
+                                    >
+                                        <tr key={b.id}>
+                                            <td>
+                                                <strong
+                                                    >{b.name}</strong
+                                                >
+                                            </td>
+                                            <td>
+                                                <span
+                                                    class={b.statusClass}
+                                                    >{b.status}</span
+                                                >
+                                            </td>
+                                            <td>
+                                                {b.qubits}
+                                            </td>
+                                            <td>
+                                                {b.queueLength}
+                                            </td>
+                                            <td>
+                                                {b.processor}
+                                            </td>
+                                            <td>
+                                                {b.avgT1}
+                                            </td>
+                                            <td>
+                                                {b.avgT2}
+                                            </td>
+                                            <td>
+                                                {b.gateError}
+                                            </td>
+                                            <td>
+                                                {b.readoutError}
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
                         </div>
+                    </template>
+                    <template if:false={hasBackendHealth}>
+                        <p
+                            class="slds-text-body_small slds-text-color_weak"
+                        >
+                            No backend data yet. Click Test
+                            Connection to sync backends,
+                            then Refresh to fetch health
+                            data.
+                        </p>
                     </template>
                 </div>
             </div>

@@ -230,6 +230,183 @@ public with sharing class QRNGSetupController {
     }
 
     /**
+     * Get all backend health data from stored QRNG_Backend__c records.
+     */
+    @AuraEnabled
+    public static List<QRNG_Backend__c> getAllBackendHealth() {
+        return [
+            SELECT
+                Id,
+                Name,
+                Backend_Key__c,
+                Status__c,
+                Num_Qubits__c,
+                Queue_Length__c,
+                Is_Simulator__c,
+                Processor_Family__c,
+                Processor_Revision__c,
+                Max_Shots__c,
+                Avg_T1_us__c,
+                Avg_T2_us__c,
+                Median_Gate_Error__c,
+                Median_Readout_Error__c,
+                Last_Calibration__c,
+                Last_Synced__c,
+                Provider__r.Name
+            FROM QRNG_Backend__c
+            WHERE Provider__r.Is_Active__c = TRUE
+            ORDER BY Queue_Length__c ASC NULLS LAST
+        ];
+    }
+
+    /**
+     * Refresh health data for all backends from IBM API.
+     * Fetches properties for each backend and updates QRNG_Backend__c records.
+     * Governor limits: 2 callouts per backend (auth cached after first).
+     */
+    @AuraEnabled
+    public static List<QRNG_Backend__c> refreshAllBackendHealth() {
+        try {
+            List<QRNG_Backend__c> backends = [
+                SELECT
+                    Id,
+                    Name,
+                    Backend_Key__c,
+                    Status__c,
+                    Num_Qubits__c,
+                    Queue_Length__c,
+                    Is_Simulator__c,
+                    Processor_Family__c,
+                    Processor_Revision__c,
+                    Max_Shots__c,
+                    Avg_T1_us__c,
+                    Avg_T2_us__c,
+                    Median_Gate_Error__c,
+                    Median_Readout_Error__c,
+                    Last_Calibration__c,
+                    Last_Synced__c,
+                    Provider__r.Name
+                FROM QRNG_Backend__c
+                WHERE
+                    Provider__r.Is_Active__c = TRUE
+                    AND Is_Simulator__c = FALSE
+                    AND Status__c = 'online'
+                ORDER BY Name
+                LIMIT 5
+            ];
+
+            List<QRNG_Backend__c> toUpdate = new List<QRNG_Backend__c>();
+            for (QRNG_Backend__c backend : backends) {
+                try {
+                    Map<String, Object> props = IBMQuantumService.getBackendProperties(
+                        backend.Name
+                    );
+                    updateBackendFromProperties(backend, props);
+                    toUpdate.add(backend);
+                } catch (Exception e) {
+                    // Skip backends that fail — don't block the rest
+                    System.debug(
+                        'Failed to refresh ' +
+                            backend.Name +
+                            ': ' +
+                            e.getMessage()
+                    );
+                }
+            }
+
+            if (!toUpdate.isEmpty()) {
+                update toUpdate;
+            }
+
+            return getAllBackendHealth();
+        } catch (Exception e) {
+            throw new AuraHandledException(
+                'Failed to refresh backend health: ' + e.getMessage()
+            );
+        }
+    }
+
+    private static void updateBackendFromProperties(
+        QRNG_Backend__c backend,
+        Map<String, Object> props
+    ) {
+        List<Object> qubits = (List<Object>) props.get('qubits');
+        if (qubits != null && !qubits.isEmpty()) {
+            Double totalT1 = 0;
+            Double totalT2 = 0;
+            Double totalReadoutError = 0;
+            Integer qubitCount = 0;
+
+            for (Object qubitObj : qubits) {
+                List<Object> qubitProps = (List<Object>) qubitObj;
+                for (Object propObj : qubitProps) {
+                    Map<String, Object> prop = (Map<String, Object>) propObj;
+                    String name = (String) prop.get('name');
+                    Object val = prop.get('value');
+                    if (val == null) {
+                        continue;
+                    }
+                    Double value = Double.valueOf(String.valueOf(val));
+                    if (name == 'T1') {
+                        totalT1 += value;
+                    } else if (name == 'T2') {
+                        totalT2 += value;
+                    } else if (name == 'readout_error') {
+                        totalReadoutError += value;
+                    }
+                }
+                qubitCount++;
+            }
+
+            if (qubitCount > 0) {
+                backend.Avg_T1_us__c = totalT1 / qubitCount;
+                backend.Avg_T2_us__c = totalT2 / qubitCount;
+                backend.Median_Readout_Error__c =
+                    totalReadoutError / qubitCount;
+            }
+        }
+
+        List<Object> gates = (List<Object>) props.get('gates');
+        if (gates != null && !gates.isEmpty()) {
+            Double totalGateError = 0;
+            Integer gateCount = 0;
+            for (Object gateObj : gates) {
+                Map<String, Object> gate = (Map<String, Object>) gateObj;
+                List<Object> gateParams = (List<Object>) gate.get('parameters');
+                if (gateParams != null) {
+                    for (Object paramObj : gateParams) {
+                        Map<String, Object> param = (Map<String, Object>) paramObj;
+                        if (param.get('name') == 'gate_error') {
+                            Object val = param.get('value');
+                            if (val != null) {
+                                totalGateError += Double.valueOf(
+                                    String.valueOf(val)
+                                );
+                                gateCount++;
+                            }
+                        }
+                    }
+                }
+            }
+            if (gateCount > 0) {
+                backend.Median_Gate_Error__c = totalGateError / gateCount;
+            }
+        }
+
+        String lastUpdate = (String) props.get('last_update_date');
+        if (String.isNotBlank(lastUpdate)) {
+            try {
+                backend.Last_Calibration__c = DateTime.valueOf(
+                    lastUpdate.replace('T', ' ').substring(0, 19)
+                );
+            } catch (Exception e) {
+                // Ignore date parse errors
+            }
+        }
+        backend.Last_Synced__c = DateTime.now();
+    }
+
+    /**
      * Get current settings
      */
     @AuraEnabled(cacheable=true)
@@ -377,13 +554,18 @@ public with sharing class QRNGSetupController {
             if (String.isNotBlank(backend)) {
                 backendName = backend;
             } else if (settings != null && settings.Use_Least_Busy__c == true) {
-                backendName = IBMQuantumService.getLeastBusyBackend();
+                // Try stored backends first (no API call)
+                backendName = getLeastBusyFromStored();
+                // Fall back to API if no stored data
+                if (String.isBlank(backendName)) {
+                    backendName = IBMQuantumService.getLeastBusyBackend();
+                }
             }
             if (String.isBlank(backendName)) {
                 backendName = (settings != null &&
                     String.isNotBlank(settings.Default_Backend__c))
                     ? settings.Default_Backend__c
-                    : IBMQuantumService.getLeastBusyBackend();
+                    : getLeastBusyFromStored();
             }
             Integer numQ = numQubits != null ? numQubits : 8;
             Integer numShots = shots != null
@@ -751,6 +933,20 @@ public with sharing class QRNGSetupController {
         );
         insert ibm;
         return ibm;
+    }
+
+    /**
+     * Get the least busy online backend from stored QRNG_Backend__c records.
+     */
+    private static String getLeastBusyFromStored() {
+        List<QRNG_Backend__c> backends = [
+            SELECT Name
+            FROM QRNG_Backend__c
+            WHERE Status__c = 'online' AND Is_Simulator__c = FALSE
+            ORDER BY Queue_Length__c ASC NULLS LAST
+            LIMIT 1
+        ];
+        return backends.isEmpty() ? null : backends[0].Name;
     }
 
     private static String normalizeIBMStatus(String ibmStatus) {

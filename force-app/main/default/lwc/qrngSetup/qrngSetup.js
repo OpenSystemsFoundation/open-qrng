@@ -5,7 +5,8 @@ import testConnection from '@salesforce/apex/QRNGSetupController.testConnection'
 import getAvailableBackends from '@salesforce/apex/QRNGSetupController.getAvailableBackends';
 import getUsageStats from '@salesforce/apex/QRNGSetupController.getUsageStats';
 import discoverInstances from '@salesforce/apex/QRNGSetupController.discoverInstances';
-import getBackendHealth from '@salesforce/apex/QRNGSetupController.getBackendHealth';
+import getAllBackendHealth from '@salesforce/apex/QRNGSetupController.getAllBackendHealth';
+import refreshAllBackendHealth from '@salesforce/apex/QRNGSetupController.refreshAllBackendHealth';
 import startSweeper from '@salesforce/apex/QRNGSetupController.startSweeper';
 import stopSweeper from '@salesforce/apex/QRNGSetupController.stopSweeper';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
@@ -27,7 +28,7 @@ export default class QrngSetup extends LightningElement {
     @track pollIntervalMinutes = 5;
     @track sweeperActive = false;
     @track isDiscoveringCRN = false;
-    @track backendHealth = null;
+    @track backendHealthList = [];
     @track isLoadingHealth = false;
 
     @wire(getSettings)
@@ -60,6 +61,9 @@ export default class QrngSetup extends LightningElement {
             if (data.hasApiKey && !this.isConnected) {
                 this.handleTestConnection();
             }
+
+            // Load stored backend health
+            this.loadBackendHealth();
         }
     }
 
@@ -221,23 +225,66 @@ export default class QrngSetup extends LightningElement {
         }
     }
 
-    async handleRefreshHealth() {
-        if (!this.defaultBackend || this.defaultBackend === '__least_busy__') {
-            this.dispatchEvent(
-                new ShowToastEvent({
-                    title: 'Select a Backend',
-                    message:
-                        'Choose a specific backend from the dropdown to view its health.',
-                    variant: 'warning'
-                })
-            );
-            return;
+    async loadBackendHealth() {
+        try {
+            const backends = await getAllBackendHealth();
+            this.backendHealthList = backends.map((b) => ({
+                id: b.Id,
+                name: b.Name,
+                status: b.Status__c || '—',
+                qubits: b.Num_Qubits__c || 0,
+                queueLength:
+                    b.Queue_Length__c != null ? b.Queue_Length__c : '—',
+                processor: b.Processor_Family__c
+                    ? `${b.Processor_Family__c} ${b.Processor_Revision__c || ''}`
+                    : '—',
+                avgT1: this.formatTime(b.Avg_T1_us__c),
+                avgT2: this.formatTime(b.Avg_T2_us__c),
+                gateError: this.formatPercent(b.Median_Gate_Error__c),
+                readoutError: this.formatPercent(b.Median_Readout_Error__c),
+                lastSynced: b.Last_Synced__c,
+                statusClass:
+                    b.Status__c === 'online'
+                        ? 'slds-text-color_success'
+                        : 'slds-text-color_error'
+            }));
+        } catch (error) {
+            // Silently fail — table just stays empty
+            console.warn('Could not load backend health:', error);
         }
+    }
+
+    async handleRefreshHealth() {
         this.isLoadingHealth = true;
         try {
-            this.backendHealth = await getBackendHealth({
-                backendName: this.defaultBackend
-            });
+            const backends = await refreshAllBackendHealth();
+            this.backendHealthList = backends.map((b) => ({
+                id: b.Id,
+                name: b.Name,
+                status: b.Status__c || '—',
+                qubits: b.Num_Qubits__c || 0,
+                queueLength:
+                    b.Queue_Length__c != null ? b.Queue_Length__c : '—',
+                processor: b.Processor_Family__c
+                    ? `${b.Processor_Family__c} ${b.Processor_Revision__c || ''}`
+                    : '—',
+                avgT1: this.formatTime(b.Avg_T1_us__c),
+                avgT2: this.formatTime(b.Avg_T2_us__c),
+                gateError: this.formatPercent(b.Median_Gate_Error__c),
+                readoutError: this.formatPercent(b.Median_Readout_Error__c),
+                lastSynced: b.Last_Synced__c,
+                statusClass:
+                    b.Status__c === 'online'
+                        ? 'slds-text-color_success'
+                        : 'slds-text-color_error'
+            }));
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Health Refreshed',
+                    message: `Updated ${this.backendHealthList.length} backends from IBM.`,
+                    variant: 'success'
+                })
+            );
         } catch (error) {
             this.dispatchEvent(
                 new ShowToastEvent({
@@ -252,34 +299,18 @@ export default class QrngSetup extends LightningElement {
     }
 
     get hasBackendHealth() {
-        return this.backendHealth !== null;
+        return this.backendHealthList.length > 0;
     }
 
-    get formattedT1() {
-        if (!this.backendHealth?.avgT1) return 'N/A';
-        const val = this.backendHealth.avgT1;
-        // API returns in μs; display accordingly
+    formatTime(val) {
+        if (val == null) return '—';
         if (val > 1000) return (val / 1000).toFixed(1) + ' ms';
-        return val.toFixed(1) + ' μs';
+        return val.toFixed(1) + ' us';
     }
 
-    get formattedT2() {
-        if (!this.backendHealth?.avgT2) return 'N/A';
-        const val = this.backendHealth.avgT2;
-        if (val > 1000) return (val / 1000).toFixed(1) + ' ms';
-        return val.toFixed(1) + ' μs';
-    }
-
-    get formattedGateError() {
-        return this.backendHealth?.avgGateError
-            ? (this.backendHealth.avgGateError * 100).toFixed(3) + '%'
-            : 'N/A';
-    }
-
-    get formattedReadoutError() {
-        return this.backendHealth?.avgReadoutError
-            ? (this.backendHealth.avgReadoutError * 100).toFixed(2) + '%'
-            : 'N/A';
+    formatPercent(val) {
+        if (val == null) return '—';
+        return (val * 100).toFixed(3) + '%';
     }
 
     buildBackendOptions(backends) {

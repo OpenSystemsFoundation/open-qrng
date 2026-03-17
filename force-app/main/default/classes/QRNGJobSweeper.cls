@@ -14,6 +14,14 @@ public class QRNGJobSweeper implements Schedulable {
 
     public void execute(SchedulableContext sc) {
         System.enqueueJob(new QRNGJobSweeperWorker());
+
+        // Re-schedule for next interval
+        try {
+            scheduleDefault();
+        } catch (Exception e) {
+            // If re-scheduling fails (e.g. name conflict), ignore
+            System.debug('Sweeper re-schedule failed: ' + e.getMessage());
+        }
     }
 
     /**
@@ -25,24 +33,27 @@ public class QRNGJobSweeper implements Schedulable {
 
         Integer intervalMinutes = getIntervalMinutes();
 
-        // Salesforce cron: seconds minutes hours day_of_month month day_of_week
-        // Note: Salesforce doesn't support step values (0/N) in System.schedule
-        // Use a specific minute offset instead, or run every hour
-        // For intervals <= 60 min, schedule at specific minutes past the hour
-        String cronExp;
-        if (intervalMinutes <= 1) {
-            // Every minute not supported in scheduled apex — minimum is every hour
-            cronExp = '0 0 * * * ?';
-        } else if (intervalMinutes <= 60) {
-            // Run at specific minute intervals using comma-separated list
-            List<String> minutes = new List<String>();
-            for (Integer m = 0; m < 60; m += intervalMinutes) {
-                minutes.add(String.valueOf(m));
-            }
-            cronExp = '0 ' + String.join(minutes, ',') + ' * * * ?';
-        } else {
-            cronExp = '0 0 * * * ?';
-        }
+        // Salesforce System.schedule only supports single-fire cron expressions.
+        // To run every N minutes, we schedule multiple jobs (one per time slot).
+        // For simplicity, schedule one job that runs hourly at minute 0,
+        // then use the execute() method to self-reschedule N minutes later.
+        // Alternative: schedule multiple jobs for each interval slot.
+        //
+        // Simplest approach: schedule at the next interval from now.
+        // The execute() method re-schedules itself after running.
+        DateTime nextRun = DateTime.now().addMinutes(intervalMinutes);
+        String cronExp =
+            nextRun.second() +
+            ' ' +
+            nextRun.minute() +
+            ' ' +
+            nextRun.hour() +
+            ' ' +
+            nextRun.day() +
+            ' ' +
+            nextRun.month() +
+            ' ? ' +
+            nextRun.year();
         System.schedule(JOB_NAME, cronExp, new QRNGJobSweeper());
     }
 
