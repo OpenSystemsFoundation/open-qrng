@@ -88,6 +88,30 @@ jobs:
                     exit 1
                   fi
 
+            # IBM Quantum integration test — reuses the same scratch org
+            - name: Check for IBM API key secret
+              id: check-secret
+              run: |
+                  if [ -z "${{ secrets.IBM_QUANTUM_API_KEY }}" ]; then
+                    echo "has_key=false" >> "$GITHUB_OUTPUT"
+                    echo "::notice::IBM_QUANTUM_API_KEY secret not configured — skipping integration test"
+                  else
+                    echo "has_key=true" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Inject IBM API Key
+              if: steps.check-secret.outputs.has_key == 'true'
+              env:
+                  IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
+              run: |
+                  sed "s|__IBM_API_KEY__|${IBM_QUANTUM_API_KEY}|" scripts/apex/setup-api-key.apex > /tmp/setup-api-key.apex
+                  sf apex run --file /tmp/setup-api-key.apex --target-org ci-test
+                  rm /tmp/setup-api-key.apex
+
+            - name: Run Integration Test (Real IBM API)
+              if: steps.check-secret.outputs.has_key == 'true'
+              run: sf apex run --file scripts/apex/integration-test-connection.apex --target-org ci-test
+
             - name: Delete Scratch Org
               if: always()
               run: sf org delete scratch --target-org ci-test --no-prompt || true
@@ -99,60 +123,3 @@ jobs:
                   name: apex-test-results
                   path: apex-results/
                   retention-days: 14
-
-    # Real IBM Quantum API connectivity test — only runs when the secret is available
-    integration-test:
-        name: IBM Quantum Integration Test
-        needs: apex-test
-        runs-on: ubuntu-latest
-        if: github.event_name == 'push' || github.event_name == 'pull_request'
-        steps:
-            - name: Check for IBM API key secret
-              id: check-secret
-              run: |
-                  if [ -z "${{ secrets.IBM_QUANTUM_API_KEY }}" ]; then
-                    echo "has_key=false" >> "$GITHUB_OUTPUT"
-                    echo "::notice::IBM_QUANTUM_API_KEY secret not configured — skipping integration test"
-                  else
-                    echo "has_key=true" >> "$GITHUB_OUTPUT"
-                  fi
-
-            - name: Checkout
-              if: steps.check-secret.outputs.has_key == 'true'
-              uses: actions/checkout@v4
-
-            - name: Install Salesforce CLI
-              if: steps.check-secret.outputs.has_key == 'true'
-              run: npm install -g @salesforce/cli
-
-            - name: Authenticate DevHub
-              if: steps.check-secret.outputs.has_key == 'true'
-              run: |
-                  echo "${{ secrets.SFDX_AUTH_URL }}" > sfdx_auth.txt
-                  sf org login sfdx-url --sfdx-url-file sfdx_auth.txt --alias devhub --set-default-dev-hub
-                  rm sfdx_auth.txt
-
-            - name: Create Scratch Org
-              if: steps.check-secret.outputs.has_key == 'true'
-              run: sf org create scratch --definition-file config/project-scratch-def.json --alias ci-integration --duration-days 1 --wait 10
-
-            - name: Deploy Source
-              if: steps.check-secret.outputs.has_key == 'true'
-              run: sf project deploy start --target-org ci-integration --ignore-conflicts
-
-            - name: Inject IBM API Key
-              if: steps.check-secret.outputs.has_key == 'true'
-              env:
-                  IBM_QUANTUM_API_KEY: ${{ secrets.IBM_QUANTUM_API_KEY }}
-              run: |
-                  sed "s|__IBM_API_KEY__|${IBM_QUANTUM_API_KEY}|" scripts/apex/setup-api-key.apex > /tmp/setup-api-key.apex
-                  sf apex run --file /tmp/setup-api-key.apex --target-org ci-integration
-                  rm /tmp/setup-api-key.apex
-
-            - name: Run Integration Test (Real IBM API)
-              if: steps.check-secret.outputs.has_key == 'true'
-              run: sf apex run --file scripts/apex/integration-test-connection.apex --target-org ci-integration
-
-            - name: Delete Scratch Org
-              if: always() && steps.check-secret.outputs.has_key == 'true'
-              run: sf org delete scratch --target-org ci-integration --no-prompt || true
