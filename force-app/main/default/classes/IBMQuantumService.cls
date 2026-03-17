@@ -39,7 +39,7 @@ public with sharing class IBMQuantumService {
         }
 
         String bestBackend = null;
-        Integer lowestQueue = Integer.MAX_VALUE;
+        Integer lowestQueue = 2147483647;
 
         for (Object device : devices) {
             Map<String, Object> d = (Map<String, Object>) device;
@@ -67,7 +67,7 @@ public with sharing class IBMQuantumService {
 
             Integer queueLen = d.containsKey('queue_length')
                 ? (Integer) d.get('queue_length')
-                : Integer.MAX_VALUE;
+                : 2147483647;
 
             if (queueLen < lowestQueue) {
                 lowestQueue = queueLen;

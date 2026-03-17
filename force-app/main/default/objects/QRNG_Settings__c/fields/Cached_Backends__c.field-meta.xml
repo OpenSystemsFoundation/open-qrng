@@ -4,7 +4,7 @@
     <label>Cached Backends</label>
     <description
     >JSON cache of available quantum backends from the last sync. Updated when Test Connection succeeds.</description>
-    <length>131072</length>
+    <length>32000</length>
     <type>LongTextArea</type>
     <visibleLines>3</visibleLines>
 </CustomField>
