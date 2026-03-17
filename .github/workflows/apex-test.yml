@@ -58,27 +58,34 @@ jobs:
               run: sf project deploy start --target-org ci-test --ignore-conflicts
 
             - name: Run Apex Tests
-              run: sf apex run test --target-org ci-test --code-coverage --result-format json --output-dir apex-results --wait 15
+              run: |
+                  mkdir -p apex-results
+                  sf apex run test --target-org ci-test --code-coverage --json --wait 15 > apex-results/test-run.json 2>&1 || true
+                  cat apex-results/test-run.json | node -e "
+                    let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+                      const j=JSON.parse(d);
+                      const summary=j.result?.summary||{};
+                      console.log('Outcome:', summary.outcome);
+                      console.log('Tests Ran:', summary.testsRan);
+                      console.log('Pass Rate:', summary.passRate);
+                      console.log('Org Coverage:', summary.orgWideCoverage);
+                      if(summary.outcome!=='Passed'){process.exit(1)}
+                    });
+                  "
 
             - name: Check Coverage Threshold
               run: |
-                  if [ -f apex-results/test-result-codecoverage.json ]; then
-                    COVERAGE=$(node -e "
-                      const data = require('./apex-results/test-result-codecoverage.json');
-                      let covered = 0, total = 0;
-                      for (const cls of data) {
-                        covered += cls.numLinesCovered || 0;
-                        total += (cls.numLinesCovered || 0) + (cls.numLinesUncovered || 0);
-                      }
-                      console.log(total > 0 ? Math.floor(covered / total * 100) : 0);
-                    ")
-                    echo "Org-wide Apex coverage: ${COVERAGE}%"
-                    if [ "$COVERAGE" -lt 75 ]; then
-                      echo "::error::Apex code coverage ${COVERAGE}% is below the 75% threshold"
-                      exit 1
-                    fi
-                  else
-                    echo "::warning::Coverage file not found, skipping threshold check"
+                  COVERAGE=$(cat apex-results/test-run.json | node -e "
+                    let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{
+                      const j=JSON.parse(d);
+                      const cov=j.result?.summary?.orgWideCoverage||'0%';
+                      console.log(parseInt(cov));
+                    });
+                  ")
+                  echo "Org-wide Apex coverage: ${COVERAGE}%"
+                  if [ "$COVERAGE" -lt 75 ]; then
+                    echo "::error::Apex code coverage ${COVERAGE}% is below the 75% threshold"
+                    exit 1
                   fi
 
             - name: Delete Scratch Org
