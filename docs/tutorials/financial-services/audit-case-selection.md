@@ -28,33 +28,36 @@ A Screen Flow for compliance officers to select accounts for audit from a filter
 ### Step 3: Get Eligible Accounts
 
 **Get Records** element:
+
 - Object: **Account**
 - Filters based on screen inputs:
-  - `Type` matches selected account type
-  - `CreatedDate` or `LastActivityDate` within date range
-  - Exclude already-audited accounts this period
+    - `Type` matches selected account type
+    - `CreatedDate` or `LastActivityDate` within date range
+    - Exclude already-audited accounts this period
 - Store → `varAccountCollection`
 
 ### Step 4: Display Population Size
 
 Add a **Screen** element showing:
+
 - "Found {!varAccountCount} eligible accounts"
 - "Selecting {!varSampleSize} for audit"
 - Confirm button to proceed
 
 ### Step 5: Call Quantum Random Assignment
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varAccountIds}` |
-| Assignment Type | `Subset` |
-| Sample Size | `{!varSampleSize}` |
-| Purpose | `{!varAuditType} Audit Selection — {!varDateRange}` |
-| Use Bell Test | `{!varUseBellTest}` |
+| Input           | Value                                               |
+| --------------- | --------------------------------------------------- |
+| Record IDs      | `{!varAccountIds}`                                  |
+| Assignment Type | `Subset`                                            |
+| Sample Size     | `{!varSampleSize}`                                  |
+| Purpose         | `{!varAuditType} Audit Selection — {!varDateRange}` |
+| Use Bell Test   | `{!varUseBellTest}`                                 |
 
 ### Step 6: Results Screen
 
 After `QRNG_Complete__e`:
+
 - Display the selected accounts in a table
 - Show the Fairness Certificate ID
 - Provide a "Download Certificate" link
@@ -64,15 +67,15 @@ After `QRNG_Complete__e`:
 
 For regulatory submissions, the Fairness Certificate provides:
 
-| Element | Regulatory Value |
-|---------|-----------------|
-| Certificate ID | Unique audit trail identifier |
-| IBM Job ID | Third-party verifiable |
-| CHSH S-value | Proves quantum origin (Bell Test) |
-| Raw Bitstring Hash | Proves data integrity |
-| Assignment Hash | Proves selection integrity |
-| Statistical Tests | Proves randomness quality |
-| Timestamp | Proves timing of selection |
+| Element            | Regulatory Value                  |
+| ------------------ | --------------------------------- |
+| Certificate ID     | Unique audit trail identifier     |
+| IBM Job ID         | Third-party verifiable            |
+| CHSH S-value       | Proves quantum origin (Bell Test) |
+| Raw Bitstring Hash | Proves data integrity             |
+| Assignment Hash    | Proves selection integrity        |
+| Statistical Tests  | Proves randomness quality         |
+| Timestamp          | Proves timing of selection        |
 
 ## Multi-Stage Audit Selection
 

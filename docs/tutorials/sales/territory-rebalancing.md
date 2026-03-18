@@ -9,6 +9,7 @@ Territory realignments are high-stakes events. Reps worry about losing valuable 
 ## What You'll Build
 
 A Screen Flow that an admin launches manually during territory changes to:
+
 1. Select accounts from a territory
 2. Select the new territory reps
 3. Run quantum random assignment with optional weighting
@@ -24,8 +25,9 @@ A Screen Flow that an admin launches manually during territory changes to:
 ### Step 2: Build the Input Screen
 
 Add a **Screen** element with:
+
 - **Multi-select picklist** or **Record Collection Picker** for accounts
-  - Filter to the territory being rebalanced (e.g., by `Territory2Id` or a custom field)
+    - Filter to the territory being rebalanced (e.g., by `Territory2Id` or a custom field)
 - **Multi-select picklist** for target reps (users assigned to new territories)
 - **Choice**: Assignment Type — `Uniform` or `Weighted`
 - **Optional text area**: Weights (comma-separated, e.g., `40,35,25` for weighted)
@@ -39,18 +41,19 @@ Use a **Get Records** element filtered by the selected territory, or pass the sc
 
 Add an **Action** element:
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varAccountIds}` |
-| Assignee IDs | `{!varRepIds}` |
-| Assignment Type | `Uniform` or `Weighted` (from screen) |
-| Weights | `{!varWeights}` (if weighted) |
-| Purpose | `Territory Rebalance: {!varPurpose}` |
-| Use Bell Test | `true` (recommended for high-stakes rebalances) |
+| Input           | Value                                           |
+| --------------- | ----------------------------------------------- |
+| Record IDs      | `{!varAccountIds}`                              |
+| Assignee IDs    | `{!varRepIds}`                                  |
+| Assignment Type | `Uniform` or `Weighted` (from screen)           |
+| Weights         | `{!varWeights}` (if weighted)                   |
+| Purpose         | `Territory Rebalance: {!varPurpose}`            |
+| Use Bell Test   | `true` (recommended for high-stakes rebalances) |
 
 ### Step 5: Confirmation Screen
 
 Display a confirmation screen showing:
+
 - Job ID: `{!varJobId}`
 - Message: "Quantum assignment submitted. You will receive a notification when complete."
 - Link to the Quantum Job record
@@ -58,6 +61,7 @@ Display a confirmation screen showing:
 ### Step 6: Apply Assignments (Event-Triggered Flow)
 
 Create a **Platform Event-Triggered Flow** on `QRNG_Complete__e`:
+
 1. Query `QRNG_Assignment__c` where `Quantum_Job__c` = event's `Job_Id__c`
 2. For each assignment, update the Account's `OwnerId` to the assigned rep
 3. Optionally log a Task on each Account noting the rebalance
@@ -66,17 +70,18 @@ Create a **Platform Event-Triggered Flow** on `QRNG_Complete__e`:
 
 If territories have different capacities, use `Weighted` assignment:
 
-| Rep | Weight | Expected Share (100 accounts) |
-|-----|--------|-------------------------------|
-| Rep A (senior, large territory) | 40 | ~40 accounts |
-| Rep B (mid territory) | 35 | ~35 accounts |
-| Rep C (small territory) | 25 | ~25 accounts |
+| Rep                             | Weight | Expected Share (100 accounts) |
+| ------------------------------- | ------ | ----------------------------- |
+| Rep A (senior, large territory) | 40     | ~40 accounts                  |
+| Rep B (mid territory)           | 35     | ~35 accounts                  |
+| Rep C (small territory)         | 25     | ~25 accounts                  |
 
 Weights are proportional — they don't need to sum to 100.
 
 ## Bell Test for High Stakes
 
 Enable Bell Test mode (`Use Bell Test = true`) for territory rebalances. This:
+
 - Generates entangled qubit pairs measured in different bases
 - Computes the CHSH S-value (must exceed 2.0 to prove quantum origin)
 - Provides the strongest possible proof that the randomness wasn't predetermined
@@ -103,6 +108,7 @@ List<QuantumRandomAssignment.Output> results =
 ## Audit Trail
 
 Share the Fairness Certificate link with affected reps to demonstrate:
+
 - The exact quantum circuit that was run
 - Statistical validation results (frequency, runs, chi-squared tests all passed)
 - The deterministic mapping from quantum bits to account assignments

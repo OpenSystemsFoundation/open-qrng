@@ -39,6 +39,14 @@ private class QRNGSetupController_Test {
                 );
             } else if (
                 req.getEndpoint().contains('/v1/backends/') &&
+                req.getEndpoint().contains('/configuration')
+            ) {
+                res.setStatusCode(200);
+                res.setBody(
+                    '{"coupling_map":[[0,1],[1,0],[1,2],[2,1]],"num_qubits":156}'
+                );
+            } else if (
+                req.getEndpoint().contains('/v1/backends/') &&
                 req.getEndpoint().contains('/properties')
             ) {
                 res.setStatusCode(200);

@@ -17,18 +17,19 @@ A Record-Triggered Flow that automatically assigns new loan applications to avai
 1. Object: **Opportunity** (or custom Loan Application object)
 2. Trigger: **A record is created**
 3. Entry conditions:
-   - `RecordType.DeveloperName` = `Loan_Application`
-   - `StageName` = `Submitted`
-   - `Underwriter__c` is null
+    - `RecordType.DeveloperName` = `Loan_Application`
+    - `StageName` = `Submitted`
+    - `Underwriter__c` is null
 
 ### Step 2: Get Available Underwriters
 
 **Get Records** element:
+
 - Object: **User**
 - Filters:
-  - `IsActive` = true
-  - `UserRole.DeveloperName` contains `Underwriter`
-  - `Out_of_Office__c` = false
+    - `IsActive` = true
+    - `UserRole.DeveloperName` contains `Underwriter`
+    - `Out_of_Office__c` = false
 - Store → `varUnderwriterCollection`
 
 ### Step 3: Batch for Efficiency
@@ -41,16 +42,17 @@ Rather than submitting one quantum job per application, use a **Scheduled Path**
 
 ### Step 4: Call Quantum Random Assignment
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varApplicationIds}` |
-| Assignee IDs | `{!varUnderwriterIds}` |
-| Assignment Type | `Uniform` |
-| Purpose | `Loan Application Assignment — {!$Flow.CurrentDate}` |
+| Input           | Value                                                |
+| --------------- | ---------------------------------------------------- |
+| Record IDs      | `{!varApplicationIds}`                               |
+| Assignee IDs    | `{!varUnderwriterIds}`                               |
+| Assignment Type | `Uniform`                                            |
+| Purpose         | `Loan Application Assignment — {!$Flow.CurrentDate}` |
 
 ### Step 5: Apply Assignments
 
 On `QRNG_Complete__e`:
+
 1. Query `QRNG_Assignment__c` for the job
 2. Update each application's `Underwriter__c` field
 3. Send notification to each underwriter with their new applications
@@ -60,16 +62,17 @@ On `QRNG_Complete__e`:
 If underwriters have different caseload limits:
 
 | Underwriter | Current Load | Capacity | Available | Weight |
-|-------------|-------------|----------|-----------|--------|
-| U1 | 10 | 30 | 20 | 40 |
-| U2 | 20 | 30 | 10 | 20 |
-| U3 | 5 | 25 | 20 | 40 |
+| ----------- | ------------ | -------- | --------- | ------ |
+| U1          | 10           | 30       | 20        | 40     |
+| U2          | 20           | 30       | 10        | 20     |
+| U3          | 5            | 25       | 20        | 40     |
 
 Use `Weighted` assignment with weights proportional to available capacity.
 
 ## Fair Lending Compliance
 
 The Fairness Certificate documents that assignment was:
+
 - **Random:** Quantum hardware, not deterministic algorithms
 - **Unbiased:** No human decision-maker in the loop
 - **Auditable:** Certificate links to IBM Quantum job

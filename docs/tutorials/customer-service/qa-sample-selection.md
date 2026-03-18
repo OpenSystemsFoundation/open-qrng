@@ -19,35 +19,37 @@ A Scheduled Flow that weekly selects interactions for QA review.
 ### Step 2: Get Last Week's Interactions
 
 **Get Records** element:
+
 - Object: **Case** or **Task** (representing interactions)
 - Filters:
-  - `ClosedDate` = LAST_WEEK
-  - `RecordType.DeveloperName` in (`Phone_Call`, `Chat`, `Email`)
+    - `ClosedDate` = LAST_WEEK
+    - `RecordType.DeveloperName` in (`Phone_Call`, `Chat`, `Email`)
 - Store → `varInteractionCollection`
 
 ### Step 3: Call Quantum Random Assignment
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varInteractionIds}` |
-| Assignment Type | `Subset` |
-| Sample Size | `20` (or per your QA protocol) |
-| Purpose | `Weekly QA Review — Week of {!$Flow.CurrentDate}` |
+| Input           | Value                                             |
+| --------------- | ------------------------------------------------- |
+| Record IDs      | `{!varInteractionIds}`                            |
+| Assignment Type | `Subset`                                          |
+| Sample Size     | `20` (or per your QA protocol)                    |
+| Purpose         | `Weekly QA Review — Week of {!$Flow.CurrentDate}` |
 
 ### Step 4: Assign to QA Analysts
 
 Run a second Quantum Random Assignment to distribute selected interactions among QA analysts:
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varSelectedInteractionIds}` |
-| Assignee IDs | `{!varQAAnalystIds}` |
-| Assignment Type | `Uniform` |
-| Purpose | `QA Analyst Assignment — {!$Flow.CurrentDate}` |
+| Input           | Value                                          |
+| --------------- | ---------------------------------------------- |
+| Record IDs      | `{!varSelectedInteractionIds}`                 |
+| Assignee IDs    | `{!varQAAnalystIds}`                           |
+| Assignment Type | `Uniform`                                      |
+| Purpose         | `QA Analyst Assignment — {!$Flow.CurrentDate}` |
 
 ### Step 5: Create QA Tasks
 
 On `QRNG_Complete__e`:
+
 1. Create a QA Review task for each selected interaction
 2. Assign to the quantum-selected QA analyst
 3. Include Certificate IDs for both the selection and the analyst assignment
@@ -55,6 +57,7 @@ On `QRNG_Complete__e`:
 ## Per-Agent Fair Sampling
 
 To ensure each agent gets reviewed equally:
+
 1. Group interactions by agent
 2. Select 2-3 per agent using separate Subset calls
 3. Each agent's sample gets its own Fairness Certificate

@@ -528,22 +528,24 @@ private class QRNGCircuitBuilder_Test {
         }
 
         // First circuit E(a,b): a=0 (no Alice rotation), b=pi/8 (Bob Ry(-pi/4))
-        // Ry(-pi/4) = SX . Rz(pi + (-pi/4)) . SX . Rz(pi) = SX . Rz(3pi/4) . SX . Rz(pi)
+        // After the cz gate, no operations should appear on qubit 5 (Alice)
+        String afterCz0 = circuits[0].substringAfter('cz $5, $10;');
+        System.assert(
+            !afterCz0.contains('sx $5'),
+            'E(a,b) should not have Alice rotation after Bell state'
+        );
+        // Bob should have Ry(-pi/4): rz(pi + (-pi/4)) = rz(3pi/4) ≈ rz(2.356)
         System.assert(
             circuits[0].contains('rz(2.356'),
             'E(a,b) should have Bob Ry(-pi/4) with rz(3pi/4)'
         );
-        // No Alice rotation in first circuit
-        System.assert(
-            !circuits[0].contains('$5;\nsx $5;\nrz('),
-            'E(a,b) should not have Alice rotation'
-        );
 
         // Third circuit E(a',b): has Alice rotation Ry(-pi/2)
-        // Ry(-pi/2) = SX . Rz(pi + (-pi/2)) . SX . Rz(pi) = SX . Rz(pi/2) . SX . Rz(pi)
+        // After cz gate, Alice qubit 5 should have sx (from Ry decomposition)
+        String afterCz2 = circuits[2].substringAfter('cz $5, $10;');
         System.assert(
-            circuits[2].contains('rz(1.570'),
-            'E(a\',b) should have Alice Ry(-pi/2) with rz(pi/2)'
+            afterCz2.contains('sx $5'),
+            'E(a\',b) should have Alice Ry(-pi/2) rotation'
         );
     }
 

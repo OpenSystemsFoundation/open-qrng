@@ -9,6 +9,7 @@ Traditional round-robin or random assignment in Salesforce uses pseudo-random nu
 ## What You'll Build
 
 A Flow that:
+
 1. Triggers when new leads arrive (or on a schedule)
 2. Collects unassigned leads
 3. Calls the Quantum Random Assignment action to distribute them across reps
@@ -34,6 +35,7 @@ A Flow that:
 ### Step 2: Get Unassigned Leads
 
 Add a **Get Records** element:
+
 - Object: **Lead**
 - Filter: `OwnerId` = `{!$Record.OwnerId}` AND `Status` = `New`
 - Store: **All records** → variable `varLeadCollection`
@@ -43,6 +45,7 @@ Add a **Get Records** element:
 ### Step 3: Get Sales Rep IDs
 
 Add a **Get Records** element:
+
 - Object: **GroupMember**
 - Filter: `GroupId` = your sales rep queue/group ID
 - Store: **All records** → variable `varRepMembers`
@@ -56,17 +59,18 @@ Use an **Assignment** element or **Loop** to collect `{!varLeadCollection.Id}` v
 ### Step 5: Call Quantum Random Assignment
 
 Add an **Action** element:
+
 - Category: **QuantumFair**
 - Action: **Quantum Random Assignment**
 - Set input values:
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varLeadIds}` |
-| Assignee IDs | `{!varRepIds}` |
-| Assignment Type | `Uniform` |
-| Purpose | `Lead Round-Robin Assignment` |
-| Use Bell Test | `false` (set to `true` for maximum auditability) |
+| Input           | Value                                            |
+| --------------- | ------------------------------------------------ |
+| Record IDs      | `{!varLeadIds}`                                  |
+| Assignee IDs    | `{!varRepIds}`                                   |
+| Assignment Type | `Uniform`                                        |
+| Purpose         | `Lead Round-Robin Assignment`                    |
+| Use Bell Test   | `false` (set to `true` for maximum auditability) |
 
 - Store output in `varJobId` and `varSuccess`
 
@@ -77,6 +81,7 @@ The quantum job runs asynchronously. Results arrive via the `QRNG_Complete__e` P
 **Option A: Platform Event-Triggered Flow (Recommended)**
 
 Create a second Flow triggered by `QRNG_Complete__e`:
+
 1. Match on `Job_Id__c` = the submitted job ID
 2. Query `QRNG_Assignment__c` records for that job
 3. Update each Lead's `OwnerId` to the assigned rep
@@ -88,6 +93,7 @@ The `Quantum_Job__c` record updates to `Completed` status. A time-based Flow can
 ### Step 7: Verify Fairness
 
 After assignment completes:
+
 1. Navigate to the **Quantum Job** record
 2. Click the related **Fairness Certificate**
 3. Verify the certificate shows `Status = Certified`
@@ -97,11 +103,11 @@ After assignment completes:
 
 With 10 leads and 3 reps, a `Uniform` assignment distributes leads as evenly as quantum randomness allows:
 
-| Rep | Expected | Typical Result |
-|-----|----------|---------------|
-| Rep A | ~3.3 | 3 or 4 |
-| Rep B | ~3.3 | 3 or 4 |
-| Rep C | ~3.3 | 3 or 4 |
+| Rep   | Expected | Typical Result |
+| ----- | -------- | -------------- |
+| Rep A | ~3.3     | 3 or 4         |
+| Rep B | ~3.3     | 3 or 4         |
+| Rep C | ~3.3     | 3 or 4         |
 
 Over time, the distribution converges to perfectly uniform — and every batch has a certificate proving it.
 
@@ -126,11 +132,13 @@ String jobId = outputs[0].jobId;  // Track the async job
 ## Audit Trail
 
 Every lead assignment batch creates:
+
 1. A **Quantum Job** record with the circuit, raw measurements, and IBM job ID
 2. A **Fairness Certificate** with cryptographic hashes
 3. Individual **QRNG Assignment** records linking each lead to its assigned rep
 
 Auditors can independently verify the assignment by:
+
 - Checking the IBM Quantum job via the external Job ID
 - Re-hashing the raw bitstring to confirm the certificate
 - Re-running the deterministic assignment algorithm with the same bits
