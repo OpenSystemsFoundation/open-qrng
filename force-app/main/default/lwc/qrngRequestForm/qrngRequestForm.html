@@ -105,10 +105,24 @@
                     >
                     </lightning-input>
                     <p
-                        class="field-hint slds-m-bottom_small"
+                        class="field-hint slds-m-bottom_x-small"
                     >
                         {shotsDescription}
                     </p>
+                    <div class="slds-m-bottom_small">
+                        <div style={storageBarTrackStyle}>
+                            <div
+                                style={storageBarStyle}
+                            ></div>
+                        </div>
+                        <template if:true={storageWarning}>
+                            <p
+                                class="field-hint storage-warn slds-m-top_xx-small"
+                            >
+                                {storageWarning}
+                            </p>
+                        </template>
+                    </div>
 
                     <!-- Purpose -->
                     <lightning-textarea

@@ -85,6 +85,8 @@ public with sharing class QRNGSetupController {
         public String rawResults;
         @AuraEnabled
         public String debiasedResults;
+        @AuraEnabled
+        public String resultFingerprint;
     }
 
     public class AuditTrailDTO {
@@ -207,8 +209,8 @@ public with sharing class QRNGSetupController {
                 : 8;
             Integer numPairs = numQubits / 2;
             // Re-parse raw results to get individual bitstrings for CHSH
-            // Raw results is concatenated — split into shot-sized chunks
-            String raw = job.Raw_Results__c;
+            // Raw results may be hex-encoded — decode before splitting
+            String raw = QRNGResultParser.decodeRawResults(job.Raw_Results__c);
             List<String> bitstrings = new List<String>();
             for (Integer i = 0; i + numQubits <= raw.length(); i += numQubits) {
                 bitstrings.add(raw.substring(i, i + numQubits));
@@ -290,6 +292,7 @@ public with sharing class QRNGSetupController {
                 Queue_Time_ms__c,
                 Raw_Results__c,
                 Debiased_Results__c,
+                Result_Fingerprint__c,
                 Job_Type__c
             FROM Quantum_Job__c
             WHERE Id = :jobId
@@ -319,6 +322,7 @@ public with sharing class QRNGSetupController {
         dto.queueTimeMs = job.Queue_Time_ms__c;
         dto.rawResults = job.Raw_Results__c;
         dto.debiasedResults = job.Debiased_Results__c;
+        dto.resultFingerprint = job.Result_Fingerprint__c;
         dto.jobType = job.Job_Type__c;
         return dto;
     }
@@ -1670,7 +1674,11 @@ public with sharing class QRNGSetupController {
         // Update job
         job.Status__c = 'Completed';
         job.Completed_At__c = DateTime.now();
-        job.Raw_Results__c = rawBits.left(131072);
+        String encodedRaw = QRNGResultParser.encodeForStorage(rawBits);
+        job.Raw_Results__c = encodedRaw.left(131072);
+        job.Result_Fingerprint__c = QRNGResultParser.generateFingerprint(
+            rawBits
+        );
         job.Debiased_Results__c = debiasedBits.left(131072);
         if (job.Submitted_At__c != null) {
             job.Execution_Time_ms__c =

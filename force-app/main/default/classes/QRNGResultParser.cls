@@ -22,6 +22,25 @@ public with sharing class QRNGResultParser {
         'f' => '1111'
     };
 
+    private static final Map<String, String> BIN_TO_HEX = new Map<String, String>{
+        '0000' => '0',
+        '0001' => '1',
+        '0010' => '2',
+        '0011' => '3',
+        '0100' => '4',
+        '0101' => '5',
+        '0110' => '6',
+        '0111' => '7',
+        '1000' => '8',
+        '1001' => '9',
+        '1010' => 'a',
+        '1011' => 'b',
+        '1100' => 'c',
+        '1101' => 'd',
+        '1110' => 'e',
+        '1111' => 'f'
+    };
+
     /**
      * Parse IBM Sampler response JSON and extract bitstring samples.
      * Handles both binary ("0110") and hex ("0xb6") sample formats.
@@ -448,5 +467,77 @@ public with sharing class QRNGResultParser {
             );
         }
         return bitPool.substring(offset, offset + numBits);
+    }
+
+    /**
+     * Convert a binary string to compact hex representation.
+     * Zero-pads to a multiple of 4 bits before conversion.
+     */
+    public static String binaryToHex(String bits) {
+        Integer remainder = Math.mod(bits.length(), 4);
+        if (remainder == 1) {
+            bits = '000' + bits;
+        } else if (remainder == 2) {
+            bits = '00' + bits;
+        } else if (remainder == 3) {
+            bits = '0' + bits;
+        }
+
+        List<String> hexChars = new List<String>();
+        for (Integer i = 0; i < bits.length(); i += 4) {
+            String nibble = bits.substring(i, i + 4);
+            hexChars.add(BIN_TO_HEX.get(nibble));
+        }
+        return String.join(hexChars, '');
+    }
+
+    /**
+     * Encode raw bits for storage: prefix with '0x' and store as hex.
+     * Fits 4x more data in the same LongTextArea field.
+     */
+    public static String encodeForStorage(String rawBits) {
+        return '0x' + binaryToHex(rawBits);
+    }
+
+    /**
+     * Decode stored raw results back to binary bitstring.
+     * Handles both hex-encoded ('0x' prefix) and legacy binary formats.
+     */
+    public static String decodeRawResults(String stored) {
+        if (stored == null) {
+            return null;
+        }
+        if (stored.startsWith('0x')) {
+            String hex = stored.substring(2).toLowerCase();
+            List<String> binChars = new List<String>();
+            for (Integer i = 0; i < hex.length(); i++) {
+                String digit = hex.substring(i, i + 1);
+                String nibble = HEX_TO_BIN.get(digit);
+                if (nibble == null) {
+                    throw new QRNGException(
+                        'Invalid hex digit in stored results: ' + digit
+                    );
+                }
+                binChars.add(nibble);
+            }
+            return String.join(binChars, '');
+        }
+        return stored;
+    }
+
+    /**
+     * Generate a 128-bit binary fingerprint from a bitstring.
+     * Uses SHA-256, takes first 128 bits, displays as 0s and 1s.
+     * Always the same length regardless of input size — a quantum DNA sequence.
+     */
+    public static String generateFingerprint(String bits) {
+        Blob hash = Crypto.generateDigest('SHA-256', Blob.valueOf(bits));
+        String hex = EncodingUtil.convertToHex(hash);
+        // Take first 32 hex chars = 128 bits
+        List<String> binChars = new List<String>();
+        for (Integer i = 0; i < 32 && i < hex.length(); i++) {
+            binChars.add(HEX_TO_BIN.get(hex.substring(i, i + 1)));
+        }
+        return String.join(binChars, '');
     }
 }

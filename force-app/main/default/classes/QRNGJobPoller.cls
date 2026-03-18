@@ -158,7 +158,11 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
         // Single update with results + validation in one DML
         String validationJson = JSON.serialize(validationResults);
         job.Status__c = 'Completed';
-        job.Raw_Results__c = rawBits.left(131072);
+        String encodedRaw = QRNGResultParser.encodeForStorage(rawBits);
+        job.Raw_Results__c = encodedRaw.left(131072);
+        job.Result_Fingerprint__c = QRNGResultParser.generateFingerprint(
+            rawBits
+        );
         job.Debiased_Results__c = debiasedBits.left(131072);
         job.Completed_At__c = DateTime.now();
         if (job.Submitted_At__c != null) {
