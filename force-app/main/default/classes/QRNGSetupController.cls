@@ -1382,24 +1382,19 @@ public with sharing class QRNGSetupController {
                 job.External_Job_ID__c
             );
 
-            // Extract status from response (handles nested state.status or top-level status)
-            String status;
-            if (ibmStatus.containsKey('state')) {
-                Map<String, Object> state = (Map<String, Object>) ibmStatus.get(
-                    'state'
-                );
-                status = (String) state.get('status');
-            } else {
-                status = (String) ibmStatus.get('status');
-            }
-
-            // Normalize status
-            String normalizedStatus = normalizeIBMStatus(status);
+            // Extract and normalize via shared utility
+            String rawStatus = IBMResponseParser.extractStatus(ibmStatus);
+            String normalizedStatus = IBMResponseParser.normalizeStatus(
+                rawStatus
+            );
 
             // Update job record — capture error details or clear if healthy
             job.Status__c = normalizedStatus;
             if (normalizedStatus == 'Failed') {
-                job.Error_Message__c = buildVerboseError(status, ibmStatus);
+                job.Error_Message__c = IBMResponseParser.buildErrorMessage(
+                    rawStatus,
+                    ibmStatus
+                );
             } else {
                 job.Error_Message__c = null;
             }
@@ -1408,7 +1403,7 @@ public with sharing class QRNGSetupController {
 
             Map<String, Object> result = new Map<String, Object>();
             result.put('status', normalizedStatus);
-            result.put('ibmStatus', status);
+            result.put('ibmStatus', rawStatus);
             result.put('jobId', jobId);
             return result;
         } catch (Exception e) {
@@ -1420,7 +1415,7 @@ public with sharing class QRNGSetupController {
 
     /**
      * Manually retrieve results for a completed job.
-     * Re-runs the result parsing and certificate creation pipeline.
+     * Delegates to QRNGJobProcessor for the actual parsing and certification pipeline.
      */
     @AuraEnabled
     public static Map<String, Object> retrieveJobResults(Id jobId) {
@@ -1449,263 +1444,43 @@ public with sharing class QRNGSetupController {
                 throw new QRNGException('No external job ID on this record.');
             }
 
-            // Fetch results from IBM
+            // Fetch results and status from IBM
             String resultsJson = IBMQuantumService.getJobResults(
                 job.External_Job_ID__c
             );
+            Map<String, Object> ibmStatus = IBMQuantumService.getJobStatus(
+                job.External_Job_ID__c
+            );
 
-            // Route based on program type
+            // Delegate to shared processor
+            QRNGJobProcessor.ProcessingResult pr;
             if (job.Program_Id__c == 'estimator') {
-                return retrieveEstimatorResults(job, resultsJson);
+                pr = QRNGJobProcessor.processEstimatorCompletion(
+                    job,
+                    resultsJson,
+                    ibmStatus
+                );
+            } else {
+                pr = QRNGJobProcessor.processSamplerCompletion(
+                    job,
+                    resultsJson,
+                    ibmStatus
+                );
             }
-            return retrieveSamplerResults(job, resultsJson);
+
+            Map<String, Object> result = new Map<String, Object>();
+            result.put('status', pr.status);
+            result.put('certificateId', pr.certificateId);
+            result.put('chshSValue', pr.chshSValue);
+            result.put('bellTestPassed', pr.bellTestPassed);
+            result.put('rawBitsLength', pr.rawBitsLength);
+            result.put('debiasedBitsLength', pr.debiasedBitsLength);
+            return result;
         } catch (Exception e) {
             throw new AuraHandledException(
                 'Failed to retrieve results: ' + e.getMessage()
             );
         }
-    }
-
-    private static Map<String, Object> retrieveEstimatorResults(
-        Quantum_Job__c job,
-        String resultsJson
-    ) {
-        // Parse individual expectation values (one per PUB/observable)
-        List<Double> evs = QRNGResultParser.parseAllEstimatorResults(
-            resultsJson
-        );
-        List<Double> stds = QRNGResultParser.parseAllEstimatorStds(resultsJson);
-
-        // Retrieve observable labels stored at submission time
-        List<String> labels = new List<String>();
-        Map<String, Double> coeffs = new Map<String, Double>();
-        if (String.isNotBlank(job.Validation_Results__c)) {
-            Map<String, Object> meta = (Map<String, Object>) JSON.deserializeUntyped(
-                job.Validation_Results__c
-            );
-            if (meta.containsKey('observableLabels')) {
-                for (Object lbl : (List<Object>) meta.get('observableLabels')) {
-                    labels.add((String) lbl);
-                }
-            }
-            if (meta.containsKey('observableCoeffs')) {
-                Map<String, Object> rawCoeffs = (Map<String, Object>) meta.get(
-                    'observableCoeffs'
-                );
-                for (String k : rawCoeffs.keySet()) {
-                    coeffs.put(
-                        k,
-                        Double.valueOf(String.valueOf(rawCoeffs.get(k)))
-                    );
-                }
-            }
-        }
-
-        // Fallback for old jobs without observable metadata
-        if (labels.isEmpty() && !evs.isEmpty()) {
-            Double fallbackS = Math.abs(evs[0]);
-            Map<String, Object> vr = new Map<String, Object>();
-            vr.put('chshSValue', fallbackS);
-            vr.put('bellTestPassed', fallbackS > 2.0);
-            vr.put('passed', fallbackS > 2.0);
-            vr.put('programId', 'estimator');
-            job.Raw_Results__c = 'S-Value (legacy single-PUB): ' + fallbackS;
-            job.Validation_Results__c = JSON.serialize(vr);
-            job.Status__c = 'Completed';
-            job.Completed_At__c = DateTime.now();
-            if (job.Submitted_At__c != null) {
-                job.Execution_Time_ms__c =
-                    DateTime.now().getTime() - job.Submitted_At__c.getTime();
-            }
-            update job;
-
-            List<QRNG_Backend__c> bkFb = [
-                SELECT Id
-                FROM QRNG_Backend__c
-                WHERE Name = :job.Backend__c
-                LIMIT 1
-            ];
-            if (!bkFb.isEmpty()) {
-                bkFb[0].CHSH_S_Value__c = fallbackS;
-                bkFb[0].CHSH_Verified_At__c = DateTime.now();
-                bkFb[0].CHSH_Job_Id__c = job.Id;
-                update bkFb[0];
-            }
-
-            Map<String, Object> fbResult = new Map<String, Object>();
-            fbResult.put('status', 'Completed');
-            fbResult.put('chshSValue', fallbackS);
-            fbResult.put('bellTestPassed', fallbackS > 2.0);
-            return fbResult;
-        }
-
-        // Compute S = Σ(coefficient × expectation value) per term
-        Double sValue = 0;
-        Map<String, Object> termBreakdown = new Map<String, Object>();
-        for (Integer i = 0; i < evs.size() && i < labels.size(); i++) {
-            String label = labels[i];
-            Double ev = evs[i];
-            Double coeff = coeffs.containsKey(label) ? coeffs.get(label) : 1.0;
-            sValue += coeff * ev;
-
-            String shortLabel = label.replaceAll('I', '');
-            Map<String, Object> term = new Map<String, Object>();
-            term.put('expectationValue', ev);
-            term.put('coefficient', coeff);
-            term.put('contribution', coeff * ev);
-            if (i < stds.size() && stds[i] != null) {
-                term.put('std', stds[i]);
-            }
-            termBreakdown.put(shortLabel, term);
-        }
-        Double sValueAbs = Math.abs(sValue);
-
-        // Build validation results with full breakdown
-        Map<String, Object> validationResults = new Map<String, Object>();
-        validationResults.put('chshSValue', sValueAbs);
-        validationResults.put('bellTestPassed', sValueAbs > 2.0);
-        validationResults.put('passed', sValueAbs > 2.0);
-        validationResults.put('programId', 'estimator');
-        validationResults.put('termBreakdown', termBreakdown);
-
-        // Build human-readable summary
-        String summary = '=== CHSH Bell Test Results ===\n\n';
-        summary += 'S-Value:           ' + sValueAbs + '\n';
-        summary += 'Classical Bound:   2.0\n';
-        summary += 'Quantum Maximum:   2.828 (2\u221A2)\n';
-        summary +=
-            'Result:            ' +
-            (sValueAbs > 2.0
-                ? 'PASS - Quantum behavior confirmed'
-                : 'FAIL - Below classical bound') +
-            '\n';
-
-        summary += '\n=== Per-Observable Breakdown ===\n';
-        summary += 'S = ';
-        List<String> formulaParts = new List<String>();
-        for (Integer i = 0; i < evs.size() && i < labels.size(); i++) {
-            String shortLabel = labels[i].replaceAll('I', '');
-            Double coeff = coeffs.containsKey(labels[i])
-                ? coeffs.get(labels[i])
-                : 1.0;
-            String sign = coeff >= 0 ? '+' : '-';
-            if (i == 0 && coeff >= 0) {
-                sign = '';
-            }
-            formulaParts.add(sign + '<' + shortLabel + '>');
-        }
-        summary += String.join(formulaParts, ' ') + '\n\n';
-
-        for (Integer i = 0; i < evs.size() && i < labels.size(); i++) {
-            String shortLabel = labels[i].replaceAll('I', '');
-            Double coeff = coeffs.containsKey(labels[i])
-                ? coeffs.get(labels[i])
-                : 1.0;
-            String coeffStr = coeff == 1.0
-                ? '+1'
-                : (coeff == -1.0 ? '-1' : String.valueOf(coeff));
-            summary += '<' + shortLabel + '> = ' + evs[i];
-            if (i < stds.size() && stds[i] != null) {
-                summary += '  (std: ' + stds[i] + ')';
-            }
-            summary +=
-                '  [coeff: ' +
-                coeffStr +
-                ', contribution: ' +
-                (coeff * evs[i]) +
-                ']\n';
-        }
-        summary += '\nS = ' + sValueAbs + '\n';
-
-        job.Raw_Results__c = summary;
-
-        String validationJson = JSON.serialize(validationResults);
-
-        // Update job
-        job.Status__c = 'Completed';
-        job.Completed_At__c = DateTime.now();
-        job.Validation_Results__c = validationJson;
-        if (job.Submitted_At__c != null) {
-            job.Execution_Time_ms__c =
-                DateTime.now().getTime() - job.Submitted_At__c.getTime();
-        }
-        update job;
-
-        // Update backend verification
-        List<QRNG_Backend__c> backends = [
-            SELECT Id
-            FROM QRNG_Backend__c
-            WHERE Name = :job.Backend__c
-            LIMIT 1
-        ];
-        if (!backends.isEmpty()) {
-            backends[0].CHSH_S_Value__c = sValueAbs;
-            backends[0].CHSH_Verified_At__c = DateTime.now();
-            backends[0].CHSH_Job_Id__c = job.Id;
-            update backends[0];
-        }
-
-        Map<String, Object> result = new Map<String, Object>();
-        result.put('status', 'Completed');
-        result.put('chshSValue', sValueAbs);
-        result.put('bellTestPassed', sValueAbs > 2.0);
-        return result;
-    }
-
-    private static Map<String, Object> retrieveSamplerResults(
-        Quantum_Job__c job,
-        String resultsJson
-    ) {
-        Integer numQubits = job.Num_Qubits__c != null
-            ? (Integer) job.Num_Qubits__c
-            : 8;
-        List<String> bitstrings = QRNGResultParser.parseSamplerResults(
-            resultsJson,
-            numQubits
-        );
-        String rawBits = QRNGResultParser.concatenateBitstrings(bitstrings);
-        String debiasedBits = QRNGResultParser.vonNeumannDebias(rawBits);
-
-        // Get queue time from IBM status
-        Map<String, Object> ibmStatus = IBMQuantumService.getJobStatus(
-            job.External_Job_ID__c
-        );
-
-        // Update job
-        job.Status__c = 'Completed';
-        job.Completed_At__c = DateTime.now();
-        String encodedRaw = QRNGResultParser.encodeForStorage(rawBits);
-        job.Raw_Results__c = encodedRaw.left(131072);
-        job.Result_Fingerprint__c = QRNGResultParser.generateFingerprint(
-            rawBits
-        );
-        job.Debiased_Results__c = debiasedBits.left(131072);
-        if (job.Submitted_At__c != null) {
-            job.Execution_Time_ms__c =
-                DateTime.now().getTime() - job.Submitted_At__c.getTime();
-        }
-        job.Queue_Time_ms__c = extractQueueTimeMs(ibmStatus);
-        update job;
-
-        // Validate and create certificate
-        Map<String, Object> validation = QRNGValidator.validate(debiasedBits);
-        String validationJson = JSON.serialize(validation);
-        Boolean passed = validation.containsKey('passed')
-            ? (Boolean) validation.get('passed')
-            : true;
-        String certStatus = passed ? 'Certified' : 'Failed';
-        Id certId = FairnessCertificateService.createCertificate(
-            job.Id,
-            validationJson,
-            certStatus
-        );
-
-        Map<String, Object> result = new Map<String, Object>();
-        result.put('status', 'Completed');
-        result.put('certificateId', certId);
-        result.put('rawBitsLength', rawBits.length());
-        result.put('debiasedBitsLength', debiasedBits.length());
-        return result;
     }
 
     /**
@@ -1733,95 +1508,6 @@ public with sharing class QRNGSetupController {
         );
         insert ibm;
         return ibm;
-    }
-
-    private static String buildVerboseError(
-        String status,
-        Map<String, Object> statusResponse
-    ) {
-        String msg = 'IBM job status: ' + status;
-        if (statusResponse == null) {
-            return msg;
-        }
-        if (statusResponse.containsKey('error')) {
-            Object errObj = statusResponse.get('error');
-            if (errObj instanceof Map<String, Object>) {
-                Map<String, Object> error = (Map<String, Object>) errObj;
-                if (error.containsKey('code')) {
-                    msg += '\nError code: ' + error.get('code');
-                }
-                if (error.containsKey('message')) {
-                    msg += '\nError message: ' + (String) error.get('message');
-                }
-                if (error.containsKey('solution')) {
-                    msg += '\nSolution: ' + (String) error.get('solution');
-                }
-                if (error.containsKey('more_info')) {
-                    msg += '\nMore info: ' + (String) error.get('more_info');
-                }
-            } else {
-                msg += '\nError: ' + String.valueOf(errObj);
-            }
-        }
-        if (statusResponse.containsKey('state')) {
-            Object stateObj = statusResponse.get('state');
-            if (stateObj instanceof Map<String, Object>) {
-                Map<String, Object> state = (Map<String, Object>) stateObj;
-                if (state.containsKey('reason')) {
-                    msg += '\nReason: ' + (String) state.get('reason');
-                }
-                if (state.containsKey('reason_code')) {
-                    msg += '\nReason code: ' + state.get('reason_code');
-                }
-            }
-        }
-        return msg;
-    }
-
-    private static Decimal extractQueueTimeMs(
-        Map<String, Object> statusResponse
-    ) {
-        if (
-            statusResponse == null || !statusResponse.containsKey('timestamps')
-        ) {
-            return null;
-        }
-        Object tsObj = statusResponse.get('timestamps');
-        if (!(tsObj instanceof Map<String, Object>)) {
-            return null;
-        }
-        Map<String, Object> timestamps = (Map<String, Object>) tsObj;
-        String created = (String) timestamps.get('created');
-        String running = (String) timestamps.get('running');
-        if (String.isBlank(created) || String.isBlank(running)) {
-            return null;
-        }
-        try {
-            DateTime createdDt = DateTime.valueOf(
-                created.replace('T', ' ').replace('Z', '')
-            );
-            DateTime runningDt = DateTime.valueOf(
-                running.replace('T', ' ').replace('Z', '')
-            );
-            return runningDt.getTime() - createdDt.getTime();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private static String normalizeIBMStatus(String ibmStatus) {
-        if (ibmStatus == null)
-            return 'Pending';
-        String lower = ibmStatus.toLowerCase();
-        if (lower == 'completed' || lower == 'result_ready')
-            return 'Completed';
-        if (lower == 'running')
-            return 'Running';
-        if (lower == 'queued' || lower == 'pending_in_queue')
-            return 'Queued';
-        if (lower == 'failed' || lower == 'cancelled' || lower == 'canceled')
-            return 'Failed';
-        return 'Submitted';
     }
 
     /**
