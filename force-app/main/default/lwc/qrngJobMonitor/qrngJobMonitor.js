@@ -9,9 +9,7 @@ const COMPLETE_CHANNEL = '/event/OpenSF__QRNG_Complete__e';
 const FAILED_CHANNEL = '/event/OpenSF__QRNG_Failed__e';
 const POLL_INTERVAL_MS = 5000;
 
-export default class QrngJobMonitor extends NavigationMixin(
-    LightningElement
-) {
+export default class QrngJobMonitor extends NavigationMixin(LightningElement) {
     @api jobId;
     @track job;
     @track certificateId;

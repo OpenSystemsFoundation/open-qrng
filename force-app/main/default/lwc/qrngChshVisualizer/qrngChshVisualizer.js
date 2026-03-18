@@ -17,7 +17,7 @@ export default class QrngChshVisualizer extends LightningElement {
                 typeof this.validationResults === 'string'
                     ? JSON.parse(this.validationResults)
                     : this.validationResults;
-        } catch (e) {
+        } catch {
             this._parsed = null;
         }
         return this._parsed;
@@ -128,9 +128,7 @@ export default class QrngChshVisualizer extends LightningElement {
             .map((key, i) => {
                 const coeff = Number(breakdown[key].coefficient);
                 const sign = coeff >= 0 ? '+' : '-';
-                return i === 0 && coeff >= 0
-                    ? `${key}`
-                    : `${sign} ${key}`;
+                return i === 0 && coeff >= 0 ? `${key}` : `${sign} ${key}`;
             })
             .join(' ');
     }

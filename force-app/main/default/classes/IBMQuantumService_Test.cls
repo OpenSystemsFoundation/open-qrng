@@ -105,7 +105,11 @@ private class IBMQuantumService_Test {
         );
         upsert s;
 
-        String qasm = QRNGCircuitBuilder.buildCHSHVerificationCircuit(0, 1);
+        List<String> circuits = QRNGCircuitBuilder.buildCHSHVerificationCircuits(
+            0,
+            1
+        );
+        String qasm = circuits[0];
         Map<String, Double> observables = new Map<String, Double>{
             'ZZ' => 1.0,
             'ZX' => -1.0,

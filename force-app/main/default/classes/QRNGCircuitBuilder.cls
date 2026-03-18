@@ -498,9 +498,9 @@ public with sharing class QRNGCircuitBuilder {
 
         // 4 CHSH setting combinations
         List<List<Double>> settings = new List<List<Double>>{
-            new List<Double>{ a, b },        // E(a,b)
-            new List<Double>{ a, bPrime },   // E(a,b')
-            new List<Double>{ aPrime, b },   // E(a',b)
+            new List<Double>{ a, b }, // E(a,b)
+            new List<Double>{ a, bPrime }, // E(a,b')
+            new List<Double>{ aPrime, b }, // E(a',b)
             new List<Double>{ aPrime, bPrime } // E(a',b')
         };
 

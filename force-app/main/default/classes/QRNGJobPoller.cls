@@ -204,7 +204,9 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
         String resultsJson = IBMQuantumService.getJobResults(ibmJobId);
 
         // Parse individual expectation values (one per PUB/observable)
-        List<Double> evs = QRNGResultParser.parseAllEstimatorResults(resultsJson);
+        List<Double> evs = QRNGResultParser.parseAllEstimatorResults(
+            resultsJson
+        );
         List<Double> stds = QRNGResultParser.parseAllEstimatorStds(resultsJson);
 
         // Retrieve observable labels stored at submission time
@@ -224,7 +226,10 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
                     'observableCoeffs'
                 );
                 for (String k : rawCoeffs.keySet()) {
-                    coeffs.put(k, Double.valueOf(String.valueOf(rawCoeffs.get(k))));
+                    coeffs.put(
+                        k,
+                        Double.valueOf(String.valueOf(rawCoeffs.get(k)))
+                    );
                 }
             }
         }
@@ -250,8 +255,10 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
             update job;
 
             List<QRNG_Backend__c> bkFallback = [
-                SELECT Id FROM QRNG_Backend__c
-                WHERE Name = :job.Backend__c LIMIT 1
+                SELECT Id
+                FROM QRNG_Backend__c
+                WHERE Name = :job.Backend__c
+                LIMIT 1
             ];
             if (!bkFallback.isEmpty()) {
                 bkFallback[0].CHSH_S_Value__c = fallbackS;
@@ -261,9 +268,9 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
             }
 
             String certSt = fallbackS > 2.0 ? 'Certified' : 'Failed';
-            EventBus.publish(new QRNG_Complete__e(
-                Job_Id__c = job.Id, Status__c = certSt
-            ));
+            EventBus.publish(
+                new QRNG_Complete__e(Job_Id__c = job.Id, Status__c = certSt)
+            );
             return;
         }
 
@@ -302,10 +309,12 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
         summary += 'S-Value:           ' + sValueAbs + '\n';
         summary += 'Classical Bound:   2.0\n';
         summary += 'Quantum Maximum:   2.828 (2\u221A2)\n';
-        summary += 'Result:            ' +
+        summary +=
+            'Result:            ' +
             (sValueAbs > 2.0
                 ? 'PASS - Quantum behavior confirmed'
-                : 'FAIL - Below classical bound') + '\n';
+                : 'FAIL - Below classical bound') +
+            '\n';
 
         summary += '\n=== Per-Observable Breakdown ===\n';
         summary += 'S = ';
@@ -328,13 +337,19 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
             Double coeff = coeffs.containsKey(labels[i])
                 ? coeffs.get(labels[i])
                 : 1.0;
-            String coeffStr = coeff == 1.0 ? '+1' : (coeff == -1.0 ? '-1' : String.valueOf(coeff));
+            String coeffStr = coeff == 1.0
+                ? '+1'
+                : (coeff == -1.0 ? '-1' : String.valueOf(coeff));
             summary += '<' + shortLabel + '> = ' + evs[i];
             if (i < stds.size() && stds[i] != null) {
                 summary += '  (std: ' + stds[i] + ')';
             }
-            summary += '  [coeff: ' + coeffStr + ', contribution: ' +
-                (coeff * evs[i]) + ']\n';
+            summary +=
+                '  [coeff: ' +
+                coeffStr +
+                ', contribution: ' +
+                (coeff * evs[i]) +
+                ']\n';
         }
         summary += '\nS = ' + sValueAbs + '\n';
 

@@ -514,7 +514,10 @@ public with sharing class IBMQuantumService {
         // Store observable labels in submission order so the poller
         // can map each result back to its Pauli term.
         Map<String, Object> submissionMeta = new Map<String, Object>();
-        submissionMeta.put('observableLabels', new List<String>(observables.keySet()));
+        submissionMeta.put(
+            'observableLabels',
+            new List<String>(observables.keySet())
+        );
         submissionMeta.put('observableCoeffs', observables);
 
         Quantum_Job__c job = new Quantum_Job__c(
@@ -630,7 +633,10 @@ public with sharing class IBMQuantumService {
         String ibmJobId;
         try {
             ibmJobId = callSubmitMultiCircuitEstimatorJob(
-                circuits, observable, backend, shots
+                circuits,
+                observable,
+                backend,
+                shots
             );
         } catch (Exception e) {
             Quantum_Job__c failedJob = new Quantum_Job__c(
@@ -662,7 +668,10 @@ public with sharing class IBMQuantumService {
         // Store CHSH metadata: labels, coefficients, and all circuits
         // S = E(a,b) - E(a,b') + E(a',b) + E(a',b')
         List<String> pubLabels = new List<String>{
-            'E(a,b)', 'E(a,b\')', 'E(a\',b)', 'E(a\',b\')'
+            'E(a,b)',
+            'E(a,b\')',
+            'E(a\',b)',
+            'E(a\',b\')'
         };
         Map<String, Double> chshCoeffs = new Map<String, Double>{
             'E(a,b)' => 1.0,
@@ -720,9 +729,7 @@ public with sharing class IBMQuantumService {
         List<Object> pubs = new List<Object>();
 
         // One PUB per circuit, each with the same ZZ observable
-        Map<String, Double> obs = new Map<String, Double>{
-            observable => 1.0
-        };
+        Map<String, Double> obs = new Map<String, Double>{ observable => 1.0 };
         for (String qasm : circuits) {
             List<Object> pub = new List<Object>();
             pub.add(qasm);

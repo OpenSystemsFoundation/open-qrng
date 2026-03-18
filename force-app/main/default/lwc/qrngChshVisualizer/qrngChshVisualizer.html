@@ -6,25 +6,36 @@
         >
             <div class="slds-p-around_medium">
                 <!-- Result badge -->
-                <div class="slds-text-align_center slds-m-bottom_medium">
-                    <span class={resultClass}>{resultLabel}</span>
+                <div
+                    class="slds-text-align_center slds-m-bottom_medium"
+                >
+                    <span class={resultClass}
+                        >{resultLabel}</span
+                    >
                 </div>
 
                 <!-- S-value gauge -->
-                <div class="gauge-container slds-m-bottom_medium">
+                <div
+                    class="gauge-container slds-m-bottom_medium"
+                >
                     <div class="gauge-labels">
-                        <span class="gauge-label-left">0</span>
+                        <span class="gauge-label-left"
+                            >0</span
+                        >
                         <span
                             class="gauge-label-mark classical-label"
                             style={classicalLineStyle}
-                            >Classical ≤ {classicalBound}</span
+                            >Classical ≤
+                            {classicalBound}</span
                         >
                         <span
                             class="gauge-label-mark quantum-label"
                             style={quantumLineStyle}
                             >2√2 ≈ {quantumBound}</span
                         >
-                        <span class="gauge-label-right">3.0</span>
+                        <span class="gauge-label-right"
+                            >3.0</span
+                        >
                     </div>
                     <div class="gauge-track">
                         <div
@@ -88,25 +99,36 @@
                             >
                                 <tr key={c.label}>
                                     <td>
-                                        <strong>{c.label}</strong>
+                                        <strong
+                                            >{c.label}</strong
+                                        >
                                     </td>
-                                    <td>{c.expectationValue}</td>
+                                    <td>
+                                        {c.expectationValue}
+                                    </td>
                                     <td>{c.coefficient}</td>
                                     <td>
-                                        <span class={c.contributionClass}
+                                        <span
+                                            class={c.contributionClass}
                                             >{c.contribution}</span
                                         >
                                     </td>
                                     <td>
-                                        <template if:true={c.std}>
+                                        <template
+                                            if:true={c.std}
+                                        >
                                             ±{c.std}
                                         </template>
-                                        <template if:false={c.std}>
+                                        <template
+                                            if:false={c.std}
+                                        >
                                             —
                                         </template>
                                     </td>
                                     <td class="bar-cell">
-                                        <div class="correlator-track">
+                                        <div
+                                            class="correlator-track"
+                                        >
                                             <div
                                                 class="correlator-center"
                                             ></div>
@@ -128,8 +150,8 @@
                 >
                     Classical bound: |S| ≤ 2 &nbsp;|&nbsp;
                     Quantum bound: |S| ≤ 2√2 ≈ 2.828
-                    &nbsp;|&nbsp; Any S &gt; 2 proves quantum
-                    origin
+                    &nbsp;|&nbsp; Any S &gt; 2 proves
+                    quantum origin
                 </div>
             </div>
         </lightning-card>

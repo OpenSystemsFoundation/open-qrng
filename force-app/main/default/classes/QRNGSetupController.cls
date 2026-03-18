@@ -1470,9 +1470,7 @@ public with sharing class QRNGSetupController {
         List<Double> evs = QRNGResultParser.parseAllEstimatorResults(
             resultsJson
         );
-        List<Double> stds = QRNGResultParser.parseAllEstimatorStds(
-            resultsJson
-        );
+        List<Double> stds = QRNGResultParser.parseAllEstimatorStds(resultsJson);
 
         // Retrieve observable labels stored at submission time
         List<String> labels = new List<String>();
@@ -1482,9 +1480,7 @@ public with sharing class QRNGSetupController {
                 job.Validation_Results__c
             );
             if (meta.containsKey('observableLabels')) {
-                for (
-                    Object lbl : (List<Object>) meta.get('observableLabels')
-                ) {
+                for (Object lbl : (List<Object>) meta.get('observableLabels')) {
                     labels.add((String) lbl);
                 }
             }
@@ -1515,8 +1511,7 @@ public with sharing class QRNGSetupController {
             job.Completed_At__c = DateTime.now();
             if (job.Submitted_At__c != null) {
                 job.Execution_Time_ms__c =
-                    DateTime.now().getTime() -
-                    job.Submitted_At__c.getTime();
+                    DateTime.now().getTime() - job.Submitted_At__c.getTime();
             }
             update job;
 
@@ -1546,9 +1541,7 @@ public with sharing class QRNGSetupController {
         for (Integer i = 0; i < evs.size() && i < labels.size(); i++) {
             String label = labels[i];
             Double ev = evs[i];
-            Double coeff = coeffs.containsKey(label)
-                ? coeffs.get(label)
-                : 1.0;
+            Double coeff = coeffs.containsKey(label) ? coeffs.get(label) : 1.0;
             sValue += coeff * ev;
 
             String shortLabel = label.replaceAll('I', '');

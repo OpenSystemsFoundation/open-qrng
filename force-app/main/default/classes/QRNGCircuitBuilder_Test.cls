@@ -501,8 +501,15 @@ private class QRNGCircuitBuilder_Test {
 
     @IsTest
     static void testBuildCHSHVerificationCircuits() {
-        List<String> circuits = QRNGCircuitBuilder.buildCHSHVerificationCircuits(5, 10);
-        System.assertEquals(4, circuits.size(), 'Should return 4 CHSH setting circuits');
+        List<String> circuits = QRNGCircuitBuilder.buildCHSHVerificationCircuits(
+            5,
+            10
+        );
+        System.assertEquals(
+            4,
+            circuits.size(),
+            'Should return 4 CHSH setting circuits'
+        );
 
         // Each circuit should have the Bell state on physical qubits
         for (String qasm : circuits) {

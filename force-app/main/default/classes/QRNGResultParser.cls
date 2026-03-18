@@ -304,58 +304,112 @@ public with sharing class QRNGResultParser {
         summary += 'S-Value:           ' + sValue + '\n';
         summary += 'Classical Bound:   2.0\n';
         summary += 'Quantum Maximum:   2.828 (2\u221A2)\n';
-        summary += 'Result:            ' + (sValue > 2.0 ? 'PASS - Quantum behavior confirmed' : 'FAIL - Below classical bound') + '\n';
+        summary +=
+            'Result:            ' +
+            (sValue > 2.0
+                ? 'PASS - Quantum behavior confirmed'
+                : 'FAIL - Below classical bound') +
+            '\n';
         if (std != null) {
             summary += 'Std Deviation:     ' + std + '\n';
             Double sigmaRaw = (sValue - 2.0) / std;
-            String sigmaStr = String.valueOf(Math.round(sigmaRaw * 10.0) / 10.0);
+            String sigmaStr = String.valueOf(
+                Math.round(sigmaRaw * 10.0) / 10.0
+            );
             summary += 'Sigma Above 2.0:   ' + sigmaStr + '\u03C3\n';
         }
 
         // Extract metadata from raw JSON
         try {
-            Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(resultsJson);
+            Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
+                resultsJson
+            );
             List<Object> results = (List<Object>) response.get('results');
             if (results != null && !results.isEmpty()) {
                 Map<String, Object> firstResult = (Map<String, Object>) results[0];
-                Map<String, Object> metadata = (Map<String, Object>) firstResult.get('metadata');
+                Map<String, Object> metadata = (Map<String, Object>) firstResult.get(
+                    'metadata'
+                );
                 if (metadata != null) {
                     summary += '\n=== Execution ===\n\n';
                     if (metadata.containsKey('shots')) {
-                        summary += 'Shots:             ' + metadata.get('shots') + '\n';
+                        summary +=
+                            'Shots:             ' +
+                            metadata.get('shots') +
+                            '\n';
                     }
                     if (metadata.containsKey('num_randomizations')) {
-                        summary += 'Randomizations:    ' + metadata.get('num_randomizations') + '\n';
+                        summary +=
+                            'Randomizations:    ' +
+                            metadata.get('num_randomizations') +
+                            '\n';
                     }
                     if (metadata.containsKey('target_precision')) {
-                        summary += 'Target Precision:  ' + metadata.get('target_precision') + '\n';
+                        summary +=
+                            'Target Precision:  ' +
+                            metadata.get('target_precision') +
+                            '\n';
                     }
                 }
-                Map<String, Object> data = (Map<String, Object>) firstResult.get('data');
-                if (data != null && data.containsKey('ensemble_standard_error')) {
-                    summary += 'Ensemble Std Err:  ' + data.get('ensemble_standard_error') + '\n';
+                Map<String, Object> data = (Map<String, Object>) firstResult.get(
+                    'data'
+                );
+                if (
+                    data != null && data.containsKey('ensemble_standard_error')
+                ) {
+                    summary +=
+                        'Ensemble Std Err:  ' +
+                        data.get('ensemble_standard_error') +
+                        '\n';
                 }
             }
 
-            Map<String, Object> topMeta = (Map<String, Object>) response.get('metadata');
+            Map<String, Object> topMeta = (Map<String, Object>) response.get(
+                'metadata'
+            );
             if (topMeta != null) {
                 summary += '\n=== Error Mitigation ===\n\n';
-                Map<String, Object> resilience = (Map<String, Object>) topMeta.get('resilience');
+                Map<String, Object> resilience = (Map<String, Object>) topMeta.get(
+                    'resilience'
+                );
                 if (resilience != null) {
-                    summary += 'Measure Mitigation:  ' + resilience.get('measure_mitigation') + '\n';
-                    summary += 'ZNE Mitigation:      ' + resilience.get('zne_mitigation') + '\n';
-                    summary += 'PEC Mitigation:      ' + resilience.get('pec_mitigation') + '\n';
+                    summary +=
+                        'Measure Mitigation:  ' +
+                        resilience.get('measure_mitigation') +
+                        '\n';
+                    summary +=
+                        'ZNE Mitigation:      ' +
+                        resilience.get('zne_mitigation') +
+                        '\n';
+                    summary +=
+                        'PEC Mitigation:      ' +
+                        resilience.get('pec_mitigation') +
+                        '\n';
                 }
-                Map<String, Object> twirling = (Map<String, Object>) topMeta.get('twirling');
+                Map<String, Object> twirling = (Map<String, Object>) topMeta.get(
+                    'twirling'
+                );
                 if (twirling != null) {
                     summary += '\n=== Twirling ===\n\n';
-                    summary += 'Measure Twirling:    ' + twirling.get('enable_measure') + '\n';
-                    summary += 'Gate Twirling:       ' + twirling.get('enable_gates') + '\n';
-                    summary += 'Strategy:            ' + twirling.get('strategy') + '\n';
+                    summary +=
+                        'Measure Twirling:    ' +
+                        twirling.get('enable_measure') +
+                        '\n';
+                    summary +=
+                        'Gate Twirling:       ' +
+                        twirling.get('enable_gates') +
+                        '\n';
+                    summary +=
+                        'Strategy:            ' +
+                        twirling.get('strategy') +
+                        '\n';
                 }
             }
         } catch (Exception e) {
-            summary += '\n(Could not parse full metadata: ' + e.getMessage() + ')';
+            summary +=
+                '\n(Could not parse full metadata: ' +
+                e.getMessage() +
+                ')';
         }
 
         return summary;

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Job_Type__c</fullName>
-    <description>Type of quantum job: QRNG for random number generation, CHSH Verification for Bell inequality tests</description>
+    <description
+    >Type of quantum job: QRNG for random number generation, CHSH Verification for Bell inequality tests</description>
     <externalId>false</externalId>
     <label>Job Type</label>
     <required>false</required>

@@ -320,7 +320,9 @@ export default class QrngSetup extends LightningElement {
                 fidelityScore: fidelity.label,
                 fidelityClass: `fidelity-badge fidelity-${fidelity.tier}`,
                 fidelityTitle: fidelity.breakdown,
-                chshSValue: b.chshSValue ? Number(b.chshSValue).toFixed(3) : '\u2014',
+                chshSValue: b.chshSValue
+                    ? Number(b.chshSValue).toFixed(3)
+                    : '\u2014',
                 chshVerifiedAt: b.chshVerifiedAt,
                 quantumVerified: b.quantumVerified,
                 verificationBadge: b.quantumVerified
