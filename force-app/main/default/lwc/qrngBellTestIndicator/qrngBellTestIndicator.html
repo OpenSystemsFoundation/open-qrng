@@ -1,35 +1,89 @@
 <template>
-    <div class="gauge-container">
-        <h3 class="gauge-title">CHSH Bell Test</h3>
-        <div
-            class="gauge"
-            style={gaugeStyle}
-        >
-            <div class="gauge-fill"></div>
-            <div class="gauge-cover">
-                <span class="gauge-value"
-                    >{displayValue}</span
+    <div class="bell-container">
+        <h3 class="bell-title">CHSH Bell Test</h3>
+        <p class="bell-subtitle">
+            S-value measures quantum entanglement. Classical
+            physics cannot exceed S = 2.0. Quantum mechanics
+            allows up to S = 2&radic;2 &approx; 2.828.
+        </p>
+
+        <!-- Horizontal bar chart -->
+        <div class="bar-chart">
+            <!-- Zone labels above the bar -->
+            <div class="zone-labels">
+                <span class="zone-label classical-label"
+                    >Classical</span
+                >
+                <span class="zone-label quantum-label"
+                    >Quantum</span
+                >
+                <span class="zone-label max-label"
+                    >Max Violation</span
                 >
             </div>
-            <div class="classical-limit"></div>
-        </div>
-        <div class="gauge-labels">
-            <span class="label-min">0</span>
-            <span class="label-classical"
-                >S=2 (classical limit)</span
-            >
-            <span class="label-max">2.83</span>
-        </div>
-        <div class="gauge-verdict">
-            <template if:true={isQuantum}>
-                <span class="verdict-quantum"
-                    >Quantum Certified</span
+
+            <!-- The bar itself -->
+            <div class="bar-track">
+                <div class="bar-zone classical-zone"></div>
+                <div class="bar-zone quantum-zone"></div>
+                <div class="bar-zone max-zone"></div>
+
+                <!-- Classical limit marker at S=2.0 -->
+                <div class="bar-marker limit-marker">
+                    <span class="marker-label">2.0</span>
+                </div>
+
+                <!-- Tsirelson bound marker at S=2√2 -->
+                <div class="bar-marker tsirelson-marker">
+                    <span class="marker-label">2.83</span>
+                </div>
+
+                <!-- Value indicator -->
+                <div
+                    class={valueIndicatorClass}
+                    style={valuePosition}
                 >
+                    <span class="value-label"
+                        >{displayValue}</span
+                    >
+                    <div class="value-arrow"></div>
+                </div>
+            </div>
+
+            <!-- Scale labels -->
+            <div class="scale-labels">
+                <span>0</span>
+                <span>1.0</span>
+                <span>2.0</span>
+                <span>2.83</span>
+            </div>
+        </div>
+
+        <!-- Verdict -->
+        <div class="bell-verdict">
+            <template if:true={isQuantum}>
+                <span class="verdict-badge quantum">
+                    <lightning-icon
+                        icon-name="utility:success"
+                        size="xx-small"
+                        variant="inverse"
+                        class="slds-m-right_xx-small"
+                    ></lightning-icon>
+                    Quantum Certified &mdash; Bell
+                    inequality violated (S = {displayValue}
+                    &gt; 2.0)
+                </span>
             </template>
             <template if:false={isQuantum}>
-                <span class="verdict-classical"
-                    >Below Quantum Threshold</span
-                >
+                <span class="verdict-badge classical">
+                    <lightning-icon
+                        icon-name="utility:warning"
+                        size="xx-small"
+                        class="slds-m-right_xx-small"
+                    ></lightning-icon>
+                    Below Quantum Threshold (S =
+                    {displayValue} &le; 2.0)
+                </span>
             </template>
         </div>
     </div>

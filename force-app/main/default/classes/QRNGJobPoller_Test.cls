@@ -298,4 +298,47 @@ private class QRNGJobPoller_Test {
         System.assertEquals(60, QRNGJobPoller.calculateDelay(4)); // capped
         System.assertEquals(60, QRNGJobPoller.calculateDelay(10)); // still capped
     }
+
+    @IsTest
+    static void testPollCompletedBellTestJob() {
+        Test.setMock(HttpCalloutMock.class, new MockCompletedJob());
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'job_test',
+            Backend__c = 'test_backend',
+            Status__c = 'Submitted',
+            Shots__c = 8,
+            Num_Qubits__c = 8,
+            Use_Bell_Test__c = true,
+            Submitted_At__c = DateTime.now()
+        );
+        insert job;
+
+        Test.startTest();
+        QRNGJobPoller poller = new QRNGJobPoller(job.Id, 'job_test', 0);
+        System.enqueueJob(poller);
+        Test.stopTest();
+
+        job = [
+            SELECT Id, Status__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assertEquals('Completed', job.Status__c);
+
+        // Certificate should exist with CHSH value
+        List<Fairness_Certificate__c> certs = [
+            SELECT Id, CHSH_S_Value__c, Validation_Results__c
+            FROM Fairness_Certificate__c
+            WHERE Quantum_Job__c = :job.Id
+        ];
+        System.assertEquals(1, certs.size(), 'Should create a certificate');
+        // Validation results should contain chshSValue
+        System.assert(
+            certs[0].Validation_Results__c.contains('chshSValue'),
+            'Validation results should contain CHSH S-value'
+        );
+    }
 }

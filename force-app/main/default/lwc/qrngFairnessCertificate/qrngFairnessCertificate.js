@@ -95,6 +95,40 @@ export default class QrngFairnessCertificate extends LightningElement {
         );
     }
 
+    // Extended test getters
+    get hasExtendedResults() {
+        return (
+            this.validationResults?.extendedTestsCompleted === true ||
+            this.validationResults?.allTestsCompleted === true
+        );
+    }
+
+    get extendedTests() {
+        if (!this.hasExtendedResults) return [];
+        const tests = [
+            {
+                key: 'approximateEntropyTest',
+                label: 'Approx. Entropy'
+            },
+            { key: 'serialTest', label: 'Serial' },
+            { key: 'cumulativeSumsTest', label: 'CUSUM' },
+            {
+                key: 'longestRunOfOnesTest',
+                label: 'Longest Run'
+            }
+        ];
+        return tests.map((t) => ({
+            ...t,
+            passed: this.validationResults?.[t.key] === true,
+            iconName: this.validationResults?.[t.key]
+                ? 'utility:success'
+                : 'utility:error',
+            badgeClass:
+                'test-badge ' +
+                (this.validationResults?.[t.key] ? 'test-pass' : 'test-fail')
+        }));
+    }
+
     get verificationClass() {
         if (!this.verificationResult) return '';
         return (

@@ -3,6 +3,9 @@ import getSettings from '@salesforce/apex/QRNGSetupController.getSettings';
 import submitQRNGJob from '@salesforce/apex/QRNGSetupController.submitQRNGJob';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
+const DEFAULT_MAX_QUBITS = 127;
+const DEFAULT_MAX_SHOTS = 8192;
+
 export default class QrngRequestForm extends LightningElement {
     @track backend = '';
     @track numQubits = 8;
@@ -13,6 +16,7 @@ export default class QrngRequestForm extends LightningElement {
     @track showPreview = true;
 
     backendOptions = [];
+    _backendsMap = {};
 
     @wire(getSettings)
     wiredSettings({ data }) {
@@ -29,13 +33,24 @@ export default class QrngRequestForm extends LightningElement {
 
             // Build backend dropdown from cached backends
             if (data.cachedBackends && data.cachedBackends.length > 0) {
+                this._backendsMap = {};
                 this.backendOptions = data.cachedBackends.map((b) => {
                     const statusStr =
                         typeof b.status === 'object'
                             ? b.status.name || 'unknown'
                             : b.status || 'unknown';
+                    this._backendsMap[b.name] = {
+                        name: b.name,
+                        status: statusStr,
+                        qubits: b.qubits || DEFAULT_MAX_QUBITS,
+                        maxShots: b.maxShots || DEFAULT_MAX_SHOTS,
+                        queueLength: b.queueLength,
+                        isSimulator: b.isSimulator || false,
+                        processorFamily: b.processorFamily || '',
+                        provider: b.provider || ''
+                    };
                     return {
-                        label: `${b.name} (${b.qubits} qubits, ${statusStr})`,
+                        label: `${b.name} (${b.qubits || '?'} qubits, ${statusStr})`,
                         value: b.name
                     };
                 });
@@ -43,8 +58,101 @@ export default class QrngRequestForm extends LightningElement {
                     label: 'Least Busy (auto-select)',
                     value: '__least_busy__'
                 });
+
+                // Clamp initial values to selected backend limits
+                this._clampToBackendLimits();
             }
         }
+    }
+
+    // ── Computed: selected backend info ────────────────────────
+    get selectedBackendInfo() {
+        if (
+            this.backend &&
+            this.backend !== '__least_busy__' &&
+            this._backendsMap[this.backend]
+        ) {
+            return this._backendsMap[this.backend];
+        }
+        return null;
+    }
+
+    get selectedBackendStatusClass() {
+        const info = this.selectedBackendInfo;
+        if (!info) return 'status-chip';
+        const s = (info.status || '').toLowerCase();
+        if (s === 'online') return 'status-chip online';
+        if (s === 'offline') return 'status-chip offline';
+        return 'status-chip';
+    }
+
+    get hasQueueLength() {
+        const info = this.selectedBackendInfo;
+        return info && info.queueLength != null && info.queueLength >= 0;
+    }
+
+    // ── Computed: qubit constraints ───────────────────────────
+    get maxQubits() {
+        const info = this.selectedBackendInfo;
+        return info ? info.qubits : DEFAULT_MAX_QUBITS;
+    }
+
+    get minQubits() {
+        return this.useBellTest ? 2 : 1;
+    }
+
+    get qubitStep() {
+        return this.useBellTest ? 2 : 1;
+    }
+
+    get qubitsHelpText() {
+        if (this.useBellTest) {
+            return `Bell test requires even numbers of qubits (pairs). Each pair is entangled. Max ${this.maxQubits} for selected backend.`;
+        }
+        return `How many quantum bits to measure. More qubits = more random bits per shot. Max ${this.maxQubits} for selected backend.`;
+    }
+
+    get qubitsDescription() {
+        const bits = this.effectiveQubits * this.shots;
+        const bellNote = this.useBellTest
+            ? ` (${this.effectiveQubits / 2} entangled pairs)`
+            : '';
+        return `${this.effectiveQubits} qubits${bellNote} × ${this.shots} shots = ${bits.toLocaleString()} random bits`;
+    }
+
+    get qubitsUnderflowMessage() {
+        return `Minimum ${this.minQubits} qubit${this.minQubits > 1 ? 's' : ''} required`;
+    }
+
+    get qubitsOverflowMessage() {
+        return `Selected backend supports up to ${this.maxQubits} qubits`;
+    }
+
+    get qubitsStepMessage() {
+        return 'Bell test mode requires an even number of qubits (pairs)';
+    }
+
+    // ── Computed: shot constraints ────────────────────────────
+    get maxShots() {
+        const info = this.selectedBackendInfo;
+        return info && info.maxShots ? info.maxShots : DEFAULT_MAX_SHOTS;
+    }
+
+    get shotsOverflowMessage() {
+        return `Selected backend supports up to ${this.maxShots} shots`;
+    }
+
+    get shotsDescription() {
+        if (this.shots <= 500) {
+            return 'Low shot count — faster but less statistically reliable.';
+        }
+        if (this.shots <= 2000) {
+            return 'Good balance of speed and statistical quality.';
+        }
+        if (this.shots <= 4096) {
+            return 'High shot count — excellent statistical reliability.';
+        }
+        return 'Maximum precision — best for high-stakes fairness certification.';
     }
 
     get effectiveQubits() {
@@ -53,20 +161,33 @@ export default class QrngRequestForm extends LightningElement {
             : this.numQubits;
     }
 
+    // ── Handlers ──────────────────────────────────────────────
     handleBackendChange(event) {
         this.backend = event.detail.value;
+        this._clampToBackendLimits();
     }
+
     handleQubitsChange(event) {
         this.numQubits = parseInt(event.target.value, 10);
     }
+
     handleShotsChange(event) {
         this.shots = parseInt(event.target.value, 10);
     }
+
     handlePurposeChange(event) {
         this.purpose = event.target.value;
     }
+
     handleBellTestChange(event) {
         this.useBellTest = event.target.checked;
+        // When switching to Bell test, snap qubits to nearest even number >= 2
+        if (this.useBellTest && this.numQubits % 2 !== 0) {
+            this.numQubits = Math.max(2, this.numQubits + 1);
+        }
+        if (this.useBellTest && this.numQubits < 2) {
+            this.numQubits = 2;
+        }
     }
 
     async handleSubmit() {
@@ -108,6 +229,20 @@ export default class QrngRequestForm extends LightningElement {
             );
         } finally {
             this.isSubmitting = false;
+        }
+    }
+
+    // ── Private helpers ───────────────────────────────────────
+    _clampToBackendLimits() {
+        const info = this.selectedBackendInfo;
+        if (!info) return;
+        if (this.numQubits > info.qubits) {
+            this.numQubits = this.useBellTest
+                ? Math.floor(info.qubits / 2) * 2
+                : info.qubits;
+        }
+        if (info.maxShots && this.shots > info.maxShots) {
+            this.shots = info.maxShots;
         }
     }
 }

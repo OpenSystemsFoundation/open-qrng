@@ -268,25 +268,110 @@ export default class QrngSetup extends LightningElement {
     }
 
     mapBackendHealth(backends) {
-        return backends.map((b) => ({
-            id: b.id,
-            name: b.name,
-            status: b.status || '—',
-            qubits: b.qubits || 0,
-            queueLength: b.queueLength != null ? b.queueLength : '—',
-            processor: b.processorFamily
-                ? `${b.processorFamily} ${b.processorRevision || ''}`
-                : '—',
-            avgT1: this.formatTime(b.avgT1),
-            avgT2: this.formatTime(b.avgT2),
-            gateError: this.formatPercent(b.gateError),
-            readoutError: this.formatPercent(b.readoutError),
-            lastSynced: b.lastSynced,
-            statusClass:
-                b.status === 'online'
-                    ? 'slds-text-color_success'
-                    : 'slds-text-color_error'
-        }));
+        return backends.map((b) => {
+            const fidelity = this.computeFidelityScore(b);
+            return {
+                id: b.id,
+                name: b.name,
+                status: b.status || '\u2014',
+                qubits: b.qubits || 0,
+                queueLength: b.queueLength != null ? b.queueLength : '\u2014',
+                processor: b.processorFamily
+                    ? `${b.processorFamily} ${b.processorRevision || ''}`
+                    : '\u2014',
+                avgT1: this.formatTime(b.avgT1),
+                avgT2: this.formatTime(b.avgT2),
+                gateError: this.formatPercent(b.gateError),
+                readoutError: this.formatPercent(b.readoutError),
+                lastSynced: b.lastSynced,
+                statusClass:
+                    b.status === 'online'
+                        ? 'slds-text-color_success'
+                        : 'slds-text-color_error',
+                fidelityScore: fidelity.label,
+                fidelityClass: `fidelity-badge fidelity-${fidelity.tier}`,
+                fidelityTitle: fidelity.breakdown
+            };
+        });
+    }
+
+    /**
+     * Composite fidelity score from gate error, readout error, T1, and T2.
+     * Weights: gate 40%, readout 25%, T1 20%, T2 15%.
+     * T1 reference: 300µs = 100, <20µs = 0.  T2 reference: 200µs = 100, <10µs = 0.
+     */
+    computeFidelityScore(backend) {
+        const ge = backend.gateError;
+        const re = backend.readoutError;
+        const t1 = backend.avgT1;
+        const t2 = backend.avgT2;
+
+        // If no calibration data at all, return N/A
+        if (ge == null && re == null && t1 == null && t2 == null) {
+            return {
+                label: '\u2014',
+                tier: 'none',
+                breakdown: 'No calibration data'
+            };
+        }
+
+        let score = 0;
+        let totalWeight = 0;
+        const parts = [];
+
+        // Gate fidelity: (1 - error) * 100, weight 40%
+        if (ge != null && !isNaN(Number(ge))) {
+            const gateScore = Math.max(0, (1 - Number(ge)) * 100);
+            score += gateScore * 0.4;
+            totalWeight += 0.4;
+            parts.push(`Gate: ${gateScore.toFixed(1)}`);
+        }
+
+        // Readout fidelity: (1 - error) * 100, weight 25%
+        if (re != null && !isNaN(Number(re))) {
+            const readoutScore = Math.max(0, (1 - Number(re)) * 100);
+            score += readoutScore * 0.25;
+            totalWeight += 0.25;
+            parts.push(`Readout: ${readoutScore.toFixed(1)}`);
+        }
+
+        // T1 coherence: linear scale 20µs→0, 300µs→100, weight 20%
+        if (t1 != null && !isNaN(Number(t1))) {
+            const t1Score = Math.min(
+                100,
+                Math.max(0, ((Number(t1) - 20) / 280) * 100)
+            );
+            score += t1Score * 0.2;
+            totalWeight += 0.2;
+            parts.push(`T1: ${t1Score.toFixed(1)}`);
+        }
+
+        // T2 coherence: linear scale 10µs→0, 200µs→100, weight 15%
+        if (t2 != null && !isNaN(Number(t2))) {
+            const t2Score = Math.min(
+                100,
+                Math.max(0, ((Number(t2) - 10) / 190) * 100)
+            );
+            score += t2Score * 0.15;
+            totalWeight += 0.15;
+            parts.push(`T2: ${t2Score.toFixed(1)}`);
+        }
+
+        // Normalize if not all metrics available
+        const normalized = totalWeight > 0 ? score / totalWeight : 0;
+        const rounded = Math.round(normalized);
+
+        let tier;
+        if (rounded >= 90) tier = 'excellent';
+        else if (rounded >= 75) tier = 'good';
+        else if (rounded >= 50) tier = 'fair';
+        else tier = 'poor';
+
+        return {
+            label: `${rounded}`,
+            tier,
+            breakdown: parts.join(' | ')
+        };
     }
 
     get hasBackendHealth() {

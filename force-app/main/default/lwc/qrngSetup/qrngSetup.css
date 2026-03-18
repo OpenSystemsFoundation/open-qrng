@@ -13,3 +13,33 @@
     font-size: 0.875rem;
     color: var(--slds-g-color-neutral-base-30, #706e6b);
 }
+.fidelity-badge {
+    display: inline-block;
+    min-width: 2.5rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-align: center;
+    line-height: 1.4;
+}
+.fidelity-excellent {
+    background: #04844b;
+    color: #fff;
+}
+.fidelity-good {
+    background: #2e844a;
+    color: #fff;
+}
+.fidelity-fair {
+    background: #fe9339;
+    color: #181818;
+}
+.fidelity-poor {
+    background: #ea001e;
+    color: #fff;
+}
+.fidelity-none {
+    background: #e5e5e5;
+    color: #706e6b;
+}

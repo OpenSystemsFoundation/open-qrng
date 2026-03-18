@@ -57,7 +57,39 @@ const mockCanvasContext = {
     textBaseline: ''
 };
 
+const MOCK_BACKENDS = [
+    {
+        name: 'ibm_brisbane',
+        qubits: 127,
+        status: 'online',
+        maxShots: 4096,
+        queueLength: 5,
+        isSimulator: false,
+        processorFamily: 'Eagle'
+    },
+    {
+        name: 'ibm_kyoto',
+        qubits: 127,
+        status: { name: 'online' },
+        maxShots: 8192,
+        queueLength: 0,
+        isSimulator: false,
+        processorFamily: 'Heron'
+    },
+    {
+        name: 'ibmq_qasm_simulator',
+        qubits: 32,
+        status: 'online',
+        maxShots: 8192,
+        queueLength: null,
+        isSimulator: true,
+        processorFamily: ''
+    }
+];
+
 describe('c-qrng-request-form', () => {
+    let getSettings;
+
     beforeAll(() => {
         global.ResizeObserver = MockResizeObserver;
         HTMLCanvasElement.prototype.getContext = jest
@@ -67,6 +99,11 @@ describe('c-qrng-request-form', () => {
 
     afterAll(() => {
         delete global.ResizeObserver;
+    });
+
+    beforeEach(() => {
+        getSettings =
+            require('@salesforce/apex/QRNGSetupController.getSettings').default;
     });
 
     afterEach(() => {
@@ -88,6 +125,22 @@ describe('c-qrng-request-form', () => {
         return element;
     }
 
+    function emitSettings(overrides = {}) {
+        getSettings.emit({
+            defaultShots: 1024,
+            useBellTest: false,
+            useLeastBusy: false,
+            defaultBackend: '',
+            cachedBackends: MOCK_BACKENDS,
+            ...overrides
+        });
+    }
+
+    // Helper to find the Bell test toggle (native checkbox inside .toggle-switch)
+    function getBellToggle(element) {
+        return element.shadowRoot.querySelector('.toggle-switch input');
+    }
+
     it('renders form inputs', () => {
         const element = createComponent();
 
@@ -99,7 +152,10 @@ describe('c-qrng-request-form', () => {
         const inputLabels = Array.from(inputs).map((i) => i.label);
         expect(inputLabels).toContain('Number of Qubits');
         expect(inputLabels).toContain('Shots');
-        expect(inputLabels).toContain('Use Bell Test (stronger certification)');
+
+        // Bell test is now a custom toggle, not lightning-input
+        const bellToggle = getBellToggle(element);
+        expect(bellToggle).not.toBeNull();
 
         const textarea = element.shadowRoot.querySelector('lightning-textarea');
         expect(textarea).not.toBeNull();
@@ -159,16 +215,17 @@ describe('c-qrng-request-form', () => {
         expect(handler.mock.calls[0][0].detail.variant).toBe('success');
     });
 
-    it('toggles useBellTest when bell test checkbox is changed', async () => {
+    it('toggles useBellTest when bell test toggle is changed', async () => {
         const element = createComponent();
 
-        const bellTestInput = Array.from(
-            element.shadowRoot.querySelectorAll('lightning-input')
-        ).find((i) => i.label === 'Use Bell Test (stronger certification)');
-        expect(bellTestInput).not.toBeNull();
+        const bellToggle = getBellToggle(element);
+        expect(bellToggle).not.toBeNull();
 
-        bellTestInput.checked = true;
-        bellTestInput.dispatchEvent(new CustomEvent('change'));
+        Object.defineProperty(bellToggle, 'checked', {
+            get: () => true,
+            configurable: true
+        });
+        bellToggle.dispatchEvent(new CustomEvent('change'));
         await flushPromises();
 
         const visualizer = element.shadowRoot.querySelector(
@@ -177,32 +234,22 @@ describe('c-qrng-request-form', () => {
         expect(visualizer.useBellTest).toBe(true);
     });
 
-    // ── wiredSettings coverage (lines 20-46) ────────────────────
+    // ── wiredSettings coverage ────────────────────────────────
     it('populates form defaults from wire settings with useLeastBusy', async () => {
-        const getSettings =
-            require('@salesforce/apex/QRNGSetupController.getSettings').default;
         const element = createComponent();
 
-        getSettings.emit({
+        emitSettings({
             defaultShots: 2048,
             useBellTest: true,
             useLeastBusy: true,
-            defaultBackend: 'ibm_brisbane',
-            cachedBackends: [
-                { name: 'ibm_brisbane', qubits: 127, status: 'online' },
-                {
-                    name: 'ibm_kyoto',
-                    qubits: 127,
-                    status: { name: 'online' }
-                }
-            ]
+            defaultBackend: 'ibm_brisbane'
         });
         await flushPromises();
 
         const combobox = element.shadowRoot.querySelector('lightning-combobox');
         expect(combobox.value).toBe('__least_busy__');
-        // 2 backends + Least Busy option
-        expect(combobox.options.length).toBe(3);
+        // 3 backends + Least Busy option
+        expect(combobox.options.length).toBe(4);
 
         const inputs = element.shadowRoot.querySelectorAll('lightning-input');
         const shotsInput = Array.from(inputs).find((i) => i.label === 'Shots');
@@ -210,18 +257,13 @@ describe('c-qrng-request-form', () => {
     });
 
     it('populates form defaults from wire settings with explicit backend', async () => {
-        const getSettings =
-            require('@salesforce/apex/QRNGSetupController.getSettings').default;
         const element = createComponent();
 
-        getSettings.emit({
+        emitSettings({
             defaultShots: 512,
             useBellTest: false,
             useLeastBusy: false,
-            defaultBackend: 'ibm_kyoto',
-            cachedBackends: [
-                { name: 'ibm_kyoto', qubits: 127, status: 'online' }
-            ]
+            defaultBackend: 'ibm_kyoto'
         });
         await flushPromises();
 
@@ -229,14 +271,16 @@ describe('c-qrng-request-form', () => {
         expect(combobox.value).toBe('ibm_kyoto');
     });
 
-    // ── handleBackendChange (lines 57-58) ───────────────────────
+    // ── handleBackendChange ───────────────────────────────────
     it('updates backend on combobox change', async () => {
         const element = createComponent();
         await flushPromises();
 
         const combobox = element.shadowRoot.querySelector('lightning-combobox');
         combobox.dispatchEvent(
-            new CustomEvent('change', { detail: { value: 'ibm_brisbane' } })
+            new CustomEvent('change', {
+                detail: { value: 'ibm_brisbane' }
+            })
         );
         await flushPromises();
 
@@ -254,7 +298,7 @@ describe('c-qrng-request-form', () => {
         );
     });
 
-    // ── handleQubitsChange (lines 59-61) ────────────────────────
+    // ── handleQubitsChange ────────────────────────────────────
     it('updates numQubits on input change', async () => {
         const element = createComponent();
         await flushPromises();
@@ -280,7 +324,7 @@ describe('c-qrng-request-form', () => {
         );
     });
 
-    // ── handleShotsChange (lines 62-64) ─────────────────────────
+    // ── handleShotsChange ─────────────────────────────────────
     it('updates shots on input change', async () => {
         const element = createComponent();
         await flushPromises();
@@ -304,7 +348,7 @@ describe('c-qrng-request-form', () => {
         );
     });
 
-    // ── handleSubmit error path (lines 98-108) ──────────────────
+    // ── handleSubmit error path ───────────────────────────────
     it('shows error toast when submit fails', async () => {
         const element = createComponent();
         await flushPromises();
@@ -351,15 +395,11 @@ describe('c-qrng-request-form', () => {
         );
     });
 
-    // ── handleSubmit with __least_busy__ backend (line 76) ──────
+    // ── handleSubmit with __least_busy__ backend ──────────────
     it('submits empty backend when __least_busy__ is selected', async () => {
-        const getSettings =
-            require('@salesforce/apex/QRNGSetupController.getSettings').default;
         const element = createComponent();
 
-        getSettings.emit({
-            defaultShots: 1024,
-            useBellTest: false,
+        emitSettings({
             useLeastBusy: true,
             defaultBackend: '',
             cachedBackends: []
@@ -383,7 +423,7 @@ describe('c-qrng-request-form', () => {
         );
     });
 
-    // ── effectiveQubits getter (lines 50-54) ────────────────────
+    // ── effectiveQubits getter ────────────────────────────────
     it('passes effectiveQubits to circuit visualizer', async () => {
         const element = createComponent();
         await flushPromises();
@@ -393,5 +433,258 @@ describe('c-qrng-request-form', () => {
         );
         // Default: bellTest=false, numQubits=8 -> effectiveQubits = 8
         expect(visualizer.numQubits).toBe(8);
+    });
+
+    // ── Backend info display ──────────────────────────────────
+    it('shows backend info chips when a specific backend is selected', async () => {
+        const element = createComponent();
+
+        emitSettings({
+            defaultBackend: 'ibm_brisbane',
+            useLeastBusy: false
+        });
+        await flushPromises();
+
+        const chips = element.shadowRoot.querySelectorAll('.info-chip');
+        expect(chips.length).toBeGreaterThan(0);
+
+        const statusChip = element.shadowRoot.querySelector('.status-chip');
+        expect(statusChip).not.toBeNull();
+        expect(statusChip.textContent.trim()).toBe('online');
+    });
+
+    it('does not show backend info when least busy is selected', async () => {
+        const element = createComponent();
+
+        emitSettings({ useLeastBusy: true });
+        await flushPromises();
+
+        const backendInfo = element.shadowRoot.querySelector('.backend-info');
+        expect(backendInfo).toBeNull();
+    });
+
+    // ── Dynamic constraints ───────────────────────────────────
+    it('sets max qubits based on selected backend', async () => {
+        const element = createComponent();
+
+        emitSettings({
+            defaultBackend: 'ibmq_qasm_simulator',
+            useLeastBusy: false
+        });
+        await flushPromises();
+
+        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
+        const qubitsInput = Array.from(inputs).find(
+            (i) => i.label === 'Number of Qubits'
+        );
+        expect(qubitsInput.max).toBe(32);
+    });
+
+    it('sets max shots based on selected backend', async () => {
+        const element = createComponent();
+
+        emitSettings({
+            defaultBackend: 'ibm_brisbane',
+            useLeastBusy: false
+        });
+        await flushPromises();
+
+        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
+        const shotsInput = Array.from(inputs).find((i) => i.label === 'Shots');
+        expect(shotsInput.max).toBe(4096);
+    });
+
+    it('clamps qubits when switching to a backend with fewer qubits', async () => {
+        const element = createComponent();
+
+        emitSettings({
+            defaultBackend: 'ibm_brisbane',
+            useLeastBusy: false
+        });
+        await flushPromises();
+
+        // Now switch to simulator with only 32 qubits while numQubits is > 32
+        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
+        const qubitsInput = Array.from(inputs).find(
+            (i) => i.label === 'Number of Qubits'
+        );
+        qubitsInput.value = '64';
+        qubitsInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        const combobox = element.shadowRoot.querySelector('lightning-combobox');
+        combobox.dispatchEvent(
+            new CustomEvent('change', {
+                detail: { value: 'ibmq_qasm_simulator' }
+            })
+        );
+        await flushPromises();
+
+        // Submit and verify qubits were clamped
+        submitQRNGJob.mockResolvedValue('job-clamp');
+        const buttons = element.shadowRoot.querySelectorAll('lightning-button');
+        const submitButton = Array.from(buttons).find(
+            (b) => b.variant === 'brand'
+        );
+        submitButton.click();
+        await flushPromises();
+
+        expect(submitQRNGJob).toHaveBeenCalledWith(
+            expect.objectContaining({ numQubits: 32 })
+        );
+    });
+
+    // ── Bell test qubit stepping ──────────────────────────────
+    it('snaps qubits to even number when enabling Bell test with odd qubits', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        // Set qubits to 7 (odd)
+        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
+        const qubitsInput = Array.from(inputs).find(
+            (i) => i.label === 'Number of Qubits'
+        );
+        qubitsInput.value = '7';
+        qubitsInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        // Enable Bell test
+        const bellToggle = getBellToggle(element);
+        Object.defineProperty(bellToggle, 'checked', {
+            get: () => true,
+            configurable: true
+        });
+        bellToggle.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        // Submit and verify qubits were snapped to 8
+        submitQRNGJob.mockResolvedValue('job-snap');
+        const buttons = element.shadowRoot.querySelectorAll('lightning-button');
+        const submitButton = Array.from(buttons).find(
+            (b) => b.variant === 'brand'
+        );
+        submitButton.click();
+        await flushPromises();
+
+        expect(submitQRNGJob).toHaveBeenCalledWith(
+            expect.objectContaining({ numQubits: 8 })
+        );
+    });
+
+    it('sets qubit step to 2 when Bell test is enabled', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        // Enable Bell test
+        const bellToggle = getBellToggle(element);
+        Object.defineProperty(bellToggle, 'checked', {
+            get: () => true,
+            configurable: true
+        });
+        bellToggle.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
+        const qubitsInput = Array.from(inputs).find(
+            (i) => i.label === 'Number of Qubits'
+        );
+        expect(qubitsInput.step).toBe(2);
+        expect(qubitsInput.min).toBe(2);
+    });
+
+    it('shows Bell info message when Bell test is enabled', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        // Enable Bell test
+        const bellToggle = getBellToggle(element);
+        Object.defineProperty(bellToggle, 'checked', {
+            get: () => true,
+            configurable: true
+        });
+        bellToggle.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        const bellInfo = element.shadowRoot.querySelector('.bell-info');
+        expect(bellInfo).not.toBeNull();
+        expect(bellInfo.textContent).toContain('even');
+    });
+
+    it('does not show Bell info message when Bell test is disabled', () => {
+        const element = createComponent();
+
+        const bellInfo = element.shadowRoot.querySelector('.bell-info');
+        expect(bellInfo).toBeNull();
+    });
+
+    // ── Description text ──────────────────────────────────────
+    it('shows random bits calculation in qubit description', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        const hints = element.shadowRoot.querySelectorAll('.field-hint');
+        // First hint is qubits description, second is shots description
+        expect(hints.length).toBe(2);
+        // Default: 8 qubits × 1024 shots = 8,192 random bits
+        expect(hints[0].textContent).toContain('8,192');
+    });
+
+    it('shows shots quality description', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        const hints = element.shadowRoot.querySelectorAll('.field-hint');
+        // Default 1024 shots — "Good balance"
+        expect(hints[1].textContent).toContain('Good balance');
+    });
+
+    // ── Simulator backend info ────────────────────────────────
+    it('shows Simulator chip for simulator backends', async () => {
+        const element = createComponent();
+
+        emitSettings({
+            defaultBackend: 'ibmq_qasm_simulator',
+            useLeastBusy: false
+        });
+        await flushPromises();
+
+        const simChip = element.shadowRoot.querySelector(
+            '.info-chip.simulator'
+        );
+        expect(simChip).not.toBeNull();
+        expect(simChip.textContent.trim()).toBe('Simulator');
+    });
+
+    // ── Queue length display ──────────────────────────────────
+    it('shows queue length chip when backend has jobs in queue', async () => {
+        const element = createComponent();
+
+        emitSettings({
+            defaultBackend: 'ibm_brisbane',
+            useLeastBusy: false
+        });
+        await flushPromises();
+
+        const queueChip = element.shadowRoot.querySelector('.info-chip.queue');
+        expect(queueChip).not.toBeNull();
+        expect(queueChip.textContent).toContain('5');
+    });
+
+    // ── Field-level help texts ────────────────────────────────
+    it('provides field-level help on backend combobox', () => {
+        const element = createComponent();
+
+        const combobox = element.shadowRoot.querySelector('lightning-combobox');
+        expect(combobox.fieldLevelHelp).toBeTruthy();
+        expect(combobox.fieldLevelHelp).toContain('processor');
+    });
+
+    it('provides field-level help on shots input', () => {
+        const element = createComponent();
+
+        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
+        const shotsInput = Array.from(inputs).find((i) => i.label === 'Shots');
+        expect(shotsInput.fieldLevelHelp).toBeTruthy();
+        expect(shotsInput.fieldLevelHelp).toContain('circuit');
     });
 });

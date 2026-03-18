@@ -1,36 +1,99 @@
 import { LightningElement, api } from 'lwc';
 
+const MIN_BAR_WIDTH = 14;
+const BAR_GAP = 2;
+
 export default class QrngResultsVisualizer extends LightningElement {
     @api rawResults = '';
+    @api debiasedResults = '';
     @api numQubits = 8;
 
     _resizeObserver;
     _distribution = {};
+    _debiasedDistribution = {};
     _totalSamples = 0;
+    _debiasedTotalSamples = 0;
     _lastComputedInput = '';
+    _lastDebiasedInput = '';
 
     get hasData() {
         return this.rawResults && this.rawResults.length > 0;
+    }
+
+    get hasDebiasedData() {
+        return this.debiasedResults && this.debiasedResults.length > 0;
     }
 
     get totalSamples() {
         return this._totalSamples;
     }
 
+    get debiasedTotalSamples() {
+        return this._debiasedTotalSamples;
+    }
+
     get uniqueCount() {
         return Object.keys(this._distribution).length;
     }
 
+    get debiasedUniqueCount() {
+        return Object.keys(this._debiasedDistribution).length;
+    }
+
+    get possibleCount() {
+        const n = parseInt(this.numQubits, 10) || 8;
+        return Math.pow(2, n);
+    }
+
     renderedCallback() {
         if (this.hasData) {
-            this.computeDistribution();
-            this.drawChart();
+            this._computeDistribution(
+                this.rawResults,
+                '_distribution',
+                '_totalSamples',
+                '_lastComputedInput'
+            );
+            this._drawChart(
+                this.refs.chartCanvas,
+                this.refs.chartContainer,
+                this._distribution,
+                this._totalSamples
+            );
+        }
+        if (this.hasDebiasedData) {
+            this._computeDistribution(
+                this.debiasedResults,
+                '_debiasedDistribution',
+                '_debiasedTotalSamples',
+                '_lastDebiasedInput'
+            );
+            this._drawChart(
+                this.refs.debiasedCanvas,
+                this.refs.debiasedContainer,
+                this._debiasedDistribution,
+                this._debiasedTotalSamples
+            );
         }
         if (!this._resizeObserver) {
             const container = this.refs.chartContainer;
             if (container) {
                 this._resizeObserver = new ResizeObserver(() => {
-                    if (this.hasData) this.drawChart();
+                    if (this.hasData) {
+                        this._drawChart(
+                            this.refs.chartCanvas,
+                            this.refs.chartContainer,
+                            this._distribution,
+                            this._totalSamples
+                        );
+                    }
+                    if (this.hasDebiasedData) {
+                        this._drawChart(
+                            this.refs.debiasedCanvas,
+                            this.refs.debiasedContainer,
+                            this._debiasedDistribution,
+                            this._debiasedTotalSamples
+                        );
+                    }
                 });
                 this._resizeObserver.observe(container);
             }
@@ -43,98 +106,103 @@ export default class QrngResultsVisualizer extends LightningElement {
         }
     }
 
-    computeDistribution() {
-        const bits = this.rawResults;
+    _computeDistribution(bits, distProp, totalProp, cacheProp) {
         const n = parseInt(this.numQubits, 10) || 8;
         const inputKey = `${bits}|${n}`;
-        if (inputKey === this._lastComputedInput) return;
-        this._lastComputedInput = inputKey;
+        if (inputKey === this[cacheProp]) return;
+        this[cacheProp] = inputKey;
 
-        this._distribution = {};
-        this._totalSamples = 0;
+        const dist = {};
+        let total = 0;
 
-        // Split raw results into chunks of numQubits
         for (let i = 0; i + n <= bits.length; i += n) {
             const sample = bits.substring(i, i + n);
-            this._distribution[sample] = (this._distribution[sample] || 0) + 1;
-            this._totalSamples++;
+            dist[sample] = (dist[sample] || 0) + 1;
+            total++;
         }
+
+        this[distProp] = dist;
+        this[totalProp] = total;
     }
 
-    drawChart() {
-        const canvas = this.refs.chartCanvas;
-        if (!canvas) return;
+    _drawChart(canvas, container, distribution, totalSamples) {
+        if (!canvas || !container) return;
 
-        const container = this.refs.chartContainer;
-        const width = container.clientWidth || 600;
         const qubits = parseInt(this.numQubits, 10) || 8;
+        const entries = Object.entries(distribution).sort((a, b) =>
+            a[0].localeCompare(b[0])
+        );
+        if (entries.length === 0) return;
+
+        const containerWidth = container.clientWidth || 600;
+        const marginLeft = 50;
+        const marginRight = 20;
+        const marginTop = 20;
+        const marginBottom = Math.max(60, qubits * 6 + 30);
+
+        // Calculate width: ensure every bar gets at least MIN_BAR_WIDTH
+        const totalBarSpace = MIN_BAR_WIDTH + BAR_GAP;
+        const neededChartWidth = entries.length * totalBarSpace;
+        const width = Math.max(
+            containerWidth,
+            neededChartWidth + marginLeft + marginRight
+        );
         const height = Math.max(300, 200 + qubits * 6);
+
         canvas.width = width;
         canvas.height = height;
 
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, width, height);
 
-        const entries = Object.entries(this._distribution).sort((a, b) =>
-            a[0].localeCompare(b[0])
-        );
-        if (entries.length === 0) return;
-
-        const maxCount = Math.max(...entries.map((e) => e[1]));
-        const idealCount =
-            this._totalSamples / Math.pow(2, parseInt(this.numQubits, 10) || 8);
-
-        // Chart dimensions — adjust bottom margin for rotated labels
-        const n = parseInt(this.numQubits, 10) || 8;
-        const marginLeft = 50;
-        const marginBottom = Math.max(60, n * 6 + 30);
-        const marginTop = 20;
-        const marginRight = 20;
         const chartWidth = width - marginLeft - marginRight;
         const chartHeight = height - marginTop - marginBottom;
 
-        // Limit display to top 32 entries if too many
-        const displayEntries =
-            entries.length > 32 ? entries.slice(0, 32) : entries;
-        const totalBarSpace = chartWidth / displayEntries.length;
-        const barGap = Math.max(1, Math.min(4, totalBarSpace * 0.15));
-        const barWidth = Math.max(2, totalBarSpace - barGap);
+        const actualBarSpace = chartWidth / entries.length;
+        const barWidth = Math.max(2, actualBarSpace - BAR_GAP);
 
-        // Draw bars with labels and counts
-        displayEntries.forEach(([label, count], i) => {
+        const maxCount = Math.max(...entries.map((e) => e[1]));
+        const idealCount = totalSamples / Math.pow(2, qubits);
+
+        // Draw bars
+        entries.forEach(([label, count], i) => {
             const barHeight = Math.max(1, (count / maxCount) * chartHeight);
-            const x = marginLeft + i * totalBarSpace;
+            const x = marginLeft + i * actualBarSpace;
             const y = marginTop + chartHeight - barHeight;
 
             // Color based on deviation from ideal
-            const ratio = count / idealCount;
+            const ratio = idealCount > 0 ? count / idealCount : 1;
             if (ratio > 1.5 || ratio < 0.5) {
-                ctx.fillStyle = '#ea001e'; // red - outlier
+                ctx.fillStyle = '#ea001e';
             } else if (ratio > 1.25 || ratio < 0.75) {
-                ctx.fillStyle = '#fe9339'; // amber - marginal
+                ctx.fillStyle = '#fe9339';
             } else {
-                ctx.fillStyle = '#2e844a'; // green - within variance
+                ctx.fillStyle = '#2e844a';
             }
 
             ctx.fillRect(x, y, barWidth, barHeight);
 
             // Count value on top of bar
-            ctx.font = '10px monospace';
-            ctx.fillStyle = '#181818';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(count.toString(), x + barWidth / 2, y - 2);
+            if (actualBarSpace > 14) {
+                ctx.font = '10px monospace';
+                ctx.fillStyle = '#181818';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(count.toString(), x + barWidth / 2, y - 2);
+            }
 
-            // Bitstring label below x-axis (always shown, rotated 45°)
-            ctx.save();
-            ctx.translate(x + barWidth / 2, marginTop + chartHeight + 4);
-            ctx.rotate(Math.PI / 4);
-            ctx.font = '9px monospace';
-            ctx.fillStyle = '#706e6b';
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'top';
-            ctx.fillText(label, 0, 0);
-            ctx.restore();
+            // Bitstring label below x-axis
+            if (actualBarSpace > 8) {
+                ctx.save();
+                ctx.translate(x + barWidth / 2, marginTop + chartHeight + 4);
+                ctx.rotate(Math.PI / 4);
+                ctx.font = '9px monospace';
+                ctx.fillStyle = '#706e6b';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'top';
+                ctx.fillText(label, 0, 0);
+                ctx.restore();
+            }
         });
 
         // Ideal line (dashed)
@@ -152,7 +220,11 @@ export default class QrngResultsVisualizer extends LightningElement {
             ctx.font = '11px sans-serif';
             ctx.fillStyle = '#0176d3';
             ctx.textAlign = 'right';
-            ctx.fillText('ideal', marginLeft - 5, idealY + 4);
+            ctx.fillText(
+                `ideal (${idealCount.toFixed(1)})`,
+                marginLeft - 5,
+                idealY + 4
+            );
         }
 
         // Y-axis
@@ -184,16 +256,16 @@ export default class QrngResultsVisualizer extends LightningElement {
         ctx.fillStyle = '#2e844a';
         ctx.fillRect(marginLeft, legendY - 8, 10, 10);
         ctx.fillStyle = '#706e6b';
-        ctx.fillText('Expected', marginLeft + 14, legendY);
+        ctx.fillText('Expected (±25%)', marginLeft + 14, legendY);
 
         ctx.fillStyle = '#fe9339';
-        ctx.fillRect(marginLeft + 80, legendY - 8, 10, 10);
+        ctx.fillRect(marginLeft + 120, legendY - 8, 10, 10);
         ctx.fillStyle = '#706e6b';
-        ctx.fillText('Marginal', marginLeft + 94, legendY);
+        ctx.fillText('Marginal (±50%)', marginLeft + 134, legendY);
 
         ctx.fillStyle = '#ea001e';
-        ctx.fillRect(marginLeft + 160, legendY - 8, 10, 10);
+        ctx.fillRect(marginLeft + 240, legendY - 8, 10, 10);
         ctx.fillStyle = '#706e6b';
-        ctx.fillText('Outlier', marginLeft + 174, legendY);
+        ctx.fillText('Outlier (>50%)', marginLeft + 254, legendY);
     }
 }

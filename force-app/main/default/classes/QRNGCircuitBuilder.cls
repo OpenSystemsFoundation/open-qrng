@@ -82,7 +82,18 @@ public with sharing class QRNGCircuitBuilder {
     /**
      * Build a Bell-test QRNG circuit for CHSH inequality verification.
      * Uses the coupling map to select physically connected qubit pairs.
-     * @param numPairs Number of entangled pairs
+     *
+     * CHSH requires 4 distinct measurement basis combinations per pair:
+     *   Config 0: Alice 0,       Bob π/4      → E(a,b)
+     *   Config 1: Alice 0,       Bob -π/4     → E(a,b')
+     *   Config 2: Alice π/2,     Bob π/4      → E(a',b)
+     *   Config 3: Alice π/2,     Bob -π/4     → E(a',b')
+     * S = |E(a,b) + E(a,b') + E(a',b) - E(a',b')| > 2 proves quantum origin.
+     *
+     * Each pair is assigned one of the 4 configs via round-robin (mod 4).
+     * Minimum 4 pairs required for a valid CHSH test (1 per basis config).
+     *
+     * @param numPairs Number of entangled pairs (minimum 4 for valid CHSH)
      * @param couplingMap List of [q0, q1] pairs from the backend
      * @param readoutErrors Map of qubit index → readout error rate
      */
@@ -110,6 +121,33 @@ public with sharing class QRNGCircuitBuilder {
             readoutErrors
         );
 
+        return buildBellCircuitFromPairs(numPairs, bestPairs);
+    }
+
+    /**
+     * Shared circuit builder: generates CHSH OpenQASM from pre-selected pairs.
+     * Each pair gets one of 4 basis configs (round-robin) for valid CHSH measurement.
+     */
+    private static String buildBellCircuitFromPairs(
+        Integer numPairs,
+        List<CoupledPair> bestPairs
+    ) {
+        // CHSH basis angles for optimal Bell inequality violation.
+        // For |Φ+⟩, correlation E(a,b) = cos(a - b) where a,b are Ry angles.
+        // Optimal: a=0, a'=π/2, b=π/4, b'=-π/4 gives S = 2√2.
+        //   E(0, π/4) = cos(-π/4) = 1/√2
+        //   E(0, -π/4) = cos(π/4) = 1/√2
+        //   E(π/2, π/4) = cos(π/4) = 1/√2
+        //   E(π/2, -π/4) = cos(3π/4) = -1/√2
+        //   S = |1/√2 + 1/√2 + 1/√2 - (-1/√2)| = 4/√2 = 2√2
+        List<String> aliceAngles = new List<String>{ '0', '0', 'pi/2', 'pi/2' };
+        List<String> bobAngles = new List<String>{
+            'pi/4',
+            '-pi/4',
+            'pi/4',
+            '-pi/4'
+        };
+
         Integer totalQubits = numPairs * 2;
         String qasm = 'OPENQASM 3.0;\n';
         qasm += 'include "stdgates.inc";\n';
@@ -118,6 +156,9 @@ public with sharing class QRNGCircuitBuilder {
         for (Integer i = 0; i < numPairs; i++) {
             Integer qA = bestPairs[i].q0;
             Integer qB = bestPairs[i].q1;
+            Integer basisConfig = Math.mod(i, 4);
+
+            // --- Create Bell state |Φ+⟩ = (|00⟩ + |11⟩)/√2 ---
 
             // Hadamard on qubit A: rz(π/2) → sx → rz(π/2)
             qasm += 'rz(pi/2) $' + qA + ';\n';
@@ -133,11 +174,20 @@ public with sharing class QRNGCircuitBuilder {
             qasm += 'sx $' + qB + ';\n';
             qasm += 'rz(pi/2) $' + qB + ';\n';
 
-            // Basis rotation on qubit B for CHSH measurement
-            // Rotate by π/4 for optimal CHSH violation
-            qasm += 'rz(pi/4) $' + qB + ';\n';
-            qasm += 'sx $' + qB + ';\n';
-            qasm += 'rz(pi/2) $' + qB + ';\n';
+            // --- Apply CHSH measurement basis rotations ---
+            // Ry(θ) decomposed into ISA native gates (rz, sx):
+            //   Ry(θ) = Rz(π/2) · SX · Rz(θ + π) · SX · Rz(-π/2)
+            // This rotates the measurement basis by angle θ in the Y-Z plane,
+            // so measuring in Z after Ry(-θ) is equivalent to measuring at angle θ.
+
+            // Alice's basis rotation (0 or π/4)
+            String aliceAngle = aliceAngles[basisConfig];
+            if (aliceAngle != '0') {
+                qasm += ryDecomposition(qA, aliceAngle);
+            }
+
+            // Bob's basis rotation (π/8 or 3π/8)
+            qasm += ryDecomposition(qB, bobAngles[basisConfig]);
         }
 
         // Measure all qubits
@@ -158,6 +208,63 @@ public with sharing class QRNGCircuitBuilder {
         }
 
         return qasm;
+    }
+
+    /**
+     * Decompose Ry(θ) into ISA-native gates for IBM Heron r2.
+     * Ry(θ) = Rz(π/2) · SX · Rz(θ + π) · SX · Rz(-π/2)
+     *
+     * Derivation: Ry(θ) = U3(θ, 0, 0), and the general U3 decomposition is:
+     *   U3(θ, φ, λ) = Rz(φ - π/2) · SX · Rz(π - θ) · SX · Rz(λ - π/2)
+     * Setting φ = 0, λ = 0:
+     *   Ry(θ) = Rz(-π/2) · SX · Rz(π - θ) · SX · Rz(-π/2)
+     *
+     * Note: Rz(-π/2) = Rz(3*π/2) in [0, 2π) convention, but OpenQASM
+     * accepts negative angles so we use -pi/2 directly.
+     */
+    private static String ryDecomposition(Integer qubit, String theta) {
+        String q = '$' + qubit;
+        String qasm = '';
+        qasm += 'rz(-pi/2) ' + q + ';\n';
+        qasm += 'sx ' + q + ';\n';
+        qasm += 'rz(pi-(' + theta + ')) ' + q + ';\n';
+        qasm += 'sx ' + q + ';\n';
+        qasm += 'rz(-pi/2) ' + q + ';\n';
+        return qasm;
+    }
+
+    /**
+     * Build a Bell-test circuit with full calibration data including gate errors.
+     * @param gateErrors Map of "q0-q1" → CZ/ECR gate error rate
+     */
+    public static String buildBellTestCircuit(
+        Integer numPairs,
+        List<List<Integer>> couplingMap,
+        Map<Integer, Double> readoutErrors,
+        Map<String, Double> gateErrors
+    ) {
+        if (numPairs == null || numPairs < 1 || numPairs > 63) {
+            throw new QRNGException(
+                'Number of Bell pairs must be between 1 and 63'
+            );
+        }
+        if (couplingMap == null || couplingMap.isEmpty()) {
+            throw new QRNGException(
+                'Coupling map is required for Bell-test circuits. ' +
+                'Could not retrieve backend topology.'
+            );
+        }
+
+        // Select pairs with gate-fidelity-weighted scoring + crosstalk filtering
+        List<CoupledPair> bestPairs = selectBestPairs(
+            numPairs,
+            couplingMap,
+            readoutErrors,
+            gateErrors
+        );
+
+        // Delegate to the circuit builder with selected pairs
+        return buildBellCircuitFromPairs(numPairs, bestPairs);
     }
 
     /**
@@ -215,7 +322,9 @@ public with sharing class QRNGCircuitBuilder {
 
     /**
      * Select the best N connected pairs from the coupling map.
-     * Scores each pair by combined readout error; picks non-overlapping pairs.
+     * Scores each pair by combined readout error + CZ gate error (weighted).
+     * Applies crosstalk-aware filtering: selected pairs must not share
+     * neighbors in the coupling map to avoid simultaneous CZ interference.
      */
     @TestVisible
     private static List<CoupledPair> selectBestPairs(
@@ -223,10 +332,37 @@ public with sharing class QRNGCircuitBuilder {
         List<List<Integer>> couplingMap,
         Map<Integer, Double> readoutErrors
     ) {
-        // Score all edges
+        return selectBestPairs(numPairs, couplingMap, readoutErrors, null);
+    }
+
+    /**
+     * Select the best N connected pairs with full calibration data.
+     * @param gateErrors Map of "q0-q1" → CZ/ECR gate error rate (optional)
+     */
+    @TestVisible
+    private static List<CoupledPair> selectBestPairs(
+        Integer numPairs,
+        List<List<Integer>> couplingMap,
+        Map<Integer, Double> readoutErrors,
+        Map<String, Double> gateErrors
+    ) {
+        // Build adjacency map for crosstalk filtering
+        Map<Integer, Set<Integer>> adjacency = new Map<Integer, Set<Integer>>();
+        for (List<Integer> edge : couplingMap) {
+            if (!adjacency.containsKey(edge[0])) {
+                adjacency.put(edge[0], new Set<Integer>());
+            }
+            if (!adjacency.containsKey(edge[1])) {
+                adjacency.put(edge[1], new Set<Integer>());
+            }
+            adjacency.get(edge[0]).add(edge[1]);
+            adjacency.get(edge[1]).add(edge[0]);
+        }
+
+        // Score all edges: readout error (30% weight) + gate error (70% weight)
         List<CoupledPair> allPairs = new List<CoupledPair>();
         for (List<Integer> edge : couplingMap) {
-            Double score = 0.0;
+            Double readoutScore = 0.0;
             if (readoutErrors != null) {
                 Double e0 = readoutErrors.containsKey(edge[0])
                     ? readoutErrors.get(edge[0])
@@ -234,26 +370,82 @@ public with sharing class QRNGCircuitBuilder {
                 Double e1 = readoutErrors.containsKey(edge[1])
                     ? readoutErrors.get(edge[1])
                     : 0.5;
-                score = e0 + e1;
+                readoutScore = e0 + e1;
             }
+
+            Double gateScore = 0.0;
+            if (gateErrors != null) {
+                String key = edge[0] + '-' + edge[1];
+                String reverseKey = edge[1] + '-' + edge[0];
+                if (gateErrors.containsKey(key)) {
+                    gateScore = gateErrors.get(key);
+                } else if (gateErrors.containsKey(reverseKey)) {
+                    gateScore = gateErrors.get(reverseKey);
+                } else {
+                    gateScore = 0.5; // Unknown gate error — penalize heavily
+                }
+            }
+
+            // Weighted score: gate fidelity dominates for entanglement quality
+            Double score = (gateErrors != null)
+                ? 0.3 * readoutScore + 0.7 * gateScore
+                : readoutScore;
+
             allPairs.add(new CoupledPair(edge[0], edge[1], score));
         }
         allPairs.sort();
 
-        // Greedy selection: pick best pairs with no qubit reuse
+        // Greedy selection with crosstalk-aware spacing:
+        // No qubit reuse AND no selected pair's qubits may be neighbors
+        // of another selected pair's qubits (prevents simultaneous CZ crosstalk)
         List<CoupledPair> selected = new List<CoupledPair>();
         Set<Integer> usedQubits = new Set<Integer>();
+        Set<Integer> blockedQubits = new Set<Integer>(); // Neighbors of used qubits
 
         for (CoupledPair pair : allPairs) {
             if (selected.size() >= numPairs) {
                 break;
             }
             if (
-                !usedQubits.contains(pair.q0) && !usedQubits.contains(pair.q1)
+                !usedQubits.contains(pair.q0) &&
+                !usedQubits.contains(pair.q1) &&
+                !blockedQubits.contains(pair.q0) &&
+                !blockedQubits.contains(pair.q1)
             ) {
                 selected.add(pair);
                 usedQubits.add(pair.q0);
                 usedQubits.add(pair.q1);
+
+                // Block neighbors to prevent crosstalk
+                if (adjacency.containsKey(pair.q0)) {
+                    blockedQubits.addAll(adjacency.get(pair.q0));
+                }
+                if (adjacency.containsKey(pair.q1)) {
+                    blockedQubits.addAll(adjacency.get(pair.q1));
+                }
+                // Don't block the pair's own qubits (already in usedQubits)
+                blockedQubits.remove(pair.q0);
+                blockedQubits.remove(pair.q1);
+            }
+        }
+
+        // If crosstalk filtering was too aggressive, fall back without it
+        if (selected.size() < numPairs) {
+            selected = new List<CoupledPair>();
+            usedQubits = new Set<Integer>();
+
+            for (CoupledPair pair : allPairs) {
+                if (selected.size() >= numPairs) {
+                    break;
+                }
+                if (
+                    !usedQubits.contains(pair.q0) &&
+                    !usedQubits.contains(pair.q1)
+                ) {
+                    selected.add(pair);
+                    usedQubits.add(pair.q0);
+                    usedQubits.add(pair.q1);
+                }
             }
         }
 

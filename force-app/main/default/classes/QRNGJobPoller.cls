@@ -45,7 +45,8 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
                     Status__c,
                     Poll_Count__c,
                     Submitted_At__c,
-                    Num_Qubits__c
+                    Num_Qubits__c,
+                    Use_Bell_Test__c
                 FROM Quantum_Job__c
                 WHERE Id = :jobRecordId
                 LIMIT 1
@@ -126,7 +127,29 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
         String rawBits = QRNGResultParser.concatenateBitstrings(bitstrings);
         String debiasedBits = QRNGResultParser.vonNeumannDebias(rawBits);
 
-        // Update job record
+        // Critical realtime gate: frequency test (blocks certification)
+        Map<String, Object> validationResults = QRNGValidator.validate(
+            debiasedBits
+        );
+        Boolean isValid = (Boolean) validationResults.get('passed');
+
+        // For Bell test jobs, compute CHSH S-value (also blocks certification)
+        Boolean isBellTest = job.Use_Bell_Test__c == true;
+        if (isBellTest) {
+            Integer numPairs = numQubits / 2;
+            Double sValue = QRNGValidator.calculateCHSH(bitstrings, numPairs);
+            validationResults.put('chshSValue', sValue);
+            validationResults.put('bellTestPassed', sValue > 2.0);
+
+            // Bell test S > 2 is a hard gate for certification
+            if (sValue <= 2.0) {
+                isValid = false;
+                validationResults.put('passed', false);
+            }
+        }
+
+        // Single update with results + validation in one DML
+        String validationJson = JSON.serialize(validationResults);
         job.Status__c = 'Completed';
         job.Raw_Results__c = rawBits.left(131072);
         job.Debiased_Results__c = debiasedBits.left(131072);
@@ -135,23 +158,22 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
             job.Execution_Time_ms__c =
                 DateTime.now().getTime() - job.Submitted_At__c.getTime();
         }
-        // Extract queue time from IBM timestamps
         job.Queue_Time_ms__c = extractQueueTimeMs(statusResponse);
+        job.Validation_Results__c = validationJson;
         update job;
-
-        // Validate randomness
-        Map<String, Object> validationResults = QRNGValidator.validate(
-            debiasedBits
-        );
-        Boolean isValid = (Boolean) validationResults.get('passed');
 
         // Create certificate
         String certStatus = isValid ? 'Certified' : 'Failed';
         Id certId = FairnessCertificateService.createCertificate(
             job.Id,
-            JSON.serialize(validationResults),
+            validationJson,
             certStatus
         );
+
+        // Enqueue async extended validation tests (non-blocking)
+        if (!Test.isRunningTest()) {
+            System.enqueueJob(new QRNGValidationRunner(job.Id));
+        }
 
         // Publish completion event
         QRNG_Complete__e completeEvent = new QRNG_Complete__e(

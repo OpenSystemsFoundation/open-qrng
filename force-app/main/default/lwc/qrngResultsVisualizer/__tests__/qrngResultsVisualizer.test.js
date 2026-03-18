@@ -100,11 +100,25 @@ describe('c-qrng-results-visualizer', () => {
         });
         await flushPromises();
 
-        // totalSamples and uniqueCount are not @api, so verify via rendered DOM
         const cols = element.shadowRoot.querySelectorAll('.slds-col');
-        const texts = Array.from(cols).map((c) => c.textContent);
-        expect(texts).toContain('Total samples: 4');
-        expect(texts).toContain('Unique bitstrings: 4');
+        const texts = Array.from(cols).map((c) => c.textContent.trim());
+        expect(texts.some((t) => t.includes('Total samples: 4'))).toBe(true);
+        expect(texts.some((t) => t.includes('Unique bitstrings: 4'))).toBe(
+            true
+        );
+    });
+
+    it('shows possible bitstring count based on numQubits', async () => {
+        const element = createComponent({
+            rawResults: '0110100111000101',
+            numQubits: 4
+        });
+        await flushPromises();
+
+        const cols = element.shadowRoot.querySelectorAll('.slds-col');
+        const texts = Array.from(cols).map((c) => c.textContent.trim());
+        // 2^4 = 16 possible
+        expect(texts.some((t) => t.includes('/ 16'))).toBe(true);
     });
 
     it('handles different numQubits values', async () => {
@@ -116,8 +130,54 @@ describe('c-qrng-results-visualizer', () => {
         await flushPromises();
 
         const cols = element.shadowRoot.querySelectorAll('.slds-col');
-        const texts = Array.from(cols).map((c) => c.textContent);
-        expect(texts).toContain('Total samples: 2');
-        expect(texts).toContain('Unique bitstrings: 2');
+        const texts = Array.from(cols).map((c) => c.textContent.trim());
+        expect(texts.some((t) => t.includes('Total samples: 2'))).toBe(true);
+        expect(texts.some((t) => t.includes('Unique bitstrings: 2'))).toBe(
+            true
+        );
+    });
+
+    it('renders Raw Results section title', async () => {
+        const element = createComponent({
+            rawResults: '0110100111000101',
+            numQubits: 4
+        });
+        await flushPromises();
+
+        const titles = element.shadowRoot.querySelectorAll(
+            '.chart-section-title'
+        );
+        expect(titles.length).toBeGreaterThanOrEqual(1);
+        expect(titles[0].textContent).toContain('Raw Results');
+    });
+
+    it('renders debiased chart when debiasedResults is provided', async () => {
+        const element = createComponent({
+            rawResults: '0110100111000101',
+            debiasedResults: '01101001',
+            numQubits: 4
+        });
+        await flushPromises();
+
+        const titles = element.shadowRoot.querySelectorAll(
+            '.chart-section-title'
+        );
+        const titleTexts = Array.from(titles).map((t) => t.textContent.trim());
+        expect(titleTexts.some((t) => t.includes('Debiased'))).toBe(true);
+    });
+
+    it('does not render debiased chart when debiasedResults is empty', async () => {
+        const element = createComponent({
+            rawResults: '0110100111000101',
+            debiasedResults: '',
+            numQubits: 4
+        });
+        await flushPromises();
+
+        const titles = element.shadowRoot.querySelectorAll(
+            '.chart-section-title'
+        );
+        expect(titles.length).toBe(1);
+        expect(titles[0].textContent).toContain('Raw Results');
     });
 });

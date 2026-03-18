@@ -1,5 +1,8 @@
 import { LightningElement, api } from 'lwc';
 
+const MAX_S = 2.828; // 2√2 — Tsirelson bound
+const CLASSICAL_LIMIT = 2.0;
+
 export default class QrngBellTestIndicator extends LightningElement {
     @api sValue = 0;
 
@@ -9,14 +12,18 @@ export default class QrngBellTestIndicator extends LightningElement {
     }
 
     get isQuantum() {
-        return parseFloat(this.sValue) > 2.0;
+        return parseFloat(this.sValue) > CLASSICAL_LIMIT;
     }
 
-    get gaugeStyle() {
-        // Map S-value (0 to 2*sqrt(2) ~ 2.828) to degrees (0 to 180)
-        const maxS = 2.828;
-        const val = Math.min(parseFloat(this.sValue) || 0, maxS);
-        const degrees = (val / maxS) * 180;
-        return `--gauge-rotation: ${degrees}deg; --gauge-value: ${val}`;
+    get valuePosition() {
+        const val = Math.min(Math.max(parseFloat(this.sValue) || 0, 0), MAX_S);
+        const pct = (val / MAX_S) * 100;
+        return `left: ${pct}%`;
+    }
+
+    get valueIndicatorClass() {
+        return this.isQuantum
+            ? 'value-indicator quantum'
+            : 'value-indicator classical';
     }
 }

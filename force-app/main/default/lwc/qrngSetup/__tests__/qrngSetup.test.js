@@ -657,6 +657,77 @@ describe('c-qrng-setup', () => {
         expect(cellTexts).toContain('0.100%');
         // null avgT1 -> "—"
         expect(cellTexts).toContain('\u2014');
+
+        // Fidelity column: first backend has data, second has none
+        const fidelityBadges =
+            element.shadowRoot.querySelectorAll('.fidelity-badge');
+        expect(fidelityBadges.length).toBe(2);
+        // First backend should have a numeric score
+        expect(fidelityBadges[0].textContent.trim()).toMatch(/^\d+$/);
+        // Second backend (all nulls) should show em-dash
+        expect(fidelityBadges[1].textContent.trim()).toBe('\u2014');
+    });
+
+    it('computes fidelity tiers correctly based on calibration data', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        const excellentBackend = {
+            id: 'b3',
+            name: 'excellent_backend',
+            status: 'online',
+            qubits: 127,
+            queueLength: 0,
+            processorFamily: 'Heron',
+            processorRevision: 'r2',
+            avgT1: 300,
+            avgT2: 200,
+            gateError: 0.001,
+            readoutError: 0.005
+        };
+        const poorBackend = {
+            id: 'b4',
+            name: 'poor_backend',
+            status: 'online',
+            qubits: 127,
+            queueLength: 50,
+            processorFamily: 'Eagle',
+            processorRevision: 'r3',
+            avgT1: 25,
+            avgT2: 15,
+            gateError: 0.08,
+            readoutError: 0.15
+        };
+
+        refreshAllBackendHealth.mockResolvedValue([
+            excellentBackend,
+            poorBackend
+        ]);
+
+        const refreshBtn = Array.from(
+            element.shadowRoot.querySelectorAll('lightning-button')
+        ).find((b) => b.label === 'Refresh Backend Health');
+        refreshBtn.click();
+        await flushPromises();
+
+        const badges = element.shadowRoot.querySelectorAll('.fidelity-badge');
+        expect(badges.length).toBe(2);
+
+        // Excellent backend should have high score and green tier
+        expect(
+            badges[0].classList.contains('fidelity-excellent') ||
+                badges[0].classList.contains('fidelity-good')
+        ).toBe(true);
+
+        // Poor backend should have low score and red/orange tier
+        expect(
+            badges[1].classList.contains('fidelity-poor') ||
+                badges[1].classList.contains('fidelity-fair')
+        ).toBe(true);
+
+        // Fidelity badges should have title attribute with breakdown
+        expect(badges[0].title).toContain('Gate:');
+        expect(badges[0].title).toContain('Readout:');
     });
 
     // ── handleToggleSweeper (lines 330-362) ─────────────────────

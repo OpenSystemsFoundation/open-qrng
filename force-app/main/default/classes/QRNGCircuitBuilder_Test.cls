@@ -135,13 +135,32 @@ private class QRNGCircuitBuilder_Test {
             qasm.contains('cz $1, $2'),
             'Should use coupled pair (1,2) with best readout'
         );
+    }
+
+    @IsTest
+    static void testBuildBellTestCircuitHas4BasisConfigs() {
+        // Need at least 4 pairs to test all 4 CHSH basis configurations
+        String qasm = QRNGCircuitBuilder.buildBellTestCircuit(4);
+        // Ry(θ) decomposition: rz(-pi/2) · sx · rz(pi-(θ)) · sx · rz(-pi/2)
+        // Config 0: Alice 0, Bob π/4 → rz(pi-(pi/4))
         System.assert(
-            qasm.contains('cz $3, $4'),
-            'Should use coupled pair (3,4) as second best'
+            qasm.contains('rz(pi-(pi/4))'),
+            'Should contain Ry(π/4) decomposition for Bob config 0'
         );
+        // Config 1: Alice 0, Bob -π/4 → rz(pi-(-pi/4))
         System.assert(
-            qasm.contains('rz(pi/4)'),
-            'Should contain basis rotation'
+            qasm.contains('rz(pi-(-pi/4))'),
+            'Should contain Ry(-π/4) decomposition for Bob config 1'
+        );
+        // Config 2: Alice π/2 → rz(pi-(pi/2))
+        System.assert(
+            qasm.contains('rz(pi-(pi/2))'),
+            'Should contain Ry(π/2) decomposition for Alice configs 2-3'
+        );
+        // All Ry decompositions should have rz(-pi/2) bookends
+        System.assert(
+            qasm.contains('rz(-pi/2)'),
+            'Should contain rz(-pi/2) from Ry decomposition'
         );
     }
 
@@ -196,6 +215,48 @@ private class QRNGCircuitBuilder_Test {
                 'Should indicate insufficient pairs'
             );
         }
+    }
+
+    @IsTest
+    static void testBuildBellTestCircuitWithGateErrors() {
+        // 4 pairs, well-separated, with gate errors
+        List<List<Integer>> couplingMap = new List<List<Integer>>{
+            new List<Integer>{ 0, 1 },
+            new List<Integer>{ 10, 11 },
+            new List<Integer>{ 20, 21 },
+            new List<Integer>{ 30, 31 }
+        };
+        Map<Integer, Double> readoutErrors = new Map<Integer, Double>{
+            0 => 0.02,
+            1 => 0.02,
+            10 => 0.01,
+            11 => 0.01,
+            20 => 0.03,
+            21 => 0.03,
+            30 => 0.02,
+            31 => 0.02
+        };
+        Map<String, Double> gateErrors = new Map<String, Double>{
+            '0-1' => 0.05,
+            '10-11' => 0.01, // best gate
+            '20-21' => 0.08,
+            '30-31' => 0.03
+        };
+        String qasm = QRNGCircuitBuilder.buildBellTestCircuit(
+            2,
+            couplingMap,
+            readoutErrors,
+            gateErrors
+        );
+        // Should prefer (10,11) with gate error 0.01 first
+        System.assert(
+            qasm.contains('cz $10, $11'),
+            'Should use pair (10,11) with best gate fidelity'
+        );
+        System.assert(
+            qasm.contains('cz $30, $31'),
+            'Should use pair (30,31) as second best'
+        );
     }
 
     @IsTest
@@ -323,6 +384,96 @@ private class QRNGCircuitBuilder_Test {
         // (2,3) should be first since 0.04 < 0.51
         System.assertEquals(2, pairs[0].q0, 'Best pair should be (2,3)');
         System.assertEquals(3, pairs[0].q1);
+    }
+
+    @IsTest
+    static void testSelectBestPairsWithGateErrors() {
+        // Test that gate errors are weighted more heavily (70%) than readout (30%)
+        List<List<Integer>> couplingMap = new List<List<Integer>>{
+            new List<Integer>{ 0, 1 }, // readout 0.02, gate 0.10
+            new List<Integer>{ 10, 11 } // readout 0.05, gate 0.01
+        };
+        Map<Integer, Double> readoutErrors = new Map<Integer, Double>{
+            0 => 0.01,
+            1 => 0.01, // readout sum = 0.02 (better)
+            10 => 0.025,
+            11 => 0.025 // readout sum = 0.05 (worse)
+        };
+        Map<String, Double> gateErrors = new Map<String, Double>{
+            '0-1' => 0.10, // bad gate
+            '10-11' => 0.01 // good gate
+        };
+        List<QRNGCircuitBuilder.CoupledPair> pairs = QRNGCircuitBuilder.selectBestPairs(
+            1,
+            couplingMap,
+            readoutErrors,
+            gateErrors
+        );
+        // (10,11): 0.3*0.05 + 0.7*0.01 = 0.022
+        // (0,1):   0.3*0.02 + 0.7*0.10 = 0.076
+        // So (10,11) should win despite worse readout
+        System.assertEquals(
+            10,
+            pairs[0].q0,
+            'Gate fidelity should dominate scoring'
+        );
+        System.assertEquals(11, pairs[0].q1);
+    }
+
+    @IsTest
+    static void testSelectBestPairsCrosstalkFiltering() {
+        // Heavy-hex-like topology: 0-1-2-3 chain
+        // Pairs (0,1) and (1,2) overlap — already filtered.
+        // Pairs (0,1) and (2,3) are neighbors (1 and 2 are adjacent) — crosstalk!
+        List<List<Integer>> couplingMap = new List<List<Integer>>{
+            new List<Integer>{ 0, 1 },
+            new List<Integer>{ 1, 2 },
+            new List<Integer>{ 2, 3 },
+            new List<Integer>{ 10, 11 } // isolated pair
+        };
+        Map<Integer, Double> readoutErrors = new Map<Integer, Double>{
+            0 => 0.01,
+            1 => 0.01,
+            2 => 0.01,
+            3 => 0.01,
+            10 => 0.02,
+            11 => 0.02
+        };
+        List<QRNGCircuitBuilder.CoupledPair> pairs = QRNGCircuitBuilder.selectBestPairs(
+            2,
+            couplingMap,
+            readoutErrors
+        );
+        System.assertEquals(2, pairs.size());
+        // (0,1) is best. (2,3) would be next but qubit 2 is neighbor of qubit 1.
+        // So second pair should be (10,11) which is isolated.
+        System.assertEquals(0, pairs[0].q0, 'First pair should be (0,1)');
+        System.assertEquals(
+            10,
+            pairs[1].q0,
+            'Second pair should be isolated (10,11) due to crosstalk'
+        );
+    }
+
+    @IsTest
+    static void testSelectBestPairsCrosstalkFallback() {
+        // Only adjacent pairs available — crosstalk filter too aggressive, should fall back
+        List<List<Integer>> couplingMap = new List<List<Integer>>{
+            new List<Integer>{ 0, 1 },
+            new List<Integer>{ 1, 2 },
+            new List<Integer>{ 2, 3 }
+        };
+        // Need 2 pairs but all are neighbors — fallback to non-crosstalk mode
+        List<QRNGCircuitBuilder.CoupledPair> pairs = QRNGCircuitBuilder.selectBestPairs(
+            2,
+            couplingMap,
+            null
+        );
+        System.assertEquals(
+            2,
+            pairs.size(),
+            'Should fall back and find 2 pairs'
+        );
     }
 
     @IsTest

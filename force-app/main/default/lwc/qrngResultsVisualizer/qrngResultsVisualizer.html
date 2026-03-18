@@ -4,6 +4,13 @@
         icon-name="standard:report"
     >
         <div class="slds-p-around_small">
+            <!-- Raw Results Chart -->
+            <h3 class="chart-section-title">Raw Results</h3>
+            <p class="chart-section-desc">
+                Distribution of bitstrings as measured from
+                the quantum processor, before any
+                post-processing.
+            </p>
             <div
                 class="canvas-container"
                 lwc:ref="chartContainer"
@@ -12,7 +19,7 @@
             </div>
             <template if:true={hasData}>
                 <div
-                    class="slds-grid slds-m-top_small slds-text-body_small"
+                    class="slds-grid slds-m-top_small slds-m-bottom_medium slds-text-body_small"
                 >
                     <div class="slds-col">
                         Total samples: {totalSamples}
@@ -20,10 +27,50 @@
                     <div
                         class="slds-col slds-text-align_right"
                     >
-                        Unique bitstrings: {uniqueCount}
+                        Unique bitstrings: {uniqueCount} /
+                        {possibleCount}
                     </div>
                 </div>
             </template>
+
+            <!-- Debiased Results Chart -->
+            <template if:true={hasDebiasedData}>
+                <h3
+                    class="chart-section-title slds-m-top_medium"
+                >
+                    Debiased Results (von Neumann)
+                </h3>
+                <p class="chart-section-desc">
+                    Post-processed using von Neumann
+                    debiasing to remove hardware bias. This
+                    is the data used for fairness
+                    certification.
+                </p>
+                <div
+                    class="canvas-container"
+                    lwc:ref="debiasedContainer"
+                >
+                    <canvas
+                        lwc:ref="debiasedCanvas"
+                    ></canvas>
+                </div>
+                <div
+                    class="slds-grid slds-m-top_small slds-text-body_small"
+                >
+                    <div class="slds-col">
+                        Total samples:
+                        {debiasedTotalSamples}
+                    </div>
+                    <div
+                        class="slds-col slds-text-align_right"
+                    >
+                        Unique bitstrings:
+                        {debiasedUniqueCount} /
+                        {possibleCount}
+                    </div>
+                </div>
+            </template>
+
             <template if:false={hasData}>
                 <div
                     class="slds-text-align_center slds-p-around_medium slds-text-color_weak"

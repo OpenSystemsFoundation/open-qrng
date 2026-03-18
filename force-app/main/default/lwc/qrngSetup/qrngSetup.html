@@ -280,6 +280,7 @@
                                 <thead>
                                     <tr>
                                         <th>Backend</th>
+                                        <th>Fidelity</th>
                                         <th>Status</th>
                                         <th>Qubits</th>
                                         <th>Queue</th>
@@ -299,6 +300,13 @@
                                             <td>
                                                 <strong
                                                     >{b.name}</strong
+                                                >
+                                            </td>
+                                            <td>
+                                                <span
+                                                    class={b.fidelityClass}
+                                                    title={b.fidelityTitle}
+                                                    >{b.fidelityScore}</span
                                                 >
                                             </td>
                                             <td>
