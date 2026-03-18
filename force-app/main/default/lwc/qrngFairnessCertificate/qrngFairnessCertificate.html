@@ -103,11 +103,52 @@
                     <div
                         class="slds-col slds-size_1-of-2 slds-m-bottom_small"
                     >
-                        <template if:true={hasCHSH}>
-                            <c-qrng-bell-test-indicator
-                                s-value={certificate.chshSValue}
-                            ></c-qrng-bell-test-indicator>
-                        </template>
+                        <h3
+                            class="slds-text-heading_small slds-m-bottom_x-small"
+                        >
+                            Backend Quantum Verification
+                        </h3>
+                        <dl class="slds-dl_horizontal">
+                            <dt
+                                class="slds-dl_horizontal__label cert-label"
+                            >
+                                Status:
+                            </dt>
+                            <dd
+                                class="slds-dl_horizontal__detail"
+                            >
+                                <lightning-badge
+                                    label={backendVerifiedLabel}
+                                    class={backendVerifiedClass}
+                                ></lightning-badge>
+                            </dd>
+                            <template if:true={hasCHSH}>
+                                <dt
+                                    class="slds-dl_horizontal__label cert-label"
+                                >
+                                    CHSH S-Value:
+                                </dt>
+                                <dd
+                                    class="slds-dl_horizontal__detail"
+                                >
+                                    {certificate.chshSValue}
+                                </dd>
+                            </template>
+                            <template
+                                if:true={backendVerifiedAtFormatted}
+                            >
+                                <dt
+                                    class="slds-dl_horizontal__label cert-label"
+                                >
+                                    Verified At:
+                                </dt>
+                                <dd
+                                    class="slds-dl_horizontal__detail"
+                                >
+                                    {backendVerifiedAtFormatted}
+                                </dd>
+                            </template>
+                        </dl>
                     </div>
                 </div>
 
@@ -208,7 +249,8 @@
                             <h4
                                 class="slds-text-title_caps slds-m-top_small slds-m-bottom_xx-small"
                             >
-                                Extended NIST Tests
+                                Extended Tests (SP 800-90B
+                                &amp; NIST)
                             </h4>
                             <div
                                 class="slds-grid slds-wrap slds-gutters_x-small"

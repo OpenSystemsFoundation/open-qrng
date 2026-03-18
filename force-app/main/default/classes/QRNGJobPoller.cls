@@ -46,7 +46,10 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
                     Poll_Count__c,
                     Submitted_At__c,
                     Num_Qubits__c,
-                    Use_Bell_Test__c
+                    Use_Bell_Test__c,
+                    Program_Id__c,
+                    Backend__c,
+                    Validation_Results__c
                 FROM Quantum_Job__c
                 WHERE Id = :jobRecordId
                 LIMIT 1
@@ -54,7 +57,11 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
             job.Poll_Count__c = pollCount + 1;
 
             if (status == 'Completed' || status == 'COMPLETED') {
-                handleCompletion(job, statusResponse);
+                if (job.Program_Id__c == 'estimator') {
+                    handleEstimatorCompletion(job, statusResponse);
+                } else {
+                    handleCompletion(job, statusResponse);
+                }
             } else if (
                 status == 'Failed' ||
                 status == 'FAILED' ||
@@ -180,6 +187,190 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
             Job_Id__c = job.Id,
             Certificate_Id__c = certId,
             Num_Random_Bits__c = debiasedBits.length(),
+            Status__c = certStatus
+        );
+        EventBus.publish(completeEvent);
+    }
+
+    /**
+     * Handle completion of an Estimator V2 job (CHSH verification).
+     * Parses the expectation value as the S-value and updates the
+     * QRNG_Backend__c record with the verification result.
+     */
+    private void handleEstimatorCompletion(
+        Quantum_Job__c job,
+        Map<String, Object> statusResponse
+    ) {
+        String resultsJson = IBMQuantumService.getJobResults(ibmJobId);
+
+        // Parse individual expectation values (one per PUB/observable)
+        List<Double> evs = QRNGResultParser.parseAllEstimatorResults(resultsJson);
+        List<Double> stds = QRNGResultParser.parseAllEstimatorStds(resultsJson);
+
+        // Retrieve observable labels stored at submission time
+        List<String> labels = new List<String>();
+        Map<String, Double> coeffs = new Map<String, Double>();
+        if (String.isNotBlank(job.Validation_Results__c)) {
+            Map<String, Object> meta = (Map<String, Object>) JSON.deserializeUntyped(
+                job.Validation_Results__c
+            );
+            if (meta.containsKey('observableLabels')) {
+                for (Object lbl : (List<Object>) meta.get('observableLabels')) {
+                    labels.add((String) lbl);
+                }
+            }
+            if (meta.containsKey('observableCoeffs')) {
+                Map<String, Object> rawCoeffs = (Map<String, Object>) meta.get(
+                    'observableCoeffs'
+                );
+                for (String k : rawCoeffs.keySet()) {
+                    coeffs.put(k, Double.valueOf(String.valueOf(rawCoeffs.get(k))));
+                }
+            }
+        }
+
+        // Fallback for old jobs without observable metadata:
+        // treat the single result as the composite S-value
+        if (labels.isEmpty() && !evs.isEmpty()) {
+            Double fallbackS = Math.abs(evs[0]);
+            Map<String, Object> vr = new Map<String, Object>();
+            vr.put('chshSValue', fallbackS);
+            vr.put('bellTestPassed', fallbackS > 2.0);
+            vr.put('passed', fallbackS > 2.0);
+            vr.put('programId', 'estimator');
+            job.Raw_Results__c = 'S-Value (legacy single-PUB): ' + fallbackS;
+            job.Validation_Results__c = JSON.serialize(vr);
+            job.Status__c = 'Completed';
+            job.Completed_At__c = DateTime.now();
+            if (job.Submitted_At__c != null) {
+                job.Execution_Time_ms__c =
+                    DateTime.now().getTime() - job.Submitted_At__c.getTime();
+            }
+            job.Queue_Time_ms__c = extractQueueTimeMs(statusResponse);
+            update job;
+
+            List<QRNG_Backend__c> bkFallback = [
+                SELECT Id FROM QRNG_Backend__c
+                WHERE Name = :job.Backend__c LIMIT 1
+            ];
+            if (!bkFallback.isEmpty()) {
+                bkFallback[0].CHSH_S_Value__c = fallbackS;
+                bkFallback[0].CHSH_Verified_At__c = DateTime.now();
+                bkFallback[0].CHSH_Job_Id__c = job.Id;
+                update bkFallback;
+            }
+
+            String certSt = fallbackS > 2.0 ? 'Certified' : 'Failed';
+            EventBus.publish(new QRNG_Complete__e(
+                Job_Id__c = job.Id, Status__c = certSt
+            ));
+            return;
+        }
+
+        // Compute S = Σ(coefficient × expectation value) per term
+        Double sValue = 0;
+        Map<String, Object> termBreakdown = new Map<String, Object>();
+        for (Integer i = 0; i < evs.size() && i < labels.size(); i++) {
+            String label = labels[i];
+            Double ev = evs[i];
+            Double coeff = coeffs.containsKey(label) ? coeffs.get(label) : 1.0;
+            sValue += coeff * ev;
+
+            // Identify the 2-qubit Pauli by extracting non-I characters
+            String shortLabel = label.replaceAll('I', '');
+            Map<String, Object> term = new Map<String, Object>();
+            term.put('expectationValue', ev);
+            term.put('coefficient', coeff);
+            term.put('contribution', coeff * ev);
+            if (i < stds.size() && stds[i] != null) {
+                term.put('std', stds[i]);
+            }
+            termBreakdown.put(shortLabel, term);
+        }
+        Double sValueAbs = Math.abs(sValue);
+
+        // Build validation results with full breakdown
+        Map<String, Object> validationResults = new Map<String, Object>();
+        validationResults.put('chshSValue', sValueAbs);
+        validationResults.put('bellTestPassed', sValueAbs > 2.0);
+        validationResults.put('passed', sValueAbs > 2.0);
+        validationResults.put('programId', 'estimator');
+        validationResults.put('termBreakdown', termBreakdown);
+
+        // Build human-readable summary
+        String summary = '=== CHSH Bell Test Results ===\n\n';
+        summary += 'S-Value:           ' + sValueAbs + '\n';
+        summary += 'Classical Bound:   2.0\n';
+        summary += 'Quantum Maximum:   2.828 (2\u221A2)\n';
+        summary += 'Result:            ' +
+            (sValueAbs > 2.0
+                ? 'PASS - Quantum behavior confirmed'
+                : 'FAIL - Below classical bound') + '\n';
+
+        summary += '\n=== Per-Observable Breakdown ===\n';
+        summary += 'S = ';
+        List<String> formulaParts = new List<String>();
+        for (Integer i = 0; i < evs.size() && i < labels.size(); i++) {
+            String shortLabel = labels[i].replaceAll('I', '');
+            Double coeff = coeffs.containsKey(labels[i])
+                ? coeffs.get(labels[i])
+                : 1.0;
+            String sign = coeff >= 0 ? '+' : '-';
+            if (i == 0 && coeff >= 0) {
+                sign = '';
+            }
+            formulaParts.add(sign + '<' + shortLabel + '>');
+        }
+        summary += String.join(formulaParts, ' ') + '\n\n';
+
+        for (Integer i = 0; i < evs.size() && i < labels.size(); i++) {
+            String shortLabel = labels[i].replaceAll('I', '');
+            Double coeff = coeffs.containsKey(labels[i])
+                ? coeffs.get(labels[i])
+                : 1.0;
+            String coeffStr = coeff == 1.0 ? '+1' : (coeff == -1.0 ? '-1' : String.valueOf(coeff));
+            summary += '<' + shortLabel + '> = ' + evs[i];
+            if (i < stds.size() && stds[i] != null) {
+                summary += '  (std: ' + stds[i] + ')';
+            }
+            summary += '  [coeff: ' + coeffStr + ', contribution: ' +
+                (coeff * evs[i]) + ']\n';
+        }
+        summary += '\nS = ' + sValueAbs + '\n';
+
+        job.Raw_Results__c = summary;
+
+        String validationJson = JSON.serialize(validationResults);
+
+        // Update job record
+        job.Status__c = 'Completed';
+        job.Completed_At__c = DateTime.now();
+        if (job.Submitted_At__c != null) {
+            job.Execution_Time_ms__c =
+                DateTime.now().getTime() - job.Submitted_At__c.getTime();
+        }
+        job.Queue_Time_ms__c = extractQueueTimeMs(statusResponse);
+        job.Validation_Results__c = validationJson;
+        update job;
+
+        // Update QRNG_Backend__c with verification result
+        List<QRNG_Backend__c> backends = [
+            SELECT Id
+            FROM QRNG_Backend__c
+            WHERE Name = :job.Backend__c
+            LIMIT 1
+        ];
+        if (!backends.isEmpty()) {
+            backends[0].CHSH_S_Value__c = sValueAbs;
+            backends[0].CHSH_Verified_At__c = DateTime.now();
+            backends[0].CHSH_Job_Id__c = job.Id;
+            update backends;
+        }
+
+        // Publish completion event (no certificate for verification jobs)
+        String certStatus = sValueAbs > 2.0 ? 'Certified' : 'Failed';
+        QRNG_Complete__e completeEvent = new QRNG_Complete__e(
+            Job_Id__c = job.Id,
             Status__c = certStatus
         );
         EventBus.publish(completeEvent);

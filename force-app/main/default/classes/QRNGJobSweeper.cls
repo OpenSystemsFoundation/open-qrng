@@ -109,6 +109,7 @@ public class QRNGJobSweeper implements Schedulable {
                     Num_Qubits__c,
                     Purpose__c,
                     Use_Bell_Test__c,
+                    Program_Id__c,
                     Submitted_At__c
                 FROM Quantum_Job__c
                 WHERE
@@ -173,6 +174,69 @@ public class QRNGJobSweeper implements Schedulable {
         }
 
         private void processCompletedJob(Quantum_Job__c job) {
+            if (job.Program_Id__c == 'estimator') {
+                processEstimatorJob(job);
+            } else {
+                processSamplerJob(job);
+            }
+        }
+
+        private void processEstimatorJob(Quantum_Job__c job) {
+            String resultsJson = IBMQuantumService.getJobResults(
+                job.External_Job_ID__c
+            );
+
+            Double sValue = QRNGResultParser.parseEstimatorResult(resultsJson);
+            Double sValueAbs = Math.abs(sValue);
+
+            Map<String, Object> validationResults = new Map<String, Object>();
+            validationResults.put('chshSValue', sValueAbs);
+            validationResults.put('bellTestPassed', sValueAbs > 2.0);
+            validationResults.put('passed', sValueAbs > 2.0);
+            validationResults.put('programId', 'estimator');
+
+            try {
+                Double std = QRNGResultParser.parseEstimatorStd(resultsJson);
+                if (std != null) {
+                    validationResults.put('chshStd', std);
+                }
+            } catch (Exception e) {
+                // Non-critical
+            }
+
+            String validationJson = JSON.serialize(validationResults);
+
+            job.Completed_At__c = DateTime.now();
+            if (job.Submitted_At__c != null) {
+                job.Execution_Time_ms__c =
+                    DateTime.now().getTime() - job.Submitted_At__c.getTime();
+            }
+            job.Validation_Results__c = validationJson;
+            update job;
+
+            // Update QRNG_Backend__c with verification result
+            List<QRNG_Backend__c> backends = [
+                SELECT Id
+                FROM QRNG_Backend__c
+                WHERE Name = :job.Backend__c
+                LIMIT 1
+            ];
+            if (!backends.isEmpty()) {
+                backends[0].CHSH_S_Value__c = sValueAbs;
+                backends[0].CHSH_Verified_At__c = DateTime.now();
+                backends[0].CHSH_Job_Id__c = job.Id;
+                update backends;
+            }
+
+            String certStatus = sValueAbs > 2.0 ? 'Certified' : 'Failed';
+            QRNG_Complete__e completeEvent = new QRNG_Complete__e(
+                Job_Id__c = job.Id,
+                Status__c = certStatus
+            );
+            EventBus.publish(completeEvent);
+        }
+
+        private void processSamplerJob(Quantum_Job__c job) {
             String resultsJson = IBMQuantumService.getJobResults(
                 job.External_Job_ID__c
             );

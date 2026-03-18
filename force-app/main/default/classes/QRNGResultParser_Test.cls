@@ -104,6 +104,54 @@ private class QRNGResultParser_Test {
     }
 
     @IsTest
+    static void testParseEstimatorResult() {
+        String json = '{"results":[{"data":{"evs":[2.45],"stds":[0.05]}}]}';
+        Double result = QRNGResultParser.parseEstimatorResult(json);
+        System.assertEquals(2.45, result, 'Should parse expectation value');
+    }
+
+    @IsTest
+    static void testParseEstimatorResultNegative() {
+        String json = '{"results":[{"data":{"evs":[-2.61],"stds":[0.03]}}]}';
+        Double result = QRNGResultParser.parseEstimatorResult(json);
+        System.assertEquals(
+            -2.61,
+            result,
+            'Should parse negative expectation value'
+        );
+    }
+
+    @IsTest
+    static void testParseEstimatorStd() {
+        String json = '{"results":[{"data":{"evs":[2.45],"stds":[0.05]}}]}';
+        Double std = QRNGResultParser.parseEstimatorStd(json);
+        System.assertEquals(0.05, std, 'Should parse standard deviation');
+    }
+
+    @IsTest
+    static void testParseEstimatorResultScalar() {
+        // IBM sometimes returns evs/stds as scalar instead of array
+        String json = '{"results":[{"data":{"evs":2.45,"stds":0.05}}]}';
+        Double result = QRNGResultParser.parseEstimatorResult(json);
+        System.assertEquals(2.45, result, 'Should parse scalar evs');
+        Double std = QRNGResultParser.parseEstimatorStd(json);
+        System.assertEquals(0.05, std, 'Should parse scalar stds');
+    }
+
+    @IsTest
+    static void testParseEstimatorResultNoResults() {
+        try {
+            QRNGResultParser.parseEstimatorResult('{"results":[]}');
+            System.assert(false, 'Should throw');
+        } catch (QRNGException e) {
+            System.assert(
+                e.getMessage().contains('No results'),
+                'Should indicate no results'
+            );
+        }
+    }
+
+    @IsTest
     static void testConsumeBitsInsufficientBits() {
         try {
             QRNGResultParser.consumeBits('0110', 2, 4);

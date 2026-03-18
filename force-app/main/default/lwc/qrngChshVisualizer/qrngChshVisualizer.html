@@ -1,0 +1,137 @@
+<template>
+    <template if:true={hasData}>
+        <lightning-card
+            title="CHSH Bell Inequality Test"
+            icon-name="standard:calibration"
+        >
+            <div class="slds-p-around_medium">
+                <!-- Result badge -->
+                <div class="slds-text-align_center slds-m-bottom_medium">
+                    <span class={resultClass}>{resultLabel}</span>
+                </div>
+
+                <!-- S-value gauge -->
+                <div class="gauge-container slds-m-bottom_medium">
+                    <div class="gauge-labels">
+                        <span class="gauge-label-left">0</span>
+                        <span
+                            class="gauge-label-mark classical-label"
+                            style={classicalLineStyle}
+                            >Classical ≤ {classicalBound}</span
+                        >
+                        <span
+                            class="gauge-label-mark quantum-label"
+                            style={quantumLineStyle}
+                            >2√2 ≈ {quantumBound}</span
+                        >
+                        <span class="gauge-label-right">3.0</span>
+                    </div>
+                    <div class="gauge-track">
+                        <div
+                            class="gauge-bar"
+                            style={gaugeBarStyle}
+                        ></div>
+                        <div
+                            class="gauge-line classical-line"
+                            style={classicalLineStyle}
+                        ></div>
+                        <div
+                            class="gauge-line quantum-line"
+                            style={quantumLineStyle}
+                        ></div>
+                    </div>
+                    <div
+                        class="slds-text-align_center slds-m-top_small"
+                    >
+                        <span class="s-value-display"
+                            >S = {sValue}</span
+                        >
+                    </div>
+                </div>
+
+                <!-- Formula -->
+                <template if:true={hasBreakdown}>
+                    <div
+                        class="slds-m-bottom_medium slds-text-align_center"
+                    >
+                        <span
+                            class="slds-text-body_small slds-text-color_weak"
+                            >S = {formulaString}</span
+                        >
+                    </div>
+
+                    <!-- Correlator breakdown -->
+                    <h3
+                        class="slds-text-heading_small slds-m-bottom_x-small"
+                    >
+                        Correlator Breakdown
+                    </h3>
+                    <table
+                        class="slds-table slds-table_cell-buffer slds-table_bordered"
+                    >
+                        <thead>
+                            <tr>
+                                <th scope="col">Setting</th>
+                                <th scope="col">⟨ZZ⟩</th>
+                                <th scope="col">Coeff</th>
+                                <th scope="col">
+                                    Contribution
+                                </th>
+                                <th scope="col">Std</th>
+                                <th scope="col">Bar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template
+                                for:each={correlators}
+                                for:item="c"
+                            >
+                                <tr key={c.label}>
+                                    <td>
+                                        <strong>{c.label}</strong>
+                                    </td>
+                                    <td>{c.expectationValue}</td>
+                                    <td>{c.coefficient}</td>
+                                    <td>
+                                        <span class={c.contributionClass}
+                                            >{c.contribution}</span
+                                        >
+                                    </td>
+                                    <td>
+                                        <template if:true={c.std}>
+                                            ±{c.std}
+                                        </template>
+                                        <template if:false={c.std}>
+                                            —
+                                        </template>
+                                    </td>
+                                    <td class="bar-cell">
+                                        <div class="correlator-track">
+                                            <div
+                                                class="correlator-center"
+                                            ></div>
+                                            <div
+                                                class="correlator-bar"
+                                                style={c.barStyle}
+                                            ></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </template>
+
+                <!-- Bounds reference -->
+                <div
+                    class="slds-m-top_medium slds-text-body_small slds-text-color_weak"
+                >
+                    Classical bound: |S| ≤ 2 &nbsp;|&nbsp;
+                    Quantum bound: |S| ≤ 2√2 ≈ 2.828
+                    &nbsp;|&nbsp; Any S &gt; 2 proves quantum
+                    origin
+                </div>
+            </div>
+        </lightning-card>
+    </template>
+</template>

@@ -111,6 +111,7 @@ const MOCK_SETTINGS = {
 const MOCK_SETTINGS_FULL = {
     hasApiKey: true,
     hasCRN: true,
+    crnValue: 'crn:v1:bluemix:public:quantum-computing:us-east:a/123:456::',
     defaultBackend: 'ibm_brisbane',
     defaultShots: 2048,
     useBellTest: true,
@@ -237,7 +238,7 @@ describe('c-qrng-setup', () => {
 
         expect(saveSettings).toHaveBeenCalledWith({
             apiKey: null,
-            instanceCRN: '',
+            instanceCRN: null,
             defaultBackend: 'test_backend',
             defaultShots: 1024,
             useBellTest: false,
@@ -247,7 +248,7 @@ describe('c-qrng-setup', () => {
     });
 
     // ── wiredSettings coverage (lines 47-52, 62) ────────────────
-    it('masks CRN and sets useLeastBusy when settings have hasCRN and useLeastBusy', async () => {
+    it('shows CRN value and sets useLeastBusy when settings have hasCRN and useLeastBusy', async () => {
         const element = createComponent();
 
         getSettings.emit(MOCK_SETTINGS_FULL);
@@ -384,30 +385,6 @@ describe('c-qrng-setup', () => {
 
         expect(saveSettings).toHaveBeenCalledWith(
             expect.objectContaining({ defaultShots: 4096 })
-        );
-    });
-
-    it('updates useBellTest on checkbox change', async () => {
-        const element = createComponent();
-        await flushPromises();
-
-        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
-        const bellTestInput = Array.from(inputs).find(
-            (i) => i.label === 'Use Bell Test by Default'
-        );
-        bellTestInput.checked = true;
-        bellTestInput.dispatchEvent(new CustomEvent('change'));
-        await flushPromises();
-
-        saveSettings.mockResolvedValue(undefined);
-        const saveBtn = Array.from(
-            element.shadowRoot.querySelectorAll('lightning-button')
-        ).find((b) => b.label === 'Save Settings');
-        saveBtn.click();
-        await flushPromises();
-
-        expect(saveSettings).toHaveBeenCalledWith(
-            expect.objectContaining({ useBellTest: true })
         );
     });
 

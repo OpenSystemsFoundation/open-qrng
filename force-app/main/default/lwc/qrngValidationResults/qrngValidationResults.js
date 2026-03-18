@@ -27,6 +27,27 @@ const CRITICAL_TESTS = [
 
 const EXTENDED_TESTS = [
     {
+        key: 'minEntropyTest',
+        label: 'Min-Entropy (SP 800-90B)',
+        description:
+            'Most Common Value entropy estimate ≥ 0.9 bits per bit (NIST SP 800-90B §6.3.1)',
+        category: 'extended'
+    },
+    {
+        key: 'repetitionCountTest',
+        label: 'Repetition Count (SP 800-90B)',
+        description:
+            'No excessive consecutive identical bits (NIST SP 800-90B §4.4.1)',
+        category: 'extended'
+    },
+    {
+        key: 'adaptiveProportionTest',
+        label: 'Adaptive Proportion (SP 800-90B)',
+        description:
+            'Bit proportion within window stays within bounds (NIST SP 800-90B §4.4.2)',
+        category: 'extended'
+    },
+    {
         key: 'approximateEntropyTest',
         label: 'Approximate Entropy',
         description: 'Detects repetition patterns in overlapping m-bit blocks',

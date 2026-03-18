@@ -299,6 +299,92 @@ private class QRNGJobPoller_Test {
         System.assertEquals(60, QRNGJobPoller.calculateDelay(10)); // still capped
     }
 
+    private class MockEstimatorCompletedJob implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            HttpResponse res = new HttpResponse();
+            res.setStatusCode(200);
+            if (req.getEndpoint().contains('/results')) {
+                res.setBody(
+                    '{"results":[{"data":{"evs":[2.61],"stds":[0.04]}}]}'
+                );
+            } else {
+                res.setBody(
+                    '{"id":"job_est","status":"Completed","state":{"status":"Completed"},' +
+                    '"timestamps":{"created":"2026-03-17T10:00:00Z","running":"2026-03-17T10:00:05Z","completed":"2026-03-17T10:00:08Z"}}'
+                );
+            }
+            return res;
+        }
+    }
+
+    @IsTest
+    static void testPollCompletedEstimatorJob() {
+        Test.setMock(HttpCalloutMock.class, new MockEstimatorCompletedJob());
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+
+        // Create backend record
+        QRNG_Provider__c provider = new QRNG_Provider__c(
+            Name = 'IBM',
+            Provider_Key__c = 'ibm',
+            Is_Active__c = true
+        );
+        insert provider;
+
+        QRNG_Backend__c backend = new QRNG_Backend__c(
+            Name = 'test_backend',
+            Backend_Key__c = 'ibm:test_backend',
+            Provider__c = provider.Id,
+            Status__c = 'online',
+            Num_Qubits__c = 127
+        );
+        insert backend;
+
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'job_est',
+            Backend__c = 'test_backend',
+            Status__c = 'Submitted',
+            Shots__c = 4096,
+            Num_Qubits__c = 2,
+            Program_Id__c = 'estimator',
+            Submitted_At__c = DateTime.now()
+        );
+        insert job;
+
+        Test.startTest();
+        QRNGJobPoller poller = new QRNGJobPoller(job.Id, 'job_est', 0);
+        System.enqueueJob(poller);
+        Test.stopTest();
+
+        job = [
+            SELECT Id, Status__c, Validation_Results__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assertEquals('Completed', job.Status__c);
+        System.assert(
+            job.Validation_Results__c.contains('chshSValue'),
+            'Should contain CHSH S-value in validation results'
+        );
+
+        // Backend should be updated with verification data
+        backend = [
+            SELECT CHSH_S_Value__c, CHSH_Verified_At__c
+            FROM QRNG_Backend__c
+            WHERE Id = :backend.Id
+        ];
+        System.assertEquals(
+            2.61,
+            backend.CHSH_S_Value__c,
+            'Backend CHSH S-value should be updated'
+        );
+        System.assertNotEquals(
+            null,
+            backend.CHSH_Verified_At__c,
+            'Backend should have verification timestamp'
+        );
+    }
+
     @IsTest
     static void testPollCompletedBellTestJob() {
         Test.setMock(HttpCalloutMock.class, new MockCompletedJob());

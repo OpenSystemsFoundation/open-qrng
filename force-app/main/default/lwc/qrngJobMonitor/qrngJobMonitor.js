@@ -1,5 +1,6 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { subscribe, unsubscribe, onError } from 'lightning/empApi';
+import { NavigationMixin } from 'lightning/navigation';
 import getJobStatusDTO from '@salesforce/apex/QRNGSetupController.getJobStatusDTO';
 import getCertificateByJobId from '@salesforce/apex/QRNGSetupController.getCertificateByJobId';
 import { refreshApex } from '@salesforce/apex';
@@ -8,7 +9,9 @@ const COMPLETE_CHANNEL = '/event/OpenSF__QRNG_Complete__e';
 const FAILED_CHANNEL = '/event/OpenSF__QRNG_Failed__e';
 const POLL_INTERVAL_MS = 5000;
 
-export default class QrngJobMonitor extends LightningElement {
+export default class QrngJobMonitor extends NavigationMixin(
+    LightningElement
+) {
     @api jobId;
     @track job;
     @track certificateId;
@@ -157,6 +160,17 @@ export default class QrngJobMonitor extends LightningElement {
 
     get isCompleted() {
         return this.job && this.job.status === 'Completed';
+    }
+
+    handleNavigateToJob() {
+        this[NavigationMixin.Navigate]({
+            type: 'standard__recordPage',
+            attributes: {
+                recordId: this.jobId,
+                objectApiName: 'OpenSF__Quantum_Job__c',
+                actionName: 'view'
+            }
+        });
     }
 
     get statusClass() {

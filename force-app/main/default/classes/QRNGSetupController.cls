@@ -38,6 +38,12 @@ public with sharing class QRNGSetupController {
         public DateTime lastSynced;
         @AuraEnabled
         public String provider;
+        @AuraEnabled
+        public Decimal chshSValue;
+        @AuraEnabled
+        public DateTime chshVerifiedAt;
+        @AuraEnabled
+        public Boolean quantumVerified;
     }
 
     public class JobStatusDTO {
@@ -61,6 +67,8 @@ public with sharing class QRNGSetupController {
         public Boolean useBellTest;
         @AuraEnabled
         public String assignmentType;
+        @AuraEnabled
+        public String jobType;
         @AuraEnabled
         public DateTime submittedAt;
         @AuraEnabled
@@ -137,6 +145,10 @@ public with sharing class QRNGSetupController {
         public Boolean tampered;
         @AuraEnabled
         public DateTime lastIntegrityCheck;
+        @AuraEnabled
+        public Boolean backendVerified;
+        @AuraEnabled
+        public DateTime backendVerifiedAt;
     }
 
     // ── Methods ─────────────────────────────────────────────────────
@@ -277,7 +289,8 @@ public with sharing class QRNGSetupController {
                 Execution_Time_ms__c,
                 Queue_Time_ms__c,
                 Raw_Results__c,
-                Debiased_Results__c
+                Debiased_Results__c,
+                Job_Type__c
             FROM Quantum_Job__c
             WHERE Id = :jobId
             LIMIT 1
@@ -306,6 +319,7 @@ public with sharing class QRNGSetupController {
         dto.queueTimeMs = job.Queue_Time_ms__c;
         dto.rawResults = job.Raw_Results__c;
         dto.debiasedResults = job.Debiased_Results__c;
+        dto.jobType = job.Job_Type__c;
         return dto;
     }
 
@@ -372,6 +386,26 @@ public with sharing class QRNGSetupController {
                               ? deviceMap.get('num_qubits')
                               : 0)
                 );
+                // Queue length
+                if (deviceMap.containsKey('pending_jobs')) {
+                    backend.put('queueLength', deviceMap.get('pending_jobs'));
+                } else if (deviceMap.containsKey('queue_length')) {
+                    backend.put('queueLength', deviceMap.get('queue_length'));
+                }
+                // Simulator flag
+                if (deviceMap.containsKey('is_simulator')) {
+                    backend.put('isSimulator', deviceMap.get('is_simulator'));
+                }
+                // Processor info
+                if (deviceMap.containsKey('processor_type')) {
+                    Map<String, Object> proc = (Map<String, Object>) deviceMap.get(
+                        'processor_type'
+                    );
+                    if (proc != null) {
+                        backend.put('processorFamily', proc.get('family'));
+                        backend.put('processorRevision', proc.get('revision'));
+                    }
+                }
                 backends.add(backend);
             }
 
@@ -400,6 +434,16 @@ public with sharing class QRNGSetupController {
                     Num_Qubits__c = b.get('qubits') != null
                         ? Integer.valueOf(String.valueOf(b.get('qubits')))
                         : 0,
+                    Queue_Length__c = b.get('queueLength') != null
+                        ? Integer.valueOf(String.valueOf(b.get('queueLength')))
+                        : null,
+                    Is_Simulator__c = b.get('isSimulator') == true,
+                    Processor_Family__c = b.get('processorFamily') != null
+                        ? String.valueOf(b.get('processorFamily'))
+                        : null,
+                    Processor_Revision__c = b.get('processorRevision') != null
+                        ? String.valueOf(b.get('processorRevision'))
+                        : null,
                     Last_Synced__c = DateTime.now()
                 );
                 backendRecords.add(rec);
@@ -568,7 +612,10 @@ public with sharing class QRNGSetupController {
                 Median_Readout_Error__c,
                 Last_Calibration__c,
                 Last_Synced__c,
-                Provider__r.Name
+                Provider__r.Name,
+                CHSH_S_Value__c,
+                CHSH_Verified_At__c,
+                Quantum_Verified__c
             FROM QRNG_Backend__c
             WHERE Provider__r.Is_Active__c = TRUE
             ORDER BY Queue_Length__c ASC NULLS LAST
@@ -601,6 +648,9 @@ public with sharing class QRNGSetupController {
         dto.lastCalibration = b.Last_Calibration__c;
         dto.lastSynced = b.Last_Synced__c;
         dto.provider = b.Provider__r.Name;
+        dto.chshSValue = b.CHSH_S_Value__c;
+        dto.chshVerifiedAt = b.CHSH_Verified_At__c;
+        dto.quantumVerified = b.Quantum_Verified__c;
         return dto;
     }
 
@@ -771,6 +821,7 @@ public with sharing class QRNGSetupController {
         if (s != null) {
             settings.put('hasApiKey', String.isNotBlank(s.IBM_API_Key__c));
             settings.put('hasCRN', String.isNotBlank(s.Instance_CRN__c));
+            settings.put('crnValue', s.Instance_CRN__c);
             settings.put('defaultBackend', s.Default_Backend__c);
             settings.put('defaultShots', s.Default_Shots__c);
             settings.put('useBellTest', s.Use_Bell_Test__c);
@@ -920,6 +971,99 @@ public with sharing class QRNGSetupController {
     @AuraEnabled
     public static void stopIntegrityCheck() {
         IntegrityVerificationJob.unschedule();
+    }
+
+    /**
+     * Submit a CHSH verification job for a backend using Estimator V2.
+     * Builds 4 Bell state circuits with optimal measurement basis rotations
+     * (Ry(-2θ) trick) and submits each with a ZZ observable. The Estimator
+     * returns E(a,b) for each setting directly. Uses resilience_level=0
+     * (no mitigation) so the raw result is an honest proof of quantumness.
+     *
+     * Governor limits: 3-4 callouts (readout errors, gate errors, coupling map, submit)
+     */
+    @AuraEnabled
+    public static Id verifyBackendQuantum(String backendName) {
+        try {
+            // Fetch calibration data for best pair selection
+            List<List<Integer>> couplingMap = IBMQuantumService.getCouplingMap(
+                backendName
+            );
+            Map<Integer, Double> readoutErrors;
+            try {
+                readoutErrors = IBMQuantumService.getReadoutErrors(backendName);
+            } catch (Exception ex) {
+                readoutErrors = null;
+            }
+            Map<String, Double> gateErrors;
+            try {
+                gateErrors = IBMQuantumService.getGateErrors(backendName);
+            } catch (Exception ex) {
+                gateErrors = null;
+            }
+
+            // Select the single best qubit pair
+            QRNGCircuitBuilder.CoupledPair bestPair = QRNGCircuitBuilder.selectBestPair(
+                couplingMap,
+                readoutErrors,
+                gateErrors
+            );
+
+            // Build 4 circuits with optimal CHSH measurement angles
+            List<String> circuits = QRNGCircuitBuilder.buildCHSHVerificationCircuits(
+                bestPair.q0,
+                bestPair.q1
+            );
+
+            // Observable: ZZ on the active qubit pair
+            Integer numCircuitQubits = Math.max(bestPair.q0, bestPair.q1) + 1;
+            String zzObservable = buildPauliString(
+                numCircuitQubits,
+                bestPair.q0,
+                bestPair.q1,
+                'Z',
+                'Z'
+            );
+
+            return IBMQuantumService.submitCHSHEstimatorJob(
+                circuits,
+                zzObservable,
+                backendName,
+                4096,
+                'CHSH backend verification'
+            );
+        } catch (Exception e) {
+            throw new AuraHandledException(
+                'Backend verification failed: ' + e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Build an N-qubit Pauli string with operators on two specific qubits.
+     * Pauli strings use reverse qubit order (rightmost = qubit 0).
+     * All other positions are filled with 'I' (identity).
+     */
+    @TestVisible
+    private static String buildPauliString(
+        Integer numQubits,
+        Integer qubitA,
+        Integer qubitB,
+        String opA,
+        String opB
+    ) {
+        List<String> chars = new List<String>();
+        for (Integer i = 0; i < numQubits; i++) {
+            chars.add('I');
+        }
+        chars.set(qubitA, opA);
+        chars.set(qubitB, opB);
+        // Reverse so rightmost = qubit 0 (Pauli string convention)
+        List<String> reversed = new List<String>();
+        for (Integer i = numQubits - 1; i >= 0; i--) {
+            reversed.add(chars.get(i));
+        }
+        return String.join(reversed, '');
     }
 
     /**
@@ -1074,7 +1218,9 @@ public with sharing class QRNGSetupController {
                 Quantum_Job__c,
                 CreatedDate,
                 Tampered__c,
-                Last_Integrity_Check__c
+                Last_Integrity_Check__c,
+                Backend_Verified__c,
+                Backend_Verified_At__c
             FROM Fairness_Certificate__c
             WHERE Id = :certificateId
             LIMIT 1
@@ -1097,6 +1243,8 @@ public with sharing class QRNGSetupController {
         dto.createdDate = cert.CreatedDate;
         dto.tampered = cert.Tampered__c;
         dto.lastIntegrityCheck = cert.Last_Integrity_Check__c;
+        dto.backendVerified = cert.Backend_Verified__c;
+        dto.backendVerifiedAt = cert.Backend_Verified_At__c;
         return dto;
     }
 
@@ -1285,7 +1433,9 @@ public with sharing class QRNGSetupController {
                     Purpose__c,
                     Use_Bell_Test__c,
                     Submitted_At__c,
-                    Raw_Results__c
+                    Raw_Results__c,
+                    Program_Id__c,
+                    Validation_Results__c
                 FROM Quantum_Job__c
                 WHERE Id = :jobId
                 LIMIT 1
@@ -1300,60 +1450,261 @@ public with sharing class QRNGSetupController {
                 job.External_Job_ID__c
             );
 
-            // Parse results — handle hex-encoded samples from IBM Sampler
-            Integer numQubits = job.Num_Qubits__c != null
-                ? (Integer) job.Num_Qubits__c
-                : 8;
-            List<String> bitstrings = QRNGResultParser.parseSamplerResults(
-                resultsJson,
-                numQubits
-            );
-            String rawBits = QRNGResultParser.concatenateBitstrings(bitstrings);
-            String debiasedBits = QRNGResultParser.vonNeumannDebias(rawBits);
-
-            // Get queue time from IBM status
-            Map<String, Object> ibmStatus = IBMQuantumService.getJobStatus(
-                job.External_Job_ID__c
-            );
-
-            // Update job
-            job.Status__c = 'Completed';
-            job.Completed_At__c = DateTime.now();
-            job.Raw_Results__c = rawBits.left(131072);
-            job.Debiased_Results__c = debiasedBits.left(131072);
-            if (job.Submitted_At__c != null) {
-                job.Execution_Time_ms__c =
-                    DateTime.now().getTime() - job.Submitted_At__c.getTime();
+            // Route based on program type
+            if (job.Program_Id__c == 'estimator') {
+                return retrieveEstimatorResults(job, resultsJson);
             }
-            job.Queue_Time_ms__c = extractQueueTimeMs(ibmStatus);
-            update job;
-
-            // Validate and create certificate
-            Map<String, Object> validation = QRNGValidator.validate(
-                debiasedBits
-            );
-            String validationJson = JSON.serialize(validation);
-            Boolean passed = validation.containsKey('passed')
-                ? (Boolean) validation.get('passed')
-                : true;
-            String certStatus = passed ? 'Certified' : 'Failed';
-            Id certId = FairnessCertificateService.createCertificate(
-                job.Id,
-                validationJson,
-                certStatus
-            );
-
-            Map<String, Object> result = new Map<String, Object>();
-            result.put('status', 'Completed');
-            result.put('certificateId', certId);
-            result.put('rawBitsLength', rawBits.length());
-            result.put('debiasedBitsLength', debiasedBits.length());
-            return result;
+            return retrieveSamplerResults(job, resultsJson);
         } catch (Exception e) {
             throw new AuraHandledException(
                 'Failed to retrieve results: ' + e.getMessage()
             );
         }
+    }
+
+    private static Map<String, Object> retrieveEstimatorResults(
+        Quantum_Job__c job,
+        String resultsJson
+    ) {
+        // Parse individual expectation values (one per PUB/observable)
+        List<Double> evs = QRNGResultParser.parseAllEstimatorResults(
+            resultsJson
+        );
+        List<Double> stds = QRNGResultParser.parseAllEstimatorStds(
+            resultsJson
+        );
+
+        // Retrieve observable labels stored at submission time
+        List<String> labels = new List<String>();
+        Map<String, Double> coeffs = new Map<String, Double>();
+        if (String.isNotBlank(job.Validation_Results__c)) {
+            Map<String, Object> meta = (Map<String, Object>) JSON.deserializeUntyped(
+                job.Validation_Results__c
+            );
+            if (meta.containsKey('observableLabels')) {
+                for (
+                    Object lbl : (List<Object>) meta.get('observableLabels')
+                ) {
+                    labels.add((String) lbl);
+                }
+            }
+            if (meta.containsKey('observableCoeffs')) {
+                Map<String, Object> rawCoeffs = (Map<String, Object>) meta.get(
+                    'observableCoeffs'
+                );
+                for (String k : rawCoeffs.keySet()) {
+                    coeffs.put(
+                        k,
+                        Double.valueOf(String.valueOf(rawCoeffs.get(k)))
+                    );
+                }
+            }
+        }
+
+        // Fallback for old jobs without observable metadata
+        if (labels.isEmpty() && !evs.isEmpty()) {
+            Double fallbackS = Math.abs(evs[0]);
+            Map<String, Object> vr = new Map<String, Object>();
+            vr.put('chshSValue', fallbackS);
+            vr.put('bellTestPassed', fallbackS > 2.0);
+            vr.put('passed', fallbackS > 2.0);
+            vr.put('programId', 'estimator');
+            job.Raw_Results__c = 'S-Value (legacy single-PUB): ' + fallbackS;
+            job.Validation_Results__c = JSON.serialize(vr);
+            job.Status__c = 'Completed';
+            job.Completed_At__c = DateTime.now();
+            if (job.Submitted_At__c != null) {
+                job.Execution_Time_ms__c =
+                    DateTime.now().getTime() -
+                    job.Submitted_At__c.getTime();
+            }
+            update job;
+
+            List<QRNG_Backend__c> bkFb = [
+                SELECT Id
+                FROM QRNG_Backend__c
+                WHERE Name = :job.Backend__c
+                LIMIT 1
+            ];
+            if (!bkFb.isEmpty()) {
+                bkFb[0].CHSH_S_Value__c = fallbackS;
+                bkFb[0].CHSH_Verified_At__c = DateTime.now();
+                bkFb[0].CHSH_Job_Id__c = job.Id;
+                update bkFb[0];
+            }
+
+            Map<String, Object> fbResult = new Map<String, Object>();
+            fbResult.put('status', 'Completed');
+            fbResult.put('chshSValue', fallbackS);
+            fbResult.put('bellTestPassed', fallbackS > 2.0);
+            return fbResult;
+        }
+
+        // Compute S = Σ(coefficient × expectation value) per term
+        Double sValue = 0;
+        Map<String, Object> termBreakdown = new Map<String, Object>();
+        for (Integer i = 0; i < evs.size() && i < labels.size(); i++) {
+            String label = labels[i];
+            Double ev = evs[i];
+            Double coeff = coeffs.containsKey(label)
+                ? coeffs.get(label)
+                : 1.0;
+            sValue += coeff * ev;
+
+            String shortLabel = label.replaceAll('I', '');
+            Map<String, Object> term = new Map<String, Object>();
+            term.put('expectationValue', ev);
+            term.put('coefficient', coeff);
+            term.put('contribution', coeff * ev);
+            if (i < stds.size() && stds[i] != null) {
+                term.put('std', stds[i]);
+            }
+            termBreakdown.put(shortLabel, term);
+        }
+        Double sValueAbs = Math.abs(sValue);
+
+        // Build validation results with full breakdown
+        Map<String, Object> validationResults = new Map<String, Object>();
+        validationResults.put('chshSValue', sValueAbs);
+        validationResults.put('bellTestPassed', sValueAbs > 2.0);
+        validationResults.put('passed', sValueAbs > 2.0);
+        validationResults.put('programId', 'estimator');
+        validationResults.put('termBreakdown', termBreakdown);
+
+        // Build human-readable summary
+        String summary = '=== CHSH Bell Test Results ===\n\n';
+        summary += 'S-Value:           ' + sValueAbs + '\n';
+        summary += 'Classical Bound:   2.0\n';
+        summary += 'Quantum Maximum:   2.828 (2\u221A2)\n';
+        summary +=
+            'Result:            ' +
+            (sValueAbs > 2.0
+                ? 'PASS - Quantum behavior confirmed'
+                : 'FAIL - Below classical bound') +
+            '\n';
+
+        summary += '\n=== Per-Observable Breakdown ===\n';
+        summary += 'S = ';
+        List<String> formulaParts = new List<String>();
+        for (Integer i = 0; i < evs.size() && i < labels.size(); i++) {
+            String shortLabel = labels[i].replaceAll('I', '');
+            Double coeff = coeffs.containsKey(labels[i])
+                ? coeffs.get(labels[i])
+                : 1.0;
+            String sign = coeff >= 0 ? '+' : '-';
+            if (i == 0 && coeff >= 0) {
+                sign = '';
+            }
+            formulaParts.add(sign + '<' + shortLabel + '>');
+        }
+        summary += String.join(formulaParts, ' ') + '\n\n';
+
+        for (Integer i = 0; i < evs.size() && i < labels.size(); i++) {
+            String shortLabel = labels[i].replaceAll('I', '');
+            Double coeff = coeffs.containsKey(labels[i])
+                ? coeffs.get(labels[i])
+                : 1.0;
+            String coeffStr = coeff == 1.0
+                ? '+1'
+                : (coeff == -1.0 ? '-1' : String.valueOf(coeff));
+            summary += '<' + shortLabel + '> = ' + evs[i];
+            if (i < stds.size() && stds[i] != null) {
+                summary += '  (std: ' + stds[i] + ')';
+            }
+            summary +=
+                '  [coeff: ' +
+                coeffStr +
+                ', contribution: ' +
+                (coeff * evs[i]) +
+                ']\n';
+        }
+        summary += '\nS = ' + sValueAbs + '\n';
+
+        job.Raw_Results__c = summary;
+
+        String validationJson = JSON.serialize(validationResults);
+
+        // Update job
+        job.Status__c = 'Completed';
+        job.Completed_At__c = DateTime.now();
+        job.Validation_Results__c = validationJson;
+        if (job.Submitted_At__c != null) {
+            job.Execution_Time_ms__c =
+                DateTime.now().getTime() - job.Submitted_At__c.getTime();
+        }
+        update job;
+
+        // Update backend verification
+        List<QRNG_Backend__c> backends = [
+            SELECT Id
+            FROM QRNG_Backend__c
+            WHERE Name = :job.Backend__c
+            LIMIT 1
+        ];
+        if (!backends.isEmpty()) {
+            backends[0].CHSH_S_Value__c = sValueAbs;
+            backends[0].CHSH_Verified_At__c = DateTime.now();
+            backends[0].CHSH_Job_Id__c = job.Id;
+            update backends[0];
+        }
+
+        Map<String, Object> result = new Map<String, Object>();
+        result.put('status', 'Completed');
+        result.put('chshSValue', sValueAbs);
+        result.put('bellTestPassed', sValueAbs > 2.0);
+        return result;
+    }
+
+    private static Map<String, Object> retrieveSamplerResults(
+        Quantum_Job__c job,
+        String resultsJson
+    ) {
+        Integer numQubits = job.Num_Qubits__c != null
+            ? (Integer) job.Num_Qubits__c
+            : 8;
+        List<String> bitstrings = QRNGResultParser.parseSamplerResults(
+            resultsJson,
+            numQubits
+        );
+        String rawBits = QRNGResultParser.concatenateBitstrings(bitstrings);
+        String debiasedBits = QRNGResultParser.vonNeumannDebias(rawBits);
+
+        // Get queue time from IBM status
+        Map<String, Object> ibmStatus = IBMQuantumService.getJobStatus(
+            job.External_Job_ID__c
+        );
+
+        // Update job
+        job.Status__c = 'Completed';
+        job.Completed_At__c = DateTime.now();
+        job.Raw_Results__c = rawBits.left(131072);
+        job.Debiased_Results__c = debiasedBits.left(131072);
+        if (job.Submitted_At__c != null) {
+            job.Execution_Time_ms__c =
+                DateTime.now().getTime() - job.Submitted_At__c.getTime();
+        }
+        job.Queue_Time_ms__c = extractQueueTimeMs(ibmStatus);
+        update job;
+
+        // Validate and create certificate
+        Map<String, Object> validation = QRNGValidator.validate(debiasedBits);
+        String validationJson = JSON.serialize(validation);
+        Boolean passed = validation.containsKey('passed')
+            ? (Boolean) validation.get('passed')
+            : true;
+        String certStatus = passed ? 'Certified' : 'Failed';
+        Id certId = FairnessCertificateService.createCertificate(
+            job.Id,
+            validationJson,
+            certStatus
+        );
+
+        Map<String, Object> result = new Map<String, Object>();
+        result.put('status', 'Completed');
+        result.put('certificateId', certId);
+        result.put('rawBitsLength', rawBits.length());
+        result.put('debiasedBitsLength', debiasedBits.length());
+        return result;
     }
 
     /**

@@ -626,6 +626,137 @@ private class QRNGSetupController_Test {
     }
 
     @IsTest
+    static void testVerifyBackendQuantum() {
+        Test.setMock(HttpCalloutMock.class, new MockIBMCallouts());
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+        QRNG_Settings__c s = new QRNG_Settings__c(
+            SetupOwnerId = UserInfo.getOrganizationId(),
+            IBM_API_Key__c = 'test-key',
+            Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
+        );
+        upsert s;
+
+        QRNG_Provider__c provider = new QRNG_Provider__c(
+            Name = 'IBM',
+            Provider_Key__c = 'ibm',
+            Is_Active__c = true
+        );
+        insert provider;
+
+        QRNG_Backend__c backend = new QRNG_Backend__c(
+            Name = 'test_backend',
+            Backend_Key__c = 'ibm:test_backend',
+            Provider__c = provider.Id,
+            Status__c = 'online',
+            Num_Qubits__c = 156
+        );
+        insert backend;
+
+        Test.startTest();
+        Id jobId = QRNGSetupController.verifyBackendQuantum('test_backend');
+        Test.stopTest();
+
+        System.assertNotEquals(null, jobId, 'Should return a job ID');
+
+        Quantum_Job__c job = [
+            SELECT Program_Id__c, Backend__c, Purpose__c
+            FROM Quantum_Job__c
+            WHERE Id = :jobId
+        ];
+        System.assertEquals(
+            'estimator',
+            job.Program_Id__c,
+            'Job should use estimator program'
+        );
+        System.assertEquals('test_backend', job.Backend__c);
+        System.assert(
+            job.Purpose__c.contains('CHSH'),
+            'Purpose should mention CHSH verification'
+        );
+    }
+
+    @IsTest
+    static void testGetAllBackendHealthWithCHSHData() {
+        QRNG_Provider__c provider = new QRNG_Provider__c(
+            Name = 'Test Provider',
+            Provider_Key__c = 'test',
+            Is_Active__c = true
+        );
+        insert provider;
+
+        QRNG_Backend__c backend = new QRNG_Backend__c(
+            Name = 'verified_backend',
+            Backend_Key__c = 'test:verified_backend',
+            Provider__c = provider.Id,
+            Status__c = 'online',
+            Num_Qubits__c = 127,
+            CHSH_S_Value__c = 2.61,
+            CHSH_Verified_At__c = DateTime.now()
+        );
+        insert backend;
+
+        List<QRNGSetupController.BackendHealthDTO> health = QRNGSetupController.getAllBackendHealth();
+        System.assertEquals(1, health.size());
+        System.assertEquals(2.61, health[0].chshSValue);
+        System.assertNotEquals(null, health[0].chshVerifiedAt);
+        System.assertEquals(true, health[0].quantumVerified);
+    }
+
+    @IsTest
+    static void testGetCertificateDTOWithBackendVerification() {
+        QRNG_Provider__c provider = new QRNG_Provider__c(
+            Name = 'IBM',
+            Provider_Key__c = 'ibm',
+            Is_Active__c = true
+        );
+        insert provider;
+
+        QRNG_Backend__c backend = new QRNG_Backend__c(
+            Name = 'verified_backend',
+            Backend_Key__c = 'ibm:verified_backend',
+            Provider__c = provider.Id,
+            Status__c = 'online',
+            Num_Qubits__c = 127,
+            CHSH_S_Value__c = 2.55,
+            CHSH_Verified_At__c = DateTime.now()
+        );
+        insert backend;
+
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'test_bv_cert',
+            Backend__c = 'verified_backend',
+            Status__c = 'Completed',
+            Shots__c = 1024,
+            Num_Qubits__c = 8,
+            Raw_Results__c = '01100110',
+            Debiased_Results__c = '0110',
+            Requested_By__c = UserInfo.getUserId()
+        );
+        insert job;
+
+        Id certId = FairnessCertificateService.createCertificate(
+            job.Id,
+            '{"passed":true}',
+            'Certified'
+        );
+
+        QRNGSetupController.CertificateDTO dto = QRNGSetupController.getCertificateDTO(
+            certId
+        );
+        System.assertEquals(
+            true,
+            dto.backendVerified,
+            'Certificate should show backend as verified'
+        );
+        System.assertNotEquals(
+            null,
+            dto.backendVerifiedAt,
+            'Certificate should have backend verification timestamp'
+        );
+    }
+
+    @IsTest
     static void testNormalizeIBMStatusValues() {
         // Test refreshJobStatus with different IBM statuses by checking the
         // normalizeIBMStatus logic via refreshJobStatus path
@@ -655,5 +786,25 @@ private class QRNGSetupController_Test {
 
         // The mock returns "Completed" — verify normalization worked
         System.assertEquals('Completed', result.get('status'));
+    }
+
+    @IsTest
+    static void testBuildPauliString() {
+        // 11-qubit system, operators on qubits 5 and 10
+        // Pauli string convention: rightmost = qubit 0
+        String zz = QRNGSetupController.buildPauliString(11, 5, 10, 'Z', 'Z');
+        System.assertEquals(11, zz.length(), 'Should be 11 characters');
+        // qubit 10 is at index 0 (leftmost), qubit 5 is at index 5
+        System.assertEquals('Z', zz.substring(0, 1), 'qubit 10 should be Z');
+        System.assertEquals('Z', zz.substring(5, 6), 'qubit 5 should be Z');
+        System.assertEquals(
+            'I',
+            zz.substring(1, 2),
+            'other qubits should be I'
+        );
+
+        // 2-qubit system, qubits 0 and 1
+        String xz = QRNGSetupController.buildPauliString(2, 0, 1, 'X', 'Z');
+        System.assertEquals('ZX', xz, 'qubit 1=Z (left), qubit 0=X (right)');
     }
 }

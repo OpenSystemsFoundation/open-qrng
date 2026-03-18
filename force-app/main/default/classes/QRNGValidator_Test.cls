@@ -104,6 +104,111 @@ private class QRNGValidator_Test {
     }
 
     @IsTest
+    static void testMostCommonValueEntropyBalanced() {
+        // 500 zeros and 500 ones = p_max = 0.5, min_entropy = 1.0
+        String bits = '';
+        for (Integer i = 0; i < 500; i++) {
+            bits += '0';
+        }
+        for (Integer i = 0; i < 500; i++) {
+            bits += '1';
+        }
+        Double entropy = QRNGValidator.mostCommonValueEntropy(bits);
+        System.assertEquals(
+            1.0,
+            entropy,
+            'Perfectly balanced should give entropy 1.0'
+        );
+    }
+
+    @IsTest
+    static void testMostCommonValueEntropyBiased() {
+        // All ones = p_max = 1.0, min_entropy = 0.0
+        String bits = '';
+        for (Integer i = 0; i < 1000; i++) {
+            bits += '1';
+        }
+        Double entropy = QRNGValidator.mostCommonValueEntropy(bits);
+        System.assertEquals(0.0, entropy, 'All-ones should give entropy 0.0');
+    }
+
+    @IsTest
+    static void testMostCommonValueEntropyRandom() {
+        String bits = generateTestBits(1000);
+        Double entropy = QRNGValidator.mostCommonValueEntropy(bits);
+        System.assert(entropy > 0, 'Random bits should have positive entropy');
+        System.assert(entropy <= 1.0, 'Binary entropy cannot exceed 1.0');
+    }
+
+    @IsTest
+    static void testRepetitionCountTestPasses() {
+        // Random bits should pass repetition count test
+        String bits = generateTestBits(1000);
+        Boolean result = QRNGValidator.repetitionCountTest(bits, (Double) 1.0);
+        System.assertNotEquals(null, result);
+    }
+
+    @IsTest
+    static void testRepetitionCountTestFailsLongRun() {
+        // 30 consecutive ones should fail (cutoff C = 21 for H=1.0)
+        String bits = '';
+        for (Integer i = 0; i < 30; i++) {
+            bits += '1';
+        }
+        bits += generateTestBits(970);
+        Boolean result = QRNGValidator.repetitionCountTest(bits, (Double) 1.0);
+        System.assertEquals(
+            false,
+            result,
+            'Long run of identical bits should fail'
+        );
+    }
+
+    @IsTest
+    static void testAdaptiveProportionTestRandom() {
+        String bits = generateTestBits(1000);
+        Boolean result = QRNGValidator.adaptiveProportionTest(bits);
+        System.assertNotEquals(null, result);
+    }
+
+    @IsTest
+    static void testAdaptiveProportionTestBiased() {
+        // All ones should fail adaptive proportion test
+        String bits = '';
+        for (Integer i = 0; i < 1000; i++) {
+            bits += '1';
+        }
+        Boolean result = QRNGValidator.adaptiveProportionTest(bits);
+        System.assertEquals(
+            false,
+            result,
+            'All-ones should fail adaptive proportion'
+        );
+    }
+
+    @IsTest
+    static void testValidateExtendedIncludesSP80090B() {
+        String bits = generateTestBits(2000);
+        Map<String, Object> results = QRNGValidator.validateExtended(bits);
+        System.assert(
+            results.containsKey('minEntropy'),
+            'Extended results should include minEntropy'
+        );
+        System.assert(
+            results.containsKey('minEntropyTest'),
+            'Extended results should include minEntropyTest'
+        );
+        System.assert(
+            results.containsKey('repetitionCountTest'),
+            'Extended results should include repetitionCountTest'
+        );
+        System.assert(
+            results.containsKey('adaptiveProportionTest'),
+            'Extended results should include adaptiveProportionTest'
+        );
+    }
+
+    @IsTest
     static void testCalculateCHSHMeasurementMapping() {
         // Verify |0⟩ → +1 and |1⟩ → -1 mapping
         // All-zeros bitstring: every pair correlator should be +1*+1 = +1

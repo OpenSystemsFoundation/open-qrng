@@ -43,6 +43,28 @@ export default class QrngFairnessCertificate extends LightningElement {
         );
     }
 
+    get hasBackendVerification() {
+        return this.certificate?.backendVerified != null;
+    }
+
+    get backendVerifiedLabel() {
+        if (!this.hasBackendVerification) return 'Not Verified';
+        return this.certificate.backendVerified ? 'Verified' : 'Not Verified';
+    }
+
+    get backendVerifiedClass() {
+        if (!this.hasBackendVerification)
+            return 'slds-badge slds-theme_default';
+        return this.certificate.backendVerified
+            ? 'slds-badge slds-theme_success'
+            : 'slds-badge slds-theme_default';
+    }
+
+    get backendVerifiedAtFormatted() {
+        if (!this.certificate?.backendVerifiedAt) return null;
+        return new Date(this.certificate.backendVerifiedAt).toLocaleString();
+    }
+
     get isTampered() {
         return this.certificate?.tampered === true;
     }
@@ -106,6 +128,18 @@ export default class QrngFairnessCertificate extends LightningElement {
     get extendedTests() {
         if (!this.hasExtendedResults) return [];
         const tests = [
+            {
+                key: 'minEntropyTest',
+                label: 'Min-Entropy'
+            },
+            {
+                key: 'repetitionCountTest',
+                label: 'Rep. Count'
+            },
+            {
+                key: 'adaptiveProportionTest',
+                label: 'Adapt. Proportion'
+            },
             {
                 key: 'approximateEntropyTest',
                 label: 'Approx. Entropy'

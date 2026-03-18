@@ -142,28 +142,26 @@ private class QRNGCircuitBuilder_Test {
         // Need at least 4 pairs to test all 4 CHSH basis configurations
         String qasm = QRNGCircuitBuilder.buildBellTestCircuit(4);
 
-        // All angles are now emitted as decimal literals to avoid
-        // IBM QASM parser issues with symbolic expressions.
-        // Ry(θ) decomposition middle gate: rz(π - θ)
-        //   Bob π/4  → rz(3π/4)  ≈ rz(2.356...)
-        //   Bob -π/4 → rz(5π/4)  ≈ rz(3.926...)
-        //   Alice π/2 → rz(π/2)  ≈ rz(1.570...)
-        System.assert(
-            qasm.contains('rz(2.356'),
-            'Should contain Ry(π/4) middle gate rz(3π/4) as decimal'
-        );
+        // Ry(theta) = SX . Rz(pi+theta) . SX . Rz(pi)
+        //   Bob pi/4  -> Rz(5pi/4) ~ rz(3.926...)
+        //   Bob -pi/4 -> Rz(3pi/4) ~ rz(2.356...)
+        //   Alice pi/2 -> Rz(3pi/2) ~ rz(4.712...)
         System.assert(
             qasm.contains('rz(3.926'),
-            'Should contain Ry(-π/4) middle gate rz(5π/4) as decimal'
+            'Should contain Ry(pi/4) middle gate rz(5pi/4) as decimal'
         );
         System.assert(
-            qasm.contains('rz(1.570'),
-            'Should contain Ry(π/2) middle gate rz(π/2) as decimal'
+            qasm.contains('rz(2.356'),
+            'Should contain Ry(-pi/4) middle gate rz(3pi/4) as decimal'
         );
-        // All Ry decompositions should have rz(-π/2) bookends as decimal
         System.assert(
-            qasm.contains('rz(-1.570'),
-            'Should contain rz(-π/2) from Ry decomposition as decimal'
+            qasm.contains('rz(4.712'),
+            'Should contain Ry(pi/2) middle gate rz(3pi/2) as decimal'
+        );
+        // All Ry decompositions end with rz(pi)
+        System.assert(
+            qasm.contains('rz(3.14159'),
+            'Should contain rz(pi) from Ry decomposition'
         );
     }
 
@@ -499,6 +497,68 @@ private class QRNGCircuitBuilder_Test {
         System.assertEquals(-1, a.compareTo(b), 'Lower score should be -1');
         System.assertEquals(1, b.compareTo(a), 'Higher score should be 1');
         System.assertEquals(0, a.compareTo(c), 'Equal score should be 0');
+    }
+
+    @IsTest
+    static void testBuildCHSHVerificationCircuits() {
+        List<String> circuits = QRNGCircuitBuilder.buildCHSHVerificationCircuits(5, 10);
+        System.assertEquals(4, circuits.size(), 'Should return 4 CHSH setting circuits');
+
+        // Each circuit should have the Bell state on physical qubits
+        for (String qasm : circuits) {
+            System.assert(
+                qasm.contains('OPENQASM 3.0'),
+                'Should contain OpenQASM header'
+            );
+            System.assert(
+                qasm.contains('rz(pi/2) $5'),
+                'Should contain H gate on physical qubit 5'
+            );
+            System.assert(
+                qasm.contains('cz $5, $10'),
+                'Should contain cz gate between physical qubits'
+            );
+        }
+
+        // First circuit E(a,b): a=0 (no Alice rotation), b=pi/8 (Bob Ry(-pi/4))
+        // Ry(-pi/4) = SX . Rz(pi + (-pi/4)) . SX . Rz(pi) = SX . Rz(3pi/4) . SX . Rz(pi)
+        System.assert(
+            circuits[0].contains('rz(2.356'),
+            'E(a,b) should have Bob Ry(-pi/4) with rz(3pi/4)'
+        );
+        // No Alice rotation in first circuit
+        System.assert(
+            !circuits[0].contains('$5;\nsx $5;\nrz('),
+            'E(a,b) should not have Alice rotation'
+        );
+
+        // Third circuit E(a',b): has Alice rotation Ry(-pi/2)
+        // Ry(-pi/2) = SX . Rz(pi + (-pi/2)) . SX . Rz(pi) = SX . Rz(pi/2) . SX . Rz(pi)
+        System.assert(
+            circuits[2].contains('rz(1.570'),
+            'E(a\',b) should have Alice Ry(-pi/2) with rz(pi/2)'
+        );
+    }
+
+    @IsTest
+    static void testSelectBestPairSingle() {
+        List<List<Integer>> couplingMap = new List<List<Integer>>{
+            new List<Integer>{ 0, 1 },
+            new List<Integer>{ 2, 3 }
+        };
+        Map<Integer, Double> readoutErrors = new Map<Integer, Double>{
+            0 => 0.05,
+            1 => 0.05,
+            2 => 0.01,
+            3 => 0.01
+        };
+        QRNGCircuitBuilder.CoupledPair pair = QRNGCircuitBuilder.selectBestPair(
+            couplingMap,
+            readoutErrors,
+            null
+        );
+        System.assertEquals(2, pair.q0, 'Should select pair with lowest error');
+        System.assertEquals(3, pair.q1);
     }
 
     @IsTest
