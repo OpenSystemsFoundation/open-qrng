@@ -371,11 +371,17 @@ private class QRNGJobSweeper_Test {
         Test.stopTest();
 
         Quantum_Job__c updated = [
-            SELECT Status__c, Validation_Results__c
+            SELECT Status__c, Validation_Results__c, Error_Message__c
             FROM Quantum_Job__c
             WHERE Id = :job.Id
         ];
         System.assertEquals('Completed', updated.Status__c);
+        System.assertNotEquals(
+            null,
+            updated.Validation_Results__c,
+            'Validation_Results__c should be set. Error: ' +
+            updated.Error_Message__c
+        );
         System.assert(
             updated.Validation_Results__c.contains('chshSValue'),
             'Should have CHSH results'

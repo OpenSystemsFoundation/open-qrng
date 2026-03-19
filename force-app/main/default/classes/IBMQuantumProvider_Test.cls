@@ -9,6 +9,13 @@ private class IBMQuantumProvider_Test {
                     '{"access_token":"test-token-abc","token_type":"Bearer","expires_in":3600}'
                 );
             } else if (
+                req.getEndpoint().contains('resource-controller.cloud.ibm.com')
+            ) {
+                res.setStatusCode(200);
+                res.setBody(
+                    '{"resources":[{"name":"test-instance","crn":"crn:v1:bluemix:public:quantum-computing:us-east:a/123:456::","state":"active"}]}'
+                );
+            } else if (
                 req.getEndpoint().contains('/v1/jobs') &&
                 req.getMethod() == 'POST'
             ) {

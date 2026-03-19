@@ -374,7 +374,11 @@ private class QRNGJobProcessor_Test {
         insert job;
 
         Test.startTest();
-        QRNGJobProcessor.updateBackendVerification('nonexistent', (Double) 2.5, job.Id);
+        QRNGJobProcessor.updateBackendVerification(
+            'nonexistent',
+            (Double) 2.5,
+            job.Id
+        );
         Test.stopTest();
 
         // No exception means success
