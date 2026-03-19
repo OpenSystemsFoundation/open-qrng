@@ -27,22 +27,23 @@ A Screen Flow that recruiters launch from a Job Requisition to select interview 
 ### Step 3: Get Eligible Panelists
 
 **Get Records** element:
+
 - Object: **User**
 - Filters:
-  - `IsActive` = true
-  - `Department` in selected departments (if filtered)
-  - `Id` != hiring manager ID
-  - Optionally exclude anyone who has interviewed too many candidates this month
+    - `IsActive` = true
+    - `Department` in selected departments (if filtered)
+    - `Id` != hiring manager ID
+    - Optionally exclude anyone who has interviewed too many candidates this month
 - Store → `varEligiblePanelists`
 
 ### Step 4: Call Quantum Random Assignment
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varEligiblePanelistIds}` |
-| Assignment Type | `Subset` |
-| Sample Size | `{!varPanelSize}` |
-| Purpose | `Interview Panel — Req: {!varReqName}` |
+| Input           | Value                                  |
+| --------------- | -------------------------------------- |
+| Record IDs      | `{!varEligiblePanelistIds}`            |
+| Assignment Type | `Subset`                               |
+| Sample Size     | `{!varPanelSize}`                      |
+| Purpose         | `Interview Panel — Req: {!varReqName}` |
 
 ### Step 5: Confirmation Screen
 
@@ -53,6 +54,7 @@ A Screen Flow that recruiters launch from a Job Requisition to select interview 
 ### Step 6: Apply Panel Assignment
 
 On `QRNG_Complete__e`:
+
 1. Query `QRNG_Assignment__c` for selected panelists
 2. Create Interview records linking each panelist to the requisition
 3. Send calendar invites or notifications to selected panelists
@@ -61,6 +63,7 @@ On `QRNG_Complete__e`:
 ## DEI Compliance
 
 The Fairness Certificate supports Diversity, Equity & Inclusion goals:
+
 - Proves panel selection was not influenced by personal relationships
 - Provides auditable evidence for EEOC or OFCCP inquiries
 - Over time, quantum randomness ensures all eligible employees serve on panels equitably
@@ -69,6 +72,7 @@ The Fairness Certificate supports Diversity, Equity & Inclusion goals:
 ## Constraints and Stratification
 
 For panels requiring specific composition (e.g., at least 1 person from engineering, 1 from product):
+
 1. Run separate Subset selections per required department
 2. Each gets its own Fairness Certificate
 3. Combine the results into the final panel

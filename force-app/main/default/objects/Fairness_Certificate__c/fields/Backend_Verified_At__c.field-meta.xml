@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Backend_Verified_At__c</fullName>
+    <description
+    >When the backend CHSH verification was last completed at certificate creation time</description>
+    <externalId>false</externalId>
+    <label>Backend Verified At</label>
+    <required>false</required>
+    <type>DateTime</type>
+</CustomField>

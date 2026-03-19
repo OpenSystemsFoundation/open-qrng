@@ -19,6 +19,7 @@ Launch from an Assignment or Course record page.
 ### Step 2: Get Students
 
 **Get Records** element:
+
 - Object: Student Enrollment or Contact
 - Filters: Enrolled in the course, status = Active
 - Store → `varStudentCollection`
@@ -27,18 +28,19 @@ Launch from an Assignment or Course record page.
 
 For peer review, each student is both a "record" (submission to review) and an "assignee" (reviewer). Use `Uniform` assignment with the same list for both:
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varStudentIds}` (submissions) |
-| Assignee IDs | `{!varStudentIds}` (reviewers) |
-| Assignment Type | `Uniform` |
-| Purpose | `Peer Review: {!varAssignmentName}` |
+| Input           | Value                               |
+| --------------- | ----------------------------------- |
+| Record IDs      | `{!varStudentIds}` (submissions)    |
+| Assignee IDs    | `{!varStudentIds}` (reviewers)      |
+| Assignment Type | `Uniform`                           |
+| Purpose         | `Peer Review: {!varAssignmentName}` |
 
 > **Note:** The assignment engine may assign a student to review their own work. Add a post-processing step to detect and swap self-assignments.
 
 ### Step 4: Handle Self-Assignments
 
 On `QRNG_Complete__e`:
+
 1. Query `QRNG_Assignment__c` records
 2. Check for cases where `Assigned_Record_ID__c` = `Assigned_To_ID__c`
 3. Swap with an adjacent assignment (document the swap as a manual override)
@@ -46,6 +48,7 @@ On `QRNG_Complete__e`:
 ### Step 5: Create Review Assignments
 
 For each `QRNG_Assignment__c` record:
+
 1. Create a Peer Review record: `Reviewer__c` = assigned user, `Submission__c` = assigned record
 2. Notify reviewers with their assignment
 

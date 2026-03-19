@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Backend_Verified__c</fullName>
+    <description
+    >Whether the backend was quantum-verified (CHSH S &gt; 2) at certificate creation time</description>
+    <defaultValue>false</defaultValue>
+    <externalId>false</externalId>
+    <label>Backend Verified</label>
+    <type>Checkbox</type>
+</CustomField>

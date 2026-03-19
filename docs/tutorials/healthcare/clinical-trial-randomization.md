@@ -9,6 +9,7 @@ Clinical trials require participants to be randomly assigned to treatment groups
 ## What You'll Build
 
 A Screen Flow for clinical trial coordinators to:
+
 1. Select enrolled participants
 2. Define treatment groups and allocation ratios
 3. Run quantum randomization
@@ -31,6 +32,7 @@ A Screen Flow for clinical trial coordinators to:
 ### Step 2: Input Screen
 
 Add a **Screen** element:
+
 - **Display Text:** "Select participants to randomize into treatment groups"
 - **Record Collection Picker:** Select eligible participants (Status = Enrolled, Treatment_Group = null)
 - **Number Input:** Number of treatment groups (e.g., 2 for control + treatment)
@@ -40,6 +42,7 @@ Add a **Screen** element:
 ### Step 3: Get Participant IDs
 
 **Get Records** element:
+
 - Object: Trial Participant (or Contact with record type filter)
 - Filter: `Trial__c` = selected trial, `Treatment_Group__c` is null, `Status__c` = `Enrolled`
 - Store → `varParticipantCollection`
@@ -47,6 +50,7 @@ Add a **Screen** element:
 ### Step 4: Build Group Assignee IDs
 
 For group assignment, create placeholder "assignee" IDs representing each group. Use a formula or assignment:
+
 - Group 1 ID → `"GROUP_CONTROL"`
 - Group 2 ID → `"GROUP_TREATMENT_A"`
 
@@ -54,18 +58,19 @@ For group assignment, create placeholder "assignee" IDs representing each group.
 
 ### Step 5: Call Quantum Random Assignment
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varParticipantIds}` |
-| Assignee IDs | `{!varGroupIds}` |
-| Assignment Type | `Weighted` |
-| Weights | `{!varAllocationRatio}` (e.g., `50,50`) |
-| Purpose | `Clinical Trial: {!varTrialName} — Participant Randomization` |
-| Use Bell Test | `true` **(strongly recommended)** |
+| Input           | Value                                                         |
+| --------------- | ------------------------------------------------------------- |
+| Record IDs      | `{!varParticipantIds}`                                        |
+| Assignee IDs    | `{!varGroupIds}`                                              |
+| Assignment Type | `Weighted`                                                    |
+| Weights         | `{!varAllocationRatio}` (e.g., `50,50`)                       |
+| Purpose         | `Clinical Trial: {!varTrialName} — Participant Randomization` |
+| Use Bell Test   | `true` **(strongly recommended)**                             |
 
 ### Step 6: Apply Group Assignments
 
 On `QRNG_Complete__e`:
+
 1. Query `QRNG_Assignment__c` for the completed job
 2. Map each participant to their assigned group
 3. Update `Treatment_Group__c` on each participant record
@@ -74,6 +79,7 @@ On `QRNG_Complete__e`:
 ### Step 7: Confirmation Screen
 
 Display:
+
 - "Randomization submitted to IBM Quantum hardware"
 - Job ID for tracking
 - "You will receive a notification when assignment is complete"
@@ -83,13 +89,13 @@ Display:
 
 Standard QRNG uses Hadamard gates for superposition — true quantum randomness. Bell Test mode goes further:
 
-| Feature | Standard QRNG | Bell Test QRNG |
-|---------|--------------|----------------|
-| Randomness source | Quantum superposition | Quantum entanglement |
-| CHSH S-value | N/A | S > 2.0 (proves non-classical) |
-| Regulatory strength | Strong | Strongest possible |
-| Additional qubits | No | Yes (entangled pairs) |
-| Certificate includes | Hash chain | Hash chain + CHSH violation |
+| Feature              | Standard QRNG         | Bell Test QRNG                 |
+| -------------------- | --------------------- | ------------------------------ |
+| Randomness source    | Quantum superposition | Quantum entanglement           |
+| CHSH S-value         | N/A                   | S > 2.0 (proves non-classical) |
+| Regulatory strength  | Strong                | Strongest possible             |
+| Additional qubits    | No                    | Yes (entangled pairs)          |
+| Certificate includes | Hash chain            | Hash chain + CHSH violation    |
 
 The CHSH inequality (S ≤ 2 for classical systems) provides mathematical proof that the randomness could not have been predetermined by any classical mechanism. This is the gold standard for regulatory submissions.
 

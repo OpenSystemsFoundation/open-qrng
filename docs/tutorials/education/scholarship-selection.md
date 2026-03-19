@@ -26,26 +26,28 @@ Launch from a Scholarship Program record page.
 ### Step 3: Get Eligible Applicants
 
 **Get Records** element:
+
 - Object: Scholarship Application (custom object)
 - Filters:
-  - `Scholarship_Program__c` = current program
-  - `Eligibility_Status__c` = `Qualified`
-  - `Award_Status__c` = `Pending`
+    - `Scholarship_Program__c` = current program
+    - `Eligibility_Status__c` = `Qualified`
+    - `Award_Status__c` = `Pending`
 - Store → `varApplicantCollection`
 
 ### Step 4: Call Quantum Random Assignment
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varApplicantIds}` |
-| Assignment Type | `Subset` |
-| Sample Size | `{!varAvailableAwards}` |
-| Purpose | `Scholarship Selection: {!varScholarshipName} — 2026` |
-| Use Bell Test | `{!varUseBellTest}` |
+| Input           | Value                                                 |
+| --------------- | ----------------------------------------------------- |
+| Record IDs      | `{!varApplicantIds}`                                  |
+| Assignment Type | `Subset`                                              |
+| Sample Size     | `{!varAvailableAwards}`                               |
+| Purpose         | `Scholarship Selection: {!varScholarshipName} — 2026` |
+| Use Bell Test   | `{!varUseBellTest}`                                   |
 
 ### Step 5: Award and Notify
 
 On `QRNG_Complete__e`:
+
 1. Update selected applicants: `Award_Status__c` = `Selected`
 2. Update non-selected: `Award_Status__c` = `Not Selected`
 3. Email all applicants with the result and Fairness Certificate link
@@ -63,6 +65,7 @@ Each round gets its own Fairness Certificate, creating a clear audit trail.
 ## Donor and Board Assurance
 
 The Fairness Certificate reassures donors and board members:
+
 - Quantum randomness eliminates nepotism concerns
 - Every selection is independently verifiable via IBM Quantum
 - The SHA-256 hash chain proves the selection wasn't altered after the fact

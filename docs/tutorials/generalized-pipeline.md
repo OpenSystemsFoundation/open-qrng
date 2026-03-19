@@ -23,11 +23,11 @@ Each step is explained below, with references to the Apex classes that implement
 
 The customer defines the decision space:
 
-| Problem Shape | Example | Assignment Type |
-|---------------|---------|-----------------|
-| Assign N records to M assignees equally | 50 leads → 5 reps | `Uniform` |
-| Assign N records to M assignees by capacity | 50 leads → 5 reps weighted by quota | `Weighted` |
-| Select K records from a pool of N | 10 deals from 500 for audit | `Subset` |
+| Problem Shape                               | Example                             | Assignment Type |
+| ------------------------------------------- | ----------------------------------- | --------------- |
+| Assign N records to M assignees equally     | 50 leads → 5 reps                   | `Uniform`       |
+| Assign N records to M assignees by capacity | 50 leads → 5 reps weighted by quota | `Weighted`      |
+| Select K records from a pool of N           | 10 deals from 500 for audit         | `Subset`        |
 
 **Qubit count.** QuantumFair defaults to **8 qubits** (configurable via `QRNG_Settings__c.Default_Qubits__c` or per-request). The assignment engine consumes `⌈log₂(M)⌉` debiased bits per assignment decision, where M is the number of assignees or the population size. Eight qubits at 1024 shots produces 8,192 raw bits — after von Neumann debiasing (~25% survival), roughly 2,048 clean bits, enough for hundreds of individual assignments from a single circuit execution.
 
@@ -37,12 +37,12 @@ The customer defines the decision space:
 
 **Recommended minimums:**
 
-| Use Case | Minimum Shots | Rationale |
-|----------|---------------|-----------|
-| Single assignment | 1024 | Enough for statistical validation |
-| Subset selection (K < 50) | 1024 | Bit pool covers Fisher-Yates needs |
-| Large-scale assignment (100+) | 4096 | Debiasing loss requires deeper pool |
-| Bell-test certification | 4096+ | CHSH needs statistical significance across 4 basis configs |
+| Use Case                      | Minimum Shots | Rationale                                                  |
+| ----------------------------- | ------------- | ---------------------------------------------------------- |
+| Single assignment             | 1024          | Enough for statistical validation                          |
+| Subset selection (K < 50)     | 1024          | Bit pool covers Fisher-Yates needs                         |
+| Large-scale assignment (100+) | 4096          | Debiasing loss requires deeper pool                        |
+| Bell-test certification       | 4096+         | CHSH needs statistical significance across 4 basis configs |
 
 **Implementation:** `QuantumRandomAssignment.cls` (invocable action entry point) and `QRNGCircuitBuilder.cls` (circuit generation).
 
@@ -112,11 +112,11 @@ This is a design trade-off. The Bell-test circuit yields fewer usable random bit
 
 Running Bell tests on IBM hardware costs queue time and credits. Three strategies:
 
-| Strategy | When to Use | Trade-off |
-|----------|-------------|-----------|
+| Strategy                      | When to Use                              | Trade-off                          |
+| ----------------------------- | ---------------------------------------- | ---------------------------------- |
 | **Per-job** (current default) | High-stakes decisions, regulatory, legal | Maximum assurance, higher IBM cost |
-| **Per-session / periodic** | Routine assignments, high volume | Good assurance, lower cost |
-| **On-demand** | Low-risk with occasional spot checks | Minimal cost, weaker guarantee |
+| **Per-session / periodic**    | Routine assignments, high volume         | Good assurance, lower cost         |
+| **On-demand**                 | Low-risk with occasional spot checks     | Minimal cost, weaker guarantee     |
 
 A sensible production architecture for high-volume orgs would be: run CHSH once per backend per session, store the result as a **device attestation** record, and link it to all certificates generated during that window. If the S-value drops below 2.0, flag the backend as untrusted and halt certificate generation until it passes again. This is not yet implemented in QuantumFair but is a natural extension of the existing `QRNG_Backend_Config__mdt` pattern.
 
@@ -189,23 +189,23 @@ Before certifying, QuantumFair validates that the source was actually random. Te
 
 These run synchronously during result processing. If any fail, the certificate is denied.
 
-| Test | What It Checks | Pass Criteria | Reference |
-|------|---------------|---------------|-----------|
-| **Frequency (monobit)** | Proportion of 0s vs 1s | Z-score ≤ 2.0 (within 2σ of 50%) | NIST SP 800-22 §2.1 |
-| **Runs test** | Consecutive identical bits | Z-score ≤ 2.0 | NIST SP 800-22 §2.3 |
-| **Chi-squared** | Uniformity of 4-bit blocks | χ² ≤ 45.0 | Standard goodness-of-fit |
-| **CHSH violation** | Quantum origin (Bell-test only) | S > 2.0 | Clauser-Horne-Shimony-Holt |
+| Test                    | What It Checks                  | Pass Criteria                    | Reference                  |
+| ----------------------- | ------------------------------- | -------------------------------- | -------------------------- |
+| **Frequency (monobit)** | Proportion of 0s vs 1s          | Z-score ≤ 2.0 (within 2σ of 50%) | NIST SP 800-22 §2.1        |
+| **Runs test**           | Consecutive identical bits      | Z-score ≤ 2.0                    | NIST SP 800-22 §2.3        |
+| **Chi-squared**         | Uniformity of 4-bit blocks      | χ² ≤ 45.0                        | Standard goodness-of-fit   |
+| **CHSH violation**      | Quantum origin (Bell-test only) | S > 2.0                          | Clauser-Horne-Shimony-Holt |
 
 ### Extended Tests (Async, Non-Blocking)
 
 These run via `QRNGValidationRunner` (Queueable) after certification. They provide deeper assurance but do not block the assignment flow.
 
-| Test | What It Checks |
-|------|---------------|
-| **Approximate Entropy** | Low entropy indicates predictable patterns |
-| **Serial Test** | Uniformity of overlapping m-bit patterns |
-| **Cumulative Sums (CUSUM)** | Drift or trends in the bitstring |
-| **Longest Run of Ones** | Block-wise run length distribution |
+| Test                        | What It Checks                             |
+| --------------------------- | ------------------------------------------ |
+| **Approximate Entropy**     | Low entropy indicates predictable patterns |
+| **Serial Test**             | Uniformity of overlapping m-bit patterns   |
+| **Cumulative Sums (CUSUM)** | Drift or trends in the bitstring           |
+| **Longest Run of Ones**     | Block-wise run length distribution         |
 
 **Why two tiers?** The critical tests catch obvious hardware failures (stuck qubits, systematic bias) quickly. The extended tests catch subtler issues (correlations, drift) but take longer to compute and are not needed to block the user's workflow.
 
@@ -219,18 +219,18 @@ On successful validation, QuantumFair creates a `Fairness_Certificate__c` record
 
 ### Certificate Contents
 
-| Field | What It Stores |
-|-------|---------------|
-| **Circuit QASM** | Exact OpenQASM 3.0 submitted to IBM |
-| **IBM Job ID** | Externally verifiable on IBM Quantum Platform |
-| **Backend** | Which QPU ran the circuit (e.g., `ibm_kingston`) |
-| **Raw Bitstring Hash** | SHA-256 of the raw measurement data |
-| **Debiased Bitstring Hash** | SHA-256 of the post-processed random values |
-| **Assignment Hash** | SHA-256 of the final assignment mapping |
-| **Validation Results** | JSON with all statistical test results |
-| **CHSH S-Value** | Bell-test S parameter (if applicable) |
-| **Purpose** | Human-readable description of what the randomness was used for |
-| **Status** | Certified / Failed |
+| Field                       | What It Stores                                                 |
+| --------------------------- | -------------------------------------------------------------- |
+| **Circuit QASM**            | Exact OpenQASM 3.0 submitted to IBM                            |
+| **IBM Job ID**              | Externally verifiable on IBM Quantum Platform                  |
+| **Backend**                 | Which QPU ran the circuit (e.g., `ibm_kingston`)               |
+| **Raw Bitstring Hash**      | SHA-256 of the raw measurement data                            |
+| **Debiased Bitstring Hash** | SHA-256 of the post-processed random values                    |
+| **Assignment Hash**         | SHA-256 of the final assignment mapping                        |
+| **Validation Results**      | JSON with all statistical test results                         |
+| **CHSH S-Value**            | Bell-test S parameter (if applicable)                          |
+| **Purpose**                 | Human-readable description of what the randomness was used for |
+| **Status**                  | Certified / Failed                                             |
 
 ### The Audit Chain
 
@@ -320,13 +320,13 @@ Here is the complete pipeline as executed by QuantumFair:
 
 Every tutorial in this repository follows the same formula. The only things that change are:
 
-| What Changes | Example (Sales) | Example (Healthcare) | Example (Government) |
-|-------------|-----------------|---------------------|---------------------|
-| **Record IDs** | Opportunity IDs | Patient IDs | Permit Application IDs |
-| **Assignee IDs** | Sales Rep User IDs | Provider User IDs | Inspector User IDs |
-| **Assignment Type** | Uniform | Weighted (by panel size) | Subset (for random inspection) |
-| **Purpose** | "Q1 Lead Round-Robin" | "New Patient Assignment" | "Monthly Site Inspections" |
-| **Trigger** | Record-Triggered Flow | Screen Flow | Scheduled Flow |
+| What Changes        | Example (Sales)       | Example (Healthcare)     | Example (Government)           |
+| ------------------- | --------------------- | ------------------------ | ------------------------------ |
+| **Record IDs**      | Opportunity IDs       | Patient IDs              | Permit Application IDs         |
+| **Assignee IDs**    | Sales Rep User IDs    | Provider User IDs        | Inspector User IDs             |
+| **Assignment Type** | Uniform               | Weighted (by panel size) | Subset (for random inspection) |
+| **Purpose**         | "Q1 Lead Round-Robin" | "New Patient Assignment" | "Monthly Site Inspections"     |
+| **Trigger**         | Record-Triggered Flow | Screen Flow              | Scheduled Flow                 |
 
 The quantum pipeline, debiasing, validation, and certification are identical regardless of domain. You collect IDs, call the invocable action, and get back a certified fair result.
 

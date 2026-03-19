@@ -25,6 +25,7 @@ Launch from a Course record page.
 ### Step 3: Get Enrolled Students
 
 **Get Records** element:
+
 - Object: Student Enrollment (custom object or Contact with student record type)
 - Filters: `Course__c` = selected course, `Section__c` is null
 - Store → `varStudentCollection`
@@ -32,6 +33,7 @@ Launch from a Course record page.
 ### Step 4: Get Sections as Assignees
 
 **Get Records** element:
+
 - Object: Section (custom object)
 - Filters: `Course__c` = selected course, `Status__c` = `Open`
 - Store → `varSectionCollection`
@@ -40,17 +42,18 @@ Use section IDs as the "Assignee IDs" in the quantum assignment.
 
 ### Step 5: Call Quantum Random Assignment
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varStudentIds}` |
-| Assignee IDs | `{!varSectionIds}` |
-| Assignment Type | `Weighted` (by remaining capacity) or `Uniform` |
-| Weights | Remaining capacity per section (if weighted) |
-| Purpose | `Section Assignment: {!varCourseName} — Fall 2026` |
+| Input           | Value                                              |
+| --------------- | -------------------------------------------------- |
+| Record IDs      | `{!varStudentIds}`                                 |
+| Assignee IDs    | `{!varSectionIds}`                                 |
+| Assignment Type | `Weighted` (by remaining capacity) or `Uniform`    |
+| Weights         | Remaining capacity per section (if weighted)       |
+| Purpose         | `Section Assignment: {!varCourseName} — Fall 2026` |
 
 ### Step 6: Apply Section Assignments
 
 On `QRNG_Complete__e`:
+
 1. Query `QRNG_Assignment__c` for the job
 2. Update each student's `Section__c` field to the assigned section
 3. Update section enrollment counts
@@ -58,11 +61,13 @@ On `QRNG_Complete__e`:
 ### Step 7: Parent Communication
 
 Share the Fairness Certificate reference in parent notifications:
-> *"Your child has been assigned to Section {X} for {Course Name}. Sections were assigned using certified quantum randomization to ensure fair distribution. Certificate reference: {Certificate ID}."*
+
+> _"Your child has been assigned to Section {X} for {Course Name}. Sections were assigned using certified quantum randomization to ensure fair distribution. Certificate reference: {Certificate ID}."_
 
 ## Handling Constraints
 
 For students with scheduling constraints (e.g., must be in morning sections):
+
 1. Pre-filter: Remove constrained students from the pool
 2. Assign constrained students to their required sections manually
 3. Run quantum assignment on the remaining students

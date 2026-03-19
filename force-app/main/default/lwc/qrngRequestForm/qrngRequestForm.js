@@ -5,6 +5,8 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 const DEFAULT_MAX_QUBITS = 127;
 const DEFAULT_MAX_SHOTS = 8192;
+// Raw results stored as hex with '0x' prefix in a 131,072-char LongTextArea
+const MAX_STORABLE_BITS = (131072 - 2) * 4;
 
 export default class QrngRequestForm extends LightningElement {
     @track backend = '';
@@ -159,6 +161,38 @@ export default class QrngRequestForm extends LightningElement {
         return this.useBellTest
             ? Math.max(2, Math.floor(this.numQubits / 2) * 2)
             : this.numQubits;
+    }
+
+    get totalRawBits() {
+        return this.effectiveQubits * this.shots;
+    }
+
+    get storagePercent() {
+        return Math.min(
+            100,
+            Math.round((MAX_STORABLE_BITS / this.totalRawBits) * 100)
+        );
+    }
+
+    get storageWarning() {
+        if (this.totalRawBits <= MAX_STORABLE_BITS) {
+            return null;
+        }
+        const stored = MAX_STORABLE_BITS.toLocaleString();
+        const total = this.totalRawBits.toLocaleString();
+        const maxShots = Math.floor(MAX_STORABLE_BITS / this.effectiveQubits);
+        return `Storage limit: ${stored} of ${total} bits stored (${this.storagePercent}%). Use \u2264${maxShots.toLocaleString()} shots for full storage at ${this.effectiveQubits} qubits.`;
+    }
+
+    get storageBarStyle() {
+        const pct = this.storagePercent;
+        const color =
+            pct >= 100 ? '#2e844a' : pct >= 75 ? '#fe9339' : '#ea001e';
+        return `width:${pct}%;background:${color};height:4px;border-radius:2px;transition:width 0.2s`;
+    }
+
+    get storageBarTrackStyle() {
+        return 'width:100%;background:#d8d8d8;height:4px;border-radius:2px;margin-top:4px';
     }
 
     // ── Handlers ──────────────────────────────────────────────

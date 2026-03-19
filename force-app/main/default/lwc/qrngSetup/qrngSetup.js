@@ -7,18 +7,22 @@ import getUsageStats from '@salesforce/apex/QRNGSetupController.getUsageStats';
 import discoverInstances from '@salesforce/apex/QRNGSetupController.discoverInstances';
 import getAllBackendHealth from '@salesforce/apex/QRNGSetupController.getAllBackendHealth';
 import refreshAllBackendHealth from '@salesforce/apex/QRNGSetupController.refreshAllBackendHealth';
+import verifyBackendQuantum from '@salesforce/apex/QRNGSetupController.verifyBackendQuantum';
 import startSweeper from '@salesforce/apex/QRNGSetupController.startSweeper';
 import stopSweeper from '@salesforce/apex/QRNGSetupController.stopSweeper';
 import startIntegrityCheck from '@salesforce/apex/QRNGSetupController.startIntegrityCheck';
 import stopIntegrityCheck from '@salesforce/apex/QRNGSetupController.stopIntegrityCheck';
+import { subscribe, unsubscribe, onError } from 'lightning/empApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+
+const COMPLETE_CHANNEL = '/event/OpenSF__QRNG_Complete__e';
 
 export default class QrngSetup extends LightningElement {
     @track apiKey = '';
+    @track hasApiKey = false;
     @track instanceCRN = '';
     @track defaultBackend = '';
     @track defaultShots = 1024;
-    @track useBellTest = false;
     @track isConnected = false;
     @track isTestingConnection = false;
     @track connectionMessage = '';
@@ -32,20 +36,39 @@ export default class QrngSetup extends LightningElement {
     @track isDiscoveringCRN = false;
     @track backendHealthList = [];
     @track isLoadingHealth = false;
+    @track verifyingBackend = null;
+    @track verificationJobId = null;
     @track integrityCheckActive = false;
     @track integrityCheckHour = 2;
+
+    _completeSubscription;
+
+    connectedCallback() {
+        subscribe(COMPLETE_CHANNEL, -1, () => {
+            this.loadBackendHealth();
+        }).then((sub) => {
+            this._completeSubscription = sub;
+        });
+        onError((error) => {
+            console.error('empApi error in qrngSetup:', error);
+        });
+    }
+
+    disconnectedCallback() {
+        if (this._completeSubscription) {
+            unsubscribe(this._completeSubscription);
+            this._completeSubscription = null;
+        }
+    }
 
     @wire(getSettings)
     wiredSettings({ data }) {
         if (data) {
             this.defaultBackend = data.defaultBackend || '';
             this.defaultShots = data.defaultShots || 1024;
-            this.useBellTest = data.useBellTest || false;
-            if (data.hasApiKey) {
-                this.apiKey = '********'; // Mask existing key
-            }
+            this.hasApiKey = data.hasApiKey || false;
             if (data.hasCRN) {
-                this.instanceCRN = '********'; // Mask existing CRN
+                this.instanceCRN = data.crnValue || '';
             }
             this.useLeastBusy = data.useLeastBusy || false;
             if (this.useLeastBusy) {
@@ -97,6 +120,11 @@ export default class QrngSetup extends LightningElement {
         this.apiKey = event.target.value;
     }
 
+    handleChangeApiKey() {
+        this.hasApiKey = false;
+        this.apiKey = '';
+    }
+
     handleCRNChange(event) {
         this.instanceCRN = event.target.value;
     }
@@ -114,10 +142,6 @@ export default class QrngSetup extends LightningElement {
 
     handleShotsChange(event) {
         this.defaultShots = parseInt(event.target.value, 10);
-    }
-
-    handleBellTestChange(event) {
-        this.useBellTest = event.target.checked;
     }
 
     handleLeastBusyChange(event) {
@@ -158,18 +182,23 @@ export default class QrngSetup extends LightningElement {
 
     async handleSaveSettings() {
         try {
-            const keyToSave = this.apiKey === '********' ? null : this.apiKey;
-            const crnToSave =
-                this.instanceCRN === '********' ? null : this.instanceCRN;
+            // null means "keep existing" — only send if user entered a new value
+            const keyToSave = this.hasApiKey ? null : this.apiKey || null;
+            const crnToSave = this.instanceCRN || null;
             await saveSettings({
                 apiKey: keyToSave,
                 instanceCRN: crnToSave,
                 defaultBackend: this.defaultBackend,
                 defaultShots: this.defaultShots,
-                useBellTest: this.useBellTest,
+                useBellTest: false,
                 useLeastBusy: this.useLeastBusy,
                 pollIntervalMinutes: this.pollIntervalMinutes
             });
+            // If a new key was saved, mark as configured
+            if (keyToSave) {
+                this.hasApiKey = true;
+                this.apiKey = '';
+            }
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Success',
@@ -290,7 +319,22 @@ export default class QrngSetup extends LightningElement {
                         : 'slds-text-color_error',
                 fidelityScore: fidelity.label,
                 fidelityClass: `fidelity-badge fidelity-${fidelity.tier}`,
-                fidelityTitle: fidelity.breakdown
+                fidelityTitle: fidelity.breakdown,
+                chshSValue: b.chshSValue
+                    ? Number(b.chshSValue).toFixed(3)
+                    : '\u2014',
+                chshVerifiedAt: b.chshVerifiedAt,
+                quantumVerified: b.quantumVerified,
+                verificationBadge: b.quantumVerified
+                    ? 'Verified'
+                    : b.chshSValue
+                      ? 'Failed'
+                      : 'Unverified',
+                verificationClass: b.quantumVerified
+                    ? 'slds-badge slds-theme_success'
+                    : b.chshSValue
+                      ? 'slds-badge slds-theme_error'
+                      : 'slds-badge'
             };
         });
     }
@@ -523,6 +567,68 @@ export default class QrngSetup extends LightningElement {
         return this.integrityCheckActive
             ? 'slds-badge slds-theme_success'
             : 'slds-badge';
+    }
+
+    async handleVerifyBackend(event) {
+        const backendName = event.target.dataset.backend;
+        this.verifyingBackend = backendName;
+        try {
+            const jobId = await verifyBackendQuantum({ backendName });
+            this.verificationJobId = jobId;
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Verification Submitted',
+                    message: `CHSH verification job submitted for ${backendName}.`,
+                    variant: 'success'
+                })
+            );
+        } catch (error) {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Verification Failed',
+                    message: this.reduceErrors(error),
+                    variant: 'error'
+                })
+            );
+        } finally {
+            this.verifyingBackend = null;
+        }
+    }
+
+    async handleVerifyAll() {
+        const backends = this.backendHealthList.filter(
+            (b) => b.status === 'online'
+        );
+        if (backends.length === 0) {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'No Backends',
+                    message: 'No online backends to verify.',
+                    variant: 'warning'
+                })
+            );
+            return;
+        }
+        this.verifyingBackend = 'all';
+        const promises = backends.map((b) =>
+            verifyBackendQuantum({ backendName: b.name }).catch((err) => {
+                console.warn(`Verify failed for ${b.name}:`, err);
+                return null;
+            })
+        );
+        const results = await Promise.all(promises);
+        this.verifyingBackend = null;
+        const succeeded = results.filter((r) => r != null);
+        if (succeeded.length > 0) {
+            this.verificationJobId = succeeded[succeeded.length - 1];
+        }
+        this.dispatchEvent(
+            new ShowToastEvent({
+                title: 'Verification Submitted',
+                message: `Submitted ${succeeded.length} of ${backends.length} backend verification jobs.`,
+                variant: 'success'
+            })
+        );
     }
 
     reduceErrors(error) {

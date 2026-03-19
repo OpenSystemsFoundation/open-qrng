@@ -17,38 +17,41 @@ A Record-Triggered Flow that assigns new permit applications to available review
 1. Object: **Case** (or custom Permit Application object)
 2. Trigger: **A record is created**
 3. Entry conditions:
-   - `RecordType.DeveloperName` = `Permit_Application`
-   - `OwnerId` = unassigned queue
+    - `RecordType.DeveloperName` = `Permit_Application`
+    - `OwnerId` = unassigned queue
 
 ### Step 2: Get Available Reviewers
 
 **Get Records** element:
+
 - Object: **User**
 - Filters:
-  - `IsActive` = true
-  - `UserRole.DeveloperName` = `Permit_Reviewer`
-  - `Out_of_Office__c` = false
+    - `IsActive` = true
+    - `UserRole.DeveloperName` = `Permit_Reviewer`
+    - `Out_of_Office__c` = false
 - Store → `varReviewerCollection`
 
 ### Step 3: Batch Pending Applications
 
 Use a **Scheduled Path** (every 30 minutes or hourly) to batch new applications:
+
 1. Get all permit applications with `OwnerId` = queue AND `CreatedDate` = TODAY
 2. Collect into `varApplicationIds`
 
 ### Step 4: Call Quantum Random Assignment
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varApplicationIds}` |
-| Assignee IDs | `{!varReviewerIds}` |
-| Assignment Type | `Uniform` |
-| Purpose | `Permit Application Assignment — {!$Flow.CurrentDate}` |
-| Use Bell Test | `true` (recommended for government transparency) |
+| Input           | Value                                                  |
+| --------------- | ------------------------------------------------------ |
+| Record IDs      | `{!varApplicationIds}`                                 |
+| Assignee IDs    | `{!varReviewerIds}`                                    |
+| Assignment Type | `Uniform`                                              |
+| Purpose         | `Permit Application Assignment — {!$Flow.CurrentDate}` |
+| Use Bell Test   | `true` (recommended for government transparency)       |
 
 ### Step 5: Apply and Document
 
 On `QRNG_Complete__e`:
+
 1. Update each application's `OwnerId` to the assigned reviewer
 2. Store Certificate ID on the application record
 3. Log an activity: "Reviewer assigned via quantum randomization"
@@ -56,6 +59,7 @@ On `QRNG_Complete__e`:
 ## Public Transparency
 
 Government agencies can publish Fairness Certificate references in public records:
+
 - Certificate ID proves the assignment was random
 - IBM Quantum Job ID allows independent verification
 - CHSH S-value (Bell Test) proves quantum origin
@@ -64,6 +68,7 @@ Government agencies can publish Fairness Certificate references in public record
 ## Conflict-of-Interest Prevention
 
 Combine quantum assignment with conflict-of-interest checks:
+
 1. Quantum Random Assignment selects a reviewer
 2. A decision element checks for conflicts (reviewer knows applicant, etc.)
 3. If conflicted, re-run quantum assignment excluding that reviewer

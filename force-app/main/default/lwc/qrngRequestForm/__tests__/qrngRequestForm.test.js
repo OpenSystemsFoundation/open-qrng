@@ -136,11 +136,6 @@ describe('c-qrng-request-form', () => {
         });
     }
 
-    // Helper to find the Bell test toggle (native checkbox inside .toggle-switch)
-    function getBellToggle(element) {
-        return element.shadowRoot.querySelector('.toggle-switch input');
-    }
-
     it('renders form inputs', () => {
         const element = createComponent();
 
@@ -152,10 +147,6 @@ describe('c-qrng-request-form', () => {
         const inputLabels = Array.from(inputs).map((i) => i.label);
         expect(inputLabels).toContain('Number of Qubits');
         expect(inputLabels).toContain('Shots');
-
-        // Bell test is now a custom toggle, not lightning-input
-        const bellToggle = getBellToggle(element);
-        expect(bellToggle).not.toBeNull();
 
         const textarea = element.shadowRoot.querySelector('lightning-textarea');
         expect(textarea).not.toBeNull();
@@ -215,23 +206,13 @@ describe('c-qrng-request-form', () => {
         expect(handler.mock.calls[0][0].detail.variant).toBe('success');
     });
 
-    it('toggles useBellTest when bell test toggle is changed', async () => {
+    it('passes useBellTest=false to circuit visualizer by default', () => {
         const element = createComponent();
-
-        const bellToggle = getBellToggle(element);
-        expect(bellToggle).not.toBeNull();
-
-        Object.defineProperty(bellToggle, 'checked', {
-            get: () => true,
-            configurable: true
-        });
-        bellToggle.dispatchEvent(new CustomEvent('change'));
-        await flushPromises();
 
         const visualizer = element.shadowRoot.querySelector(
             'c-qrng-circuit-visualizer'
         );
-        expect(visualizer.useBellTest).toBe(true);
+        expect(visualizer.useBellTest).toBe(false);
     });
 
     // ── wiredSettings coverage ────────────────────────────────
@@ -534,89 +515,6 @@ describe('c-qrng-request-form', () => {
         );
     });
 
-    // ── Bell test qubit stepping ──────────────────────────────
-    it('snaps qubits to even number when enabling Bell test with odd qubits', async () => {
-        const element = createComponent();
-        await flushPromises();
-
-        // Set qubits to 7 (odd)
-        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
-        const qubitsInput = Array.from(inputs).find(
-            (i) => i.label === 'Number of Qubits'
-        );
-        qubitsInput.value = '7';
-        qubitsInput.dispatchEvent(new CustomEvent('change'));
-        await flushPromises();
-
-        // Enable Bell test
-        const bellToggle = getBellToggle(element);
-        Object.defineProperty(bellToggle, 'checked', {
-            get: () => true,
-            configurable: true
-        });
-        bellToggle.dispatchEvent(new CustomEvent('change'));
-        await flushPromises();
-
-        // Submit and verify qubits were snapped to 8
-        submitQRNGJob.mockResolvedValue('job-snap');
-        const buttons = element.shadowRoot.querySelectorAll('lightning-button');
-        const submitButton = Array.from(buttons).find(
-            (b) => b.variant === 'brand'
-        );
-        submitButton.click();
-        await flushPromises();
-
-        expect(submitQRNGJob).toHaveBeenCalledWith(
-            expect.objectContaining({ numQubits: 8 })
-        );
-    });
-
-    it('sets qubit step to 2 when Bell test is enabled', async () => {
-        const element = createComponent();
-        await flushPromises();
-
-        // Enable Bell test
-        const bellToggle = getBellToggle(element);
-        Object.defineProperty(bellToggle, 'checked', {
-            get: () => true,
-            configurable: true
-        });
-        bellToggle.dispatchEvent(new CustomEvent('change'));
-        await flushPromises();
-
-        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
-        const qubitsInput = Array.from(inputs).find(
-            (i) => i.label === 'Number of Qubits'
-        );
-        expect(qubitsInput.step).toBe(2);
-        expect(qubitsInput.min).toBe(2);
-    });
-
-    it('shows Bell info message when Bell test is enabled', async () => {
-        const element = createComponent();
-        await flushPromises();
-
-        // Enable Bell test
-        const bellToggle = getBellToggle(element);
-        Object.defineProperty(bellToggle, 'checked', {
-            get: () => true,
-            configurable: true
-        });
-        bellToggle.dispatchEvent(new CustomEvent('change'));
-        await flushPromises();
-
-        const bellInfo = element.shadowRoot.querySelector('.bell-info');
-        expect(bellInfo).not.toBeNull();
-        expect(bellInfo.textContent).toContain('even');
-    });
-
-    it('does not show Bell info message when Bell test is disabled', () => {
-        const element = createComponent();
-
-        const bellInfo = element.shadowRoot.querySelector('.bell-info');
-        expect(bellInfo).toBeNull();
-    });
-
     // ── Description text ──────────────────────────────────────
     it('shows random bits calculation in qubit description', async () => {
         const element = createComponent();
@@ -625,8 +523,9 @@ describe('c-qrng-request-form', () => {
         const hints = element.shadowRoot.querySelectorAll('.field-hint');
         // First hint is qubits description, second is shots description
         expect(hints.length).toBe(2);
-        // Default: 8 qubits × 1024 shots = 8,192 random bits
-        expect(hints[0].textContent).toContain('8,192');
+        // Default: 8 qubits × 1024 shots = 8192 random bits (locale-formatted)
+        const formattedBits = (8192).toLocaleString();
+        expect(hints[0].textContent).toContain(formattedBits);
     });
 
     it('shows shots quality description', async () => {

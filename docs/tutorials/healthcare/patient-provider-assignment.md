@@ -23,29 +23,31 @@ A Flow that triggers when a new patient (Contact or custom Patient object) is cr
 ### Step 2: Get Available Providers
 
 Add a **Get Records** element:
+
 - Object: **User** (or custom Provider object)
 - Filters:
-  - `IsActive` = true
-  - `Profile.Name` = `Healthcare Provider` (or your provider profile)
-  - `Accepting_New_Patients__c` = true
+    - `IsActive` = true
+    - `Profile.Name` = `Healthcare Provider` (or your provider profile)
+    - `Accepting_New_Patients__c` = true
 - Store all records → `varProviderCollection`
 
 ### Step 3: Call Quantum Random Assignment
 
 Add an **Action** element:
 
-| Input | Value |
-|-------|-------|
-| Record IDs | Collection containing `{!$Record.Id}` |
-| Assignee IDs | `{!varProviderIds}` |
-| Assignment Type | `Uniform` |
-| Purpose | `New Patient Provider Assignment` |
+| Input           | Value                                 |
+| --------------- | ------------------------------------- |
+| Record IDs      | Collection containing `{!$Record.Id}` |
+| Assignee IDs    | `{!varProviderIds}`                   |
+| Assignment Type | `Uniform`                             |
+| Purpose         | `New Patient Provider Assignment`     |
 
 > **Batch optimization:** For high-volume clinics, use a Scheduled Flow that batches new patients every hour instead of triggering per-record. This sends fewer quantum jobs and is more efficient.
 
 ### Step 4: Apply the Assignment
 
 On `QRNG_Complete__e`:
+
 1. Query `QRNG_Assignment__c` for the completed job
 2. Update the patient's `Provider__c` lookup field
 3. Create a Task for the assigned provider: "New patient assigned"
@@ -53,6 +55,7 @@ On `QRNG_Complete__e`:
 ### Step 5: Document for Compliance
 
 The Fairness Certificate is automatically linked to the Quantum Job. For healthcare compliance:
+
 - Reference the Certificate ID in the patient's record
 - Store the Certificate ID in a custom field `Assignment_Certificate__c` on the patient record
 - The certificate proves the assignment was not influenced by insurance type, race, or other protected characteristics
@@ -61,11 +64,11 @@ The Fairness Certificate is automatically linked to the Quantum Job. For healthc
 
 If providers have different panel capacities, use `Weighted` assignment:
 
-| Provider | Panel Capacity | Weight |
-|----------|---------------|--------|
-| Dr. Smith | 500 remaining | 50 |
-| Dr. Jones | 300 remaining | 30 |
-| Dr. Patel | 200 remaining | 20 |
+| Provider  | Panel Capacity | Weight |
+| --------- | -------------- | ------ |
+| Dr. Smith | 500 remaining  | 50     |
+| Dr. Jones | 300 remaining  | 30     |
+| Dr. Patel | 200 remaining  | 20     |
 
 ```
 Assignment Type: Weighted

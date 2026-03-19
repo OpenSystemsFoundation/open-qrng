@@ -19,32 +19,35 @@ A Scheduled Flow that daily selects transactions for compliance review.
 ### Step 2: Get Yesterday's Transactions
 
 **Get Records** element:
+
 - Object: Your transaction object (or Opportunity with transaction record type)
 - Filters:
-  - `Transaction_Date__c` = YESTERDAY
-  - `Amount__c` > $0
-  - `Review_Status__c` is null
+    - `Transaction_Date__c` = YESTERDAY
+    - `Amount__c` > $0
+    - `Review_Status__c` is null
 - Store → `varTransactionCollection`
 
 ### Step 3: Determine Sample Size
 
 Use a **Formula** or **Decision** element:
+
 - If transaction count < 100: sample = 10
 - If transaction count 100-500: sample = 25
 - If transaction count > 500: sample = 50
 
 ### Step 4: Call Quantum Random Assignment
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varTransactionIds}` |
-| Assignment Type | `Subset` |
-| Sample Size | `{!varSampleSize}` |
-| Purpose | `Daily Compliance Spot-Check — {!$Flow.CurrentDate}` |
+| Input           | Value                                                |
+| --------------- | ---------------------------------------------------- |
+| Record IDs      | `{!varTransactionIds}`                               |
+| Assignment Type | `Subset`                                             |
+| Sample Size     | `{!varSampleSize}`                                   |
+| Purpose         | `Daily Compliance Spot-Check — {!$Flow.CurrentDate}` |
 
 ### Step 5: Route Selected Transactions
 
 On `QRNG_Complete__e`:
+
 1. Update selected transactions: `Review_Status__c` = `Pending Review`
 2. Assign to compliance analysts (optionally via a second Quantum Random Assignment with `Uniform` type)
 3. Create Tasks for each analyst

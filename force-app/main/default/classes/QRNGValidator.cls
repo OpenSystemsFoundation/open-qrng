@@ -262,13 +262,29 @@ public with sharing class QRNGValidator {
         Boolean cusumPass = cumulativeSumsTest(bits);
         Boolean longestRunPass = longestRunOfOnesTest(bits);
 
+        // SP 800-90B health tests
+        Double minEntropy = mostCommonValueEntropy(bits);
+        Boolean repCountPass = repetitionCountTest(bits, minEntropy);
+        Boolean adaptPropPass = adaptiveProportionTest(bits);
+        Boolean minEntropyPass = minEntropy >= 0.9;
+
         results.put('approximateEntropyTest', approxEntropyPass);
         results.put('serialTest', serialPass);
         results.put('cumulativeSumsTest', cusumPass);
         results.put('longestRunOfOnesTest', longestRunPass);
+        results.put('minEntropy', minEntropy);
+        results.put('minEntropyTest', minEntropyPass);
+        results.put('repetitionCountTest', repCountPass);
+        results.put('adaptiveProportionTest', adaptPropPass);
         results.put(
             'extendedPassed',
-            approxEntropyPass && serialPass && cusumPass && longestRunPass
+            approxEntropyPass &&
+                serialPass &&
+                cusumPass &&
+                longestRunPass &&
+                minEntropyPass &&
+                repCountPass &&
+                adaptPropPass
         );
 
         return results;
@@ -498,6 +514,110 @@ public with sharing class QRNGValidator {
 
         // df = 3, critical value at p=0.01 ~ 11.34
         return chiSquared <= 11.34;
+    }
+
+    // ── SP 800-90B Health Tests ─────────────────────────────────────
+
+    /**
+     * Most Common Value (MCV) min-entropy estimate (SP 800-90B §6.3.1).
+     * The simplest and most conservative entropy estimator.
+     * For binary source: p_max = max(count_0, count_1) / n
+     *                    min_entropy = -log2(p_max)
+     * Ideal random: 1.0 bit per bit. Fails if < 0.9.
+     */
+    public static Double mostCommonValueEntropy(String bits) {
+        Integer n = bits.length();
+        if (n == 0) {
+            return 0.0;
+        }
+
+        Integer ones = countOnes(bits);
+        Integer zeros = n - ones;
+        Double pMax = (Double) Math.max(ones, zeros) / n;
+
+        if (pMax <= 0 || pMax >= 1.0) {
+            return pMax <= 0 ? 1.0 : 0.0;
+        }
+
+        // min_entropy = -log2(p_max) = -ln(p_max) / ln(2)
+        return -(Math.log(pMax) / Math.log(2));
+    }
+
+    /**
+     * Repetition Count Test (SP 800-90B §4.4.1).
+     * Detects if the same bit value repeats too many times consecutively.
+     * Cutoff C = 1 + ceil(20 / H) where H = min-entropy estimate.
+     * For H=1.0: C = 21. For H=0.9: C = 23.
+     *
+     * @param bits The bitstring to test
+     * @param minEntropy Pre-computed min-entropy estimate (from MCV)
+     */
+    public static Boolean repetitionCountTest(String bits, Double minEntropy) {
+        Integer n = bits.length();
+        if (n < 2 || minEntropy <= 0) {
+            return false;
+        }
+
+        // Cutoff: C = 1 + ceil(-log2(alpha) / H) where alpha = 2^-20
+        Integer cutoff = 1 + (Integer) Math.ceil(20.0 / minEntropy);
+
+        Integer currentRun = 1;
+        for (Integer i = 1; i < n; i++) {
+            if (bits.substring(i, i + 1) == bits.substring(i - 1, i)) {
+                currentRun++;
+                if (currentRun >= cutoff) {
+                    return false;
+                }
+            } else {
+                currentRun = 1;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Adaptive Proportion Test (SP 800-90B §4.4.2).
+     * In a window of W samples, counts how many match the first sample.
+     * If the count exceeds the cutoff, the source is degraded.
+     *
+     * For binary source: W = 512, cutoff at alpha = 2^-20.
+     * Cutoff C = W/2 + k*sqrt(W/4) where k ≈ 6 for alpha = 2^-20.
+     *
+     * @param bits The bitstring to test
+     */
+    public static Boolean adaptiveProportionTest(String bits) {
+        Integer n = bits.length();
+        Integer windowSize = 512;
+
+        if (n < windowSize) {
+            // Not enough data — pass by default
+            return true;
+        }
+
+        // For binary: cutoff ≈ W/2 + 6*sqrt(W/4) ≈ 256 + 67.9 ≈ 324
+        // Using exact formula for alpha=2^-20 on binary source
+        Integer cutoff = 324;
+
+        // Test each window
+        Integer numWindows = n / windowSize;
+        for (Integer w = 0; w < numWindows; w++) {
+            Integer offset = w * windowSize;
+            String firstBit = bits.substring(offset, offset + 1);
+            Integer count = 0;
+
+            for (Integer i = 0; i < windowSize; i++) {
+                if (bits.substring(offset + i, offset + i + 1) == firstBit) {
+                    count++;
+                }
+            }
+
+            if (count >= cutoff) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static Integer countOnes(String bits) {

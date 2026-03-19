@@ -95,6 +95,53 @@ private class IBMQuantumService_Test {
     }
 
     @IsTest
+    static void testSubmitEstimatorJob() {
+        Test.setMock(HttpCalloutMock.class, new MockSubmitSuccess());
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+        QRNG_Settings__c s = new QRNG_Settings__c(
+            SetupOwnerId = UserInfo.getOrganizationId(),
+            Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
+        );
+        upsert s;
+
+        List<String> circuits = QRNGCircuitBuilder.buildCHSHVerificationCircuits(
+            0,
+            1
+        );
+        String qasm = circuits[0];
+        Map<String, Double> observables = new Map<String, Double>{
+            'ZZ' => 1.0,
+            'ZX' => -1.0,
+            'XZ' => 1.0,
+            'XX' => 1.0
+        };
+
+        Test.startTest();
+        Id jobId = IBMQuantumService.submitEstimatorJob(
+            qasm,
+            'test_backend',
+            observables,
+            4096,
+            'CHSH verification'
+        );
+        Test.stopTest();
+
+        Quantum_Job__c job = [
+            SELECT Id, Program_Id__c, Backend__c, Purpose__c
+            FROM Quantum_Job__c
+            WHERE Id = :jobId
+        ];
+        System.assertEquals(
+            'estimator',
+            job.Program_Id__c,
+            'Should set program_id to estimator'
+        );
+        System.assertEquals('test_backend', job.Backend__c);
+        System.assertEquals('CHSH verification', job.Purpose__c);
+    }
+
+    @IsTest
     static void testGetJobStatus() {
         Test.setMock(HttpCalloutMock.class, new MockSubmitSuccess());
         IBMQuantumAuth.cachedToken = 'test-token';

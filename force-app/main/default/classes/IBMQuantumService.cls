@@ -104,6 +104,7 @@ public with sharing class IBMQuantumService {
                 Num_Qubits__c = numQubits,
                 Purpose__c = purpose,
                 Use_Bell_Test__c = useBellTest != null ? useBellTest : false,
+                Job_Type__c = 'QRNG',
                 Requested_By__c = UserInfo.getUserId(),
                 Submitted_At__c = DateTime.now(),
                 Error_Message__c = e.getMessage()
@@ -130,6 +131,7 @@ public with sharing class IBMQuantumService {
             Num_Qubits__c = numQubits,
             Purpose__c = purpose,
             Use_Bell_Test__c = useBellTest != null ? useBellTest : false,
+            Job_Type__c = 'QRNG',
             Requested_By__c = UserInfo.getUserId(),
             Submitted_At__c = DateTime.now()
         );
@@ -456,6 +458,323 @@ public with sharing class IBMQuantumService {
         }
 
         return errors;
+    }
+
+    /**
+     * Submit a CHSH verification job using IBM Estimator V2.
+     * The Estimator handles measurement basis changes via observables,
+     * so the circuit only needs to create a Bell state (no Ry rotations).
+     *
+     * Observable format: {"ZZ": 1.0, "ZX": -1.0, "XZ": 1.0, "XX": 1.0}
+     * Returns the S-value directly as an expectation value.
+     *
+     * Governor limits: 1 callout
+     */
+    public static Id submitEstimatorJob(
+        String openqasm,
+        String backend,
+        Map<String, Double> observables,
+        Integer shots,
+        String purpose
+    ) {
+        String ibmJobId;
+        try {
+            ibmJobId = callSubmitEstimatorJob(
+                openqasm,
+                backend,
+                observables,
+                shots
+            );
+        } catch (Exception e) {
+            Quantum_Job__c failedJob = new Quantum_Job__c(
+                Backend__c = backend,
+                Status__c = 'Failed',
+                Circuit_QASM__c = openqasm,
+                Shots__c = shots,
+                Num_Qubits__c = 2,
+                Purpose__c = purpose,
+                Program_Id__c = 'estimator',
+                Requested_By__c = UserInfo.getUserId(),
+                Submitted_At__c = DateTime.now(),
+                Error_Message__c = e.getMessage()
+            );
+            insert failedJob;
+
+            QRNG_Failed__e failEvent = new QRNG_Failed__e(
+                Job_Id__c = failedJob.Id,
+                Error_Message__c = e.getMessage().left(255)
+            );
+            EventBus.publish(failEvent);
+
+            throw new QRNGException(
+                'Estimator job submission failed: ' + e.getMessage()
+            );
+        }
+
+        // Store observable labels in submission order so the poller
+        // can map each result back to its Pauli term.
+        Map<String, Object> submissionMeta = new Map<String, Object>();
+        submissionMeta.put(
+            'observableLabels',
+            new List<String>(observables.keySet())
+        );
+        submissionMeta.put('observableCoeffs', observables);
+
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = ibmJobId,
+            Provider__c = 'ibm',
+            Backend__c = backend,
+            Status__c = 'Submitted',
+            Circuit_QASM__c = openqasm,
+            Shots__c = shots,
+            Num_Qubits__c = 2,
+            Purpose__c = purpose,
+            Program_Id__c = 'estimator',
+            Requested_By__c = UserInfo.getUserId(),
+            Submitted_At__c = DateTime.now(),
+            Validation_Results__c = JSON.serialize(submissionMeta)
+        );
+        insert job;
+
+        System.enqueueJob(new QRNGJobPoller(job.Id, ibmJobId, 0));
+
+        return job.Id;
+    }
+
+    /**
+     * Call IBM API to submit an Estimator V2 job.
+     * PUB format: [circuit, observables, parameter_values, precision]
+     */
+    public static String callSubmitEstimatorJob(
+        String openqasm,
+        String backend,
+        Map<String, Double> observables,
+        Integer shots
+    ) {
+        String token = IBMQuantumAuth.getAccessToken();
+
+        Map<String, Object> body = new Map<String, Object>();
+        body.put('program_id', 'estimator');
+        body.put('backend', backend);
+
+        Map<String, Object> params = new Map<String, Object>();
+        List<Object> pubs = new List<Object>();
+
+        // Submit each Pauli term as a separate PUB so we get
+        // individual expectation values for auditability.
+        for (String pauliStr : observables.keySet()) {
+            Map<String, Double> singleObs = new Map<String, Double>{
+                pauliStr => 1.0
+            };
+            List<Object> pub = new List<Object>();
+            pub.add(openqasm);
+            pub.add(singleObs);
+            pubs.add(pub);
+        }
+        params.put('pubs', pubs);
+        params.put('version', 2);
+        // M3 measurement error mitigation — needed to reliably exceed S > 2 on noisy hardware
+        params.put('resilience_level', 1);
+        body.put('params', params);
+
+        String instanceCRN = getInstanceCRN();
+        if (String.isBlank(instanceCRN)) {
+            throw new QRNGException(
+                'Instance CRN not configured. Please set it in the Setup tab.'
+            );
+        }
+
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(BASE_URL + '/v1/jobs');
+        req.setMethod('POST');
+        req.setHeader('Authorization', 'Bearer ' + token);
+        req.setHeader('Content-Type', 'application/json');
+        req.setHeader('Service-CRN', instanceCRN);
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
+        req.setBody(JSON.serialize(body));
+        req.setTimeout(60000);
+
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+
+        if (res.getStatusCode() != 200 && res.getStatusCode() != 201) {
+            throw new QRNGException(
+                'IBM estimator job submission failed: ' +
+                    res.getStatusCode() +
+                    ' ' +
+                    res.getBody()
+            );
+        }
+
+        Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(
+            res.getBody()
+        );
+        return (String) responseMap.get('id');
+    }
+
+    /**
+     * Submit a CHSH Estimator job with 4 circuits (one per measurement setting).
+     * Each circuit is a Bell state + Ry basis rotations, evaluated against ZZ.
+     * Returns the Quantum_Job__c record Id.
+     *
+     * @param circuits 4 QASM circuits in order: E(a,b), E(a,b'), E(a',b), E(a',b')
+     * @param observable ZZ Pauli string for the active qubits
+     * @param backend IBM backend name
+     * @param shots Number of shots per circuit
+     * @param purpose Job purpose description
+     */
+    public static Id submitCHSHEstimatorJob(
+        List<String> circuits,
+        String observable,
+        String backend,
+        Integer shots,
+        String purpose
+    ) {
+        String ibmJobId;
+        try {
+            ibmJobId = callSubmitMultiCircuitEstimatorJob(
+                circuits,
+                observable,
+                backend,
+                shots
+            );
+        } catch (Exception e) {
+            Quantum_Job__c failedJob = new Quantum_Job__c(
+                Backend__c = backend,
+                Status__c = 'Failed',
+                Circuit_QASM__c = circuits[0],
+                Shots__c = shots,
+                Num_Qubits__c = 2,
+                Purpose__c = purpose,
+                Program_Id__c = 'estimator',
+                Job_Type__c = 'CHSH Verification',
+                Requested_By__c = UserInfo.getUserId(),
+                Submitted_At__c = DateTime.now(),
+                Error_Message__c = e.getMessage()
+            );
+            insert failedJob;
+
+            QRNG_Failed__e failEvent = new QRNG_Failed__e(
+                Job_Id__c = failedJob.Id,
+                Error_Message__c = e.getMessage().left(255)
+            );
+            EventBus.publish(failEvent);
+
+            throw new QRNGException(
+                'CHSH Estimator job submission failed: ' + e.getMessage()
+            );
+        }
+
+        // Store CHSH metadata: labels, coefficients, and all circuits
+        // S = E(a,b) - E(a,b') + E(a',b) + E(a',b')
+        List<String> pubLabels = new List<String>{
+            'E(a,b)',
+            'E(a,b\')',
+            'E(a\',b)',
+            'E(a\',b\')'
+        };
+        Map<String, Double> chshCoeffs = new Map<String, Double>{
+            'E(a,b)' => 1.0,
+            'E(a,b\')' => -1.0,
+            'E(a\',b)' => 1.0,
+            'E(a\',b\')' => 1.0
+        };
+        Map<String, Object> submissionMeta = new Map<String, Object>();
+        submissionMeta.put('observableLabels', pubLabels);
+        submissionMeta.put('observableCoeffs', chshCoeffs);
+        submissionMeta.put('observable', observable);
+
+        // Store all 4 circuits in Circuit_QASM__c separated by delimiter
+        String allCircuits = String.join(circuits, '\n--- CIRCUIT ---\n');
+
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = ibmJobId,
+            Provider__c = 'ibm',
+            Backend__c = backend,
+            Status__c = 'Submitted',
+            Circuit_QASM__c = allCircuits.left(131072),
+            Shots__c = shots,
+            Num_Qubits__c = 2,
+            Purpose__c = purpose,
+            Program_Id__c = 'estimator',
+            Job_Type__c = 'CHSH Verification',
+            Requested_By__c = UserInfo.getUserId(),
+            Submitted_At__c = DateTime.now(),
+            Validation_Results__c = JSON.serialize(submissionMeta)
+        );
+        insert job;
+
+        System.enqueueJob(new QRNGJobPoller(job.Id, ibmJobId, 0));
+
+        return job.Id;
+    }
+
+    /**
+     * Call IBM API to submit a multi-circuit Estimator V2 job.
+     * Each circuit gets the same observable as a separate PUB.
+     */
+    public static String callSubmitMultiCircuitEstimatorJob(
+        List<String> circuits,
+        String observable,
+        String backend,
+        Integer shots
+    ) {
+        String token = IBMQuantumAuth.getAccessToken();
+
+        Map<String, Object> body = new Map<String, Object>();
+        body.put('program_id', 'estimator');
+        body.put('backend', backend);
+
+        Map<String, Object> params = new Map<String, Object>();
+        List<Object> pubs = new List<Object>();
+
+        // One PUB per circuit, each with the same ZZ observable
+        Map<String, Double> obs = new Map<String, Double>{ observable => 1.0 };
+        for (String qasm : circuits) {
+            List<Object> pub = new List<Object>();
+            pub.add(qasm);
+            pub.add(obs);
+            pubs.add(pub);
+        }
+        params.put('pubs', pubs);
+        params.put('version', 2);
+        // No error mitigation — raw results prove genuine quantum behavior
+        params.put('resilience_level', 0);
+        body.put('params', params);
+
+        String instanceCRN = getInstanceCRN();
+        if (String.isBlank(instanceCRN)) {
+            throw new QRNGException(
+                'Instance CRN not configured. Please set it in the Setup tab.'
+            );
+        }
+
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(BASE_URL + '/v1/jobs');
+        req.setMethod('POST');
+        req.setHeader('Authorization', 'Bearer ' + token);
+        req.setHeader('Content-Type', 'application/json');
+        req.setHeader('Service-CRN', instanceCRN);
+        req.setHeader('IBM-API-Version', IBM_API_VERSION);
+        req.setBody(JSON.serialize(body));
+        req.setTimeout(60000);
+
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+
+        if (res.getStatusCode() != 200 && res.getStatusCode() != 201) {
+            throw new QRNGException(
+                'IBM CHSH estimator job submission failed: ' +
+                    res.getStatusCode() +
+                    ' ' +
+                    res.getBody()
+            );
+        }
+
+        Map<String, Object> responseMap = (Map<String, Object>) JSON.deserializeUntyped(
+            res.getBody()
+        );
+        return (String) responseMap.get('id');
     }
 
     /**

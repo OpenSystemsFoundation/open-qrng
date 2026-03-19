@@ -66,4 +66,45 @@ private class QuantumProviderFactory_Test {
         Set<String> providers = QuantumProviderFactory.getSupportedProviders();
         System.assert(providers.contains('ibm'), 'Should contain ibm provider');
     }
+
+    @IsTest
+    static void testGetActiveProviderDefault() {
+        // No QRNG_Provider__c records — should default to IBM
+        QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+        System.assertNotEquals(null, provider);
+        System.assertEquals('ibm', provider.getProviderName());
+    }
+
+    @IsTest
+    static void testGetActiveProviderFromRecord() {
+        QRNG_Provider__c p = new QRNG_Provider__c(
+            Name = 'IBM Quantum',
+            Provider_Key__c = 'ibm',
+            Is_Active__c = true
+        );
+        insert p;
+
+        QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+        System.assertEquals('ibm', provider.getProviderName());
+    }
+
+    @IsTest
+    static void testIsSupported() {
+        System.assertEquals(true, QuantumProviderFactory.isSupported('ibm'));
+        System.assertEquals(true, QuantumProviderFactory.isSupported('IBM'));
+        System.assertEquals(
+            false,
+            QuantumProviderFactory.isSupported('nonexistent')
+        );
+        System.assertEquals(false, QuantumProviderFactory.isSupported(null));
+        System.assertEquals(false, QuantumProviderFactory.isSupported(''));
+    }
+
+    @IsTest
+    static void testGetProviderWithWhitespace() {
+        QuantumProvider provider = QuantumProviderFactory.getProvider(
+            '  ibm  '
+        );
+        System.assertEquals('ibm', provider.getProviderName());
+    }
 }

@@ -67,7 +67,7 @@ private class IBMQuantumConnection_IntTest {
             result.get('connected'),
             'Connection should succeed with valid mock'
         );
-        System.assertEquals('Connected to IBM Quantum', result.get('message'));
+        System.assertEquals('Connected to ibm', result.get('message'));
     }
 
     @IsTest

@@ -26,33 +26,34 @@ Launch from a Panel or Committee record page.
 ### Step 3: Get Eligible Citizens
 
 **Get Records** element:
+
 - Object: **Contact** (or custom Citizen Volunteer object)
 - Filters:
-  - `Volunteer_Status__c` = `Active`
-  - `District__c` = panel's district (if applicable)
-  - Not currently serving on another panel
+    - `Volunteer_Status__c` = `Active`
+    - `District__c` = panel's district (if applicable)
+    - Not currently serving on another panel
 - Store → `varCitizenCollection`
 
 ### Step 4: Select Panel Members
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varCitizenIds}` |
-| Assignment Type | `Subset` |
-| Sample Size | `{!varSeatCount}` |
-| Purpose | `Citizen Panel: {!varPanelName}` |
-| Use Bell Test | `true` |
+| Input           | Value                            |
+| --------------- | -------------------------------- |
+| Record IDs      | `{!varCitizenIds}`               |
+| Assignment Type | `Subset`                         |
+| Sample Size     | `{!varSeatCount}`                |
+| Purpose         | `Citizen Panel: {!varPanelName}` |
+| Use Bell Test   | `true`                           |
 
 ### Step 5: Select Alternates
 
 Run a second Quantum Random Assignment on the remaining citizens:
 
-| Input | Value |
-|-------|-------|
-| Record IDs | `{!varRemainingCitizenIds}` |
-| Assignment Type | `Subset` |
-| Sample Size | `{!varAlternateCount}` |
-| Purpose | `Alternates: {!varPanelName}` |
+| Input           | Value                         |
+| --------------- | ----------------------------- |
+| Record IDs      | `{!varRemainingCitizenIds}`   |
+| Assignment Type | `Subset`                      |
+| Sample Size     | `{!varAlternateCount}`        |
+| Purpose         | `Alternates: {!varPanelName}` |
 
 ### Step 6: Publish Results
 
@@ -64,6 +65,7 @@ Run a second Quantum Random Assignment on the remaining citizens:
 ## Public Trust
 
 Quantum-certified selection provides the strongest possible evidence of fairness:
+
 - No algorithm can predict the outcome
 - No human selected the members
 - The certificate is publicly verifiable

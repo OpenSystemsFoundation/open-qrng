@@ -112,8 +112,8 @@ describe('c-qrng-validation-results', () => {
 
         const testBadges =
             element.shadowRoot.querySelectorAll('.test-result-badge');
-        // 3 critical + 4 extended = 7 tests
-        expect(testBadges.length).toBe(7);
+        // 3 critical + 7 extended (4 NIST + 3 SP 800-90B) = 10 tests
+        expect(testBadges.length).toBe(10);
     });
 
     it('renders Bell test section when CHSH data present', async () => {
@@ -123,8 +123,8 @@ describe('c-qrng-validation-results', () => {
 
         const testBadges =
             element.shadowRoot.querySelectorAll('.test-result-badge');
-        // 3 critical + 1 bell + 4 extended = 8 tests
-        expect(testBadges.length).toBe(8);
+        // 3 critical + 1 bell + 7 extended = 11 tests
+        expect(testBadges.length).toBe(11);
     });
 
     it('has a Run All Tests button', async () => {
@@ -168,7 +168,7 @@ describe('c-qrng-validation-results', () => {
         // Extended tests should show pending (clock icon)
         const pendingBadges =
             element.shadowRoot.querySelectorAll('.test-pending');
-        expect(pendingBadges.length).toBe(4);
+        expect(pendingBadges.length).toBe(7);
     });
 
     it('shows bit count and ones proportion', async () => {

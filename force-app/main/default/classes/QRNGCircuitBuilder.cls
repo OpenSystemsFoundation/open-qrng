@@ -140,12 +140,21 @@ public with sharing class QRNGCircuitBuilder {
         //   E(π/2, π/4) = cos(π/4) = 1/√2
         //   E(π/2, -π/4) = cos(3π/4) = -1/√2
         //   S = |1/√2 + 1/√2 + 1/√2 - (-1/√2)| = 4/√2 = 2√2
-        List<String> aliceAngles = new List<String>{ '0', '0', 'pi/2', 'pi/2' };
-        List<String> bobAngles = new List<String>{
-            'pi/4',
-            '-pi/4',
-            'pi/4',
-            '-pi/4'
+        //
+        // Angles are pre-computed as radians (Double) to emit clean decimal
+        // literals in QASM. Symbolic expressions like rz(pi-(pi/4)) can be
+        // mishandled by IBM's runtime QASM parser.
+        List<Double> aliceAngles = new List<Double>{
+            0.0,
+            0.0,
+            Math.PI / 2,
+            Math.PI / 2
+        };
+        List<Double> bobAngles = new List<Double>{
+            Math.PI / 4,
+            -(Math.PI / 4),
+            Math.PI / 4,
+            -(Math.PI / 4)
         };
 
         Integer totalQubits = numPairs * 2;
@@ -176,17 +185,16 @@ public with sharing class QRNGCircuitBuilder {
 
             // --- Apply CHSH measurement basis rotations ---
             // Ry(θ) decomposed into ISA native gates (rz, sx):
-            //   Ry(θ) = Rz(π/2) · SX · Rz(θ + π) · SX · Rz(-π/2)
-            // This rotates the measurement basis by angle θ in the Y-Z plane,
-            // so measuring in Z after Ry(-θ) is equivalent to measuring at angle θ.
+            //   Ry(θ) = Rz(-π/2) · SX · Rz(π - θ) · SX · Rz(-π/2)
+            // This rotates the measurement basis by angle θ in the Z-X plane.
 
-            // Alice's basis rotation (0 or π/4)
-            String aliceAngle = aliceAngles[basisConfig];
-            if (aliceAngle != '0') {
+            // Alice's basis rotation (0 or π/2)
+            Double aliceAngle = aliceAngles[basisConfig];
+            if (Math.abs(aliceAngle) > 0.0000000001) {
                 qasm += ryDecomposition(qA, aliceAngle);
             }
 
-            // Bob's basis rotation (π/8 or 3π/8)
+            // Bob's basis rotation (π/4 or -π/4)
             qasm += ryDecomposition(qB, bobAngles[basisConfig]);
         }
 
@@ -211,25 +219,21 @@ public with sharing class QRNGCircuitBuilder {
     }
 
     /**
-     * Decompose Ry(θ) into ISA-native gates for IBM Heron r2.
-     * Ry(θ) = Rz(π/2) · SX · Rz(θ + π) · SX · Rz(-π/2)
+     * Decompose Ry(theta) into ISA-native gates for IBM Heron r2.
      *
-     * Derivation: Ry(θ) = U3(θ, 0, 0), and the general U3 decomposition is:
-     *   U3(θ, φ, λ) = Rz(φ - π/2) · SX · Rz(π - θ) · SX · Rz(λ - π/2)
-     * Setting φ = 0, λ = 0:
-     *   Ry(θ) = Rz(-π/2) · SX · Rz(π - θ) · SX · Rz(-π/2)
+     * Verified against Qiskit transpiler output (optimization_level=2):
+     *   Ry(theta) = SX . Rz(pi + theta) . SX . Rz(pi)
      *
-     * Note: Rz(-π/2) = Rz(3*π/2) in [0, 2π) convention, but OpenQASM
-     * accepts negative angles so we use -pi/2 directly.
+     * All angles are emitted as pre-computed decimal literals.
      */
-    private static String ryDecomposition(Integer qubit, String theta) {
+    private static String ryDecomposition(Integer qubit, Double theta) {
         String q = '$' + qubit;
+        Double rzMiddle = Math.PI + theta;
         String qasm = '';
-        qasm += 'rz(-pi/2) ' + q + ';\n';
         qasm += 'sx ' + q + ';\n';
-        qasm += 'rz(pi-(' + theta + ')) ' + q + ';\n';
+        qasm += 'rz(' + rzMiddle + ') ' + q + ';\n';
         qasm += 'sx ' + q + ';\n';
-        qasm += 'rz(-pi/2) ' + q + ';\n';
+        qasm += 'rz(' + Math.PI + ') ' + q + ';\n';
         return qasm;
     }
 
@@ -461,6 +465,113 @@ public with sharing class QRNGCircuitBuilder {
         }
 
         return selected;
+    }
+
+    /**
+     * Build 4 CHSH verification circuits for Estimator V2.
+     * Each circuit creates |Φ+⟩ then applies Ry(-2θ_a) on Alice and
+     * Ry(-2θ_b) on Bob to rotate the measurement basis. The Estimator
+     * evaluates ⟨ZZ⟩ on each, giving the correlator E(a,b) directly.
+     *
+     * Optimal CHSH angles (Tsirelson bound):
+     *   a = 0,    a' = π/4
+     *   b = π/8,  b' = 3π/8
+     *
+     * For |Φ+⟩, E(θ_a, θ_b) = cos(2(θ_a − θ_b)).
+     * S = E(a,b) − E(a,b') + E(a',b) + E(a',b') = 2√2
+     *
+     * No measurements — Estimator computes expectation values directly.
+     *
+     * @param qubitA Physical qubit index for Alice
+     * @param qubitB Physical qubit index for Bob
+     * @return List of 4 QASM circuits in order: (a,b), (a,b'), (a',b), (a',b')
+     */
+    public static List<String> buildCHSHVerificationCircuits(
+        Integer qubitA,
+        Integer qubitB
+    ) {
+        // Measurement angles
+        Double a = 0.0;
+        Double aPrime = Math.PI / 4;
+        Double b = Math.PI / 8;
+        Double bPrime = 3 * Math.PI / 8;
+
+        // 4 CHSH setting combinations
+        List<List<Double>> settings = new List<List<Double>>{
+            new List<Double>{ a, b }, // E(a,b)
+            new List<Double>{ a, bPrime }, // E(a,b')
+            new List<Double>{ aPrime, b }, // E(a',b)
+            new List<Double>{ aPrime, bPrime } // E(a',b')
+        };
+
+        List<String> circuits = new List<String>();
+        for (List<Double> setting : settings) {
+            circuits.add(
+                buildCHSHSettingCircuit(qubitA, qubitB, setting[0], setting[1])
+            );
+        }
+        return circuits;
+    }
+
+    /**
+     * Build a single CHSH setting circuit: Bell state + measurement rotations.
+     * Ry(-2θ) rotates qubit so that Z-basis measurement is equivalent to
+     * measuring in the θ-rotated basis.
+     */
+    private static String buildCHSHSettingCircuit(
+        Integer qubitA,
+        Integer qubitB,
+        Double thetaA,
+        Double thetaB
+    ) {
+        String qA = '$' + qubitA;
+        String qB = '$' + qubitB;
+
+        String qasm = 'OPENQASM 3.0;\n';
+        qasm += 'include "stdgates.inc";\n';
+
+        // H on Alice: Rz(π/2) · SX · Rz(π/2)
+        qasm += 'rz(pi/2) ' + qA + ';\n';
+        qasm += 'sx ' + qA + ';\n';
+        qasm += 'rz(pi/2) ' + qA + ';\n';
+
+        // CNOT(Alice→Bob) = H(Bob) · CZ(Alice,Bob) · H(Bob)
+        qasm += 'rz(pi/2) ' + qB + ';\n';
+        qasm += 'sx ' + qB + ';\n';
+        qasm += 'rz(pi/2) ' + qB + ';\n';
+        qasm += 'cz ' + qA + ', ' + qB + ';\n';
+        qasm += 'rz(pi/2) ' + qB + ';\n';
+        qasm += 'sx ' + qB + ';\n';
+        qasm += 'rz(pi/2) ' + qB + ';\n';
+
+        // Measurement basis rotations: Ry(-2θ)
+        // Skip if angle is 0 (no rotation needed)
+        if (Math.abs(thetaA) > 0.0000000001) {
+            qasm += ryDecomposition(qubitA, -2 * thetaA);
+        }
+        if (Math.abs(thetaB) > 0.0000000001) {
+            qasm += ryDecomposition(qubitB, -2 * thetaB);
+        }
+
+        return qasm;
+    }
+
+    /**
+     * Select the single best qubit pair for CHSH verification.
+     * Returns the pair with lowest combined readout + gate error.
+     */
+    public static CoupledPair selectBestPair(
+        List<List<Integer>> couplingMap,
+        Map<Integer, Double> readoutErrors,
+        Map<String, Double> gateErrors
+    ) {
+        List<CoupledPair> pairs = selectBestPairs(
+            1,
+            couplingMap,
+            readoutErrors,
+            gateErrors
+        );
+        return pairs[0];
     }
 
     /**

@@ -38,6 +38,12 @@ public with sharing class QRNGSetupController {
         public DateTime lastSynced;
         @AuraEnabled
         public String provider;
+        @AuraEnabled
+        public Decimal chshSValue;
+        @AuraEnabled
+        public DateTime chshVerifiedAt;
+        @AuraEnabled
+        public Boolean quantumVerified;
     }
 
     public class JobStatusDTO {
@@ -62,6 +68,8 @@ public with sharing class QRNGSetupController {
         @AuraEnabled
         public String assignmentType;
         @AuraEnabled
+        public String jobType;
+        @AuraEnabled
         public DateTime submittedAt;
         @AuraEnabled
         public DateTime completedAt;
@@ -77,6 +85,8 @@ public with sharing class QRNGSetupController {
         public String rawResults;
         @AuraEnabled
         public String debiasedResults;
+        @AuraEnabled
+        public String resultFingerprint;
     }
 
     public class AuditTrailDTO {
@@ -137,6 +147,10 @@ public with sharing class QRNGSetupController {
         public Boolean tampered;
         @AuraEnabled
         public DateTime lastIntegrityCheck;
+        @AuraEnabled
+        public Boolean backendVerified;
+        @AuraEnabled
+        public DateTime backendVerifiedAt;
     }
 
     // ── Methods ─────────────────────────────────────────────────────
@@ -195,8 +209,8 @@ public with sharing class QRNGSetupController {
                 : 8;
             Integer numPairs = numQubits / 2;
             // Re-parse raw results to get individual bitstrings for CHSH
-            // Raw results is concatenated — split into shot-sized chunks
-            String raw = job.Raw_Results__c;
+            // Raw results may be hex-encoded — decode before splitting
+            String raw = QRNGResultParser.decodeRawResults(job.Raw_Results__c);
             List<String> bitstrings = new List<String>();
             for (Integer i = 0; i + numQubits <= raw.length(); i += numQubits) {
                 bitstrings.add(raw.substring(i, i + numQubits));
@@ -277,7 +291,9 @@ public with sharing class QRNGSetupController {
                 Execution_Time_ms__c,
                 Queue_Time_ms__c,
                 Raw_Results__c,
-                Debiased_Results__c
+                Debiased_Results__c,
+                Result_Fingerprint__c,
+                Job_Type__c
             FROM Quantum_Job__c
             WHERE Id = :jobId
             LIMIT 1
@@ -306,22 +322,25 @@ public with sharing class QRNGSetupController {
         dto.queueTimeMs = job.Queue_Time_ms__c;
         dto.rawResults = job.Raw_Results__c;
         dto.debiasedResults = job.Debiased_Results__c;
+        dto.resultFingerprint = job.Result_Fingerprint__c;
+        dto.jobType = job.Job_Type__c;
         return dto;
     }
 
     /**
-     * Test the IBM Quantum connection
+     * Test the quantum provider connection using stored credentials.
      */
     @AuraEnabled
     public static Map<String, Object> testConnection() {
         Map<String, Object> result = new Map<String, Object>();
         try {
-            Boolean connected = IBMQuantumAuth.testApiKey();
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            Boolean connected = provider.testConnection();
             result.put('connected', connected);
             result.put(
                 'message',
                 connected
-                    ? 'Connected to IBM Quantum'
+                    ? 'Connected to ' + provider.getProviderName()
                     : 'Connection failed - check API key'
             );
         } catch (Exception e) {
@@ -332,48 +351,13 @@ public with sharing class QRNGSetupController {
     }
 
     /**
-     * Get available IBM Quantum backends
+     * Get available quantum backends from the active provider.
      */
     @AuraEnabled
     public static List<Map<String, Object>> getAvailableBackends() {
         try {
-            String backendsJson = IBMQuantumService.getBackends();
-            Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
-                backendsJson
-            );
-
-            List<Map<String, Object>> backends = new List<Map<String, Object>>();
-
-            // Parse response - structure may be {"devices": [...]} or direct array
-            List<Object> devices;
-            if (response.containsKey('devices')) {
-                devices = (List<Object>) response.get('devices');
-            } else if (response.containsKey('backends')) {
-                devices = (List<Object>) response.get('backends');
-            } else {
-                devices = new List<Object>();
-            }
-
-            for (Object device : devices) {
-                Map<String, Object> deviceMap = (Map<String, Object>) device;
-                Map<String, Object> backend = new Map<String, Object>();
-                backend.put('name', deviceMap.get('name'));
-                backend.put(
-                    'status',
-                    deviceMap.containsKey('status')
-                        ? deviceMap.get('status')
-                        : 'unknown'
-                );
-                backend.put(
-                    'qubits',
-                    deviceMap.containsKey('qubits')
-                        ? deviceMap.get('qubits')
-                        : (deviceMap.containsKey('num_qubits')
-                              ? deviceMap.get('num_qubits')
-                              : 0)
-                );
-                backends.add(backend);
-            }
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            List<Map<String, Object>> backends = provider.listBackends();
 
             // Ensure the IBM provider record exists
             QRNG_Provider__c ibmProvider = ensureIBMProvider();
@@ -400,6 +384,16 @@ public with sharing class QRNGSetupController {
                     Num_Qubits__c = b.get('qubits') != null
                         ? Integer.valueOf(String.valueOf(b.get('qubits')))
                         : 0,
+                    Queue_Length__c = b.get('queueLength') != null
+                        ? Integer.valueOf(String.valueOf(b.get('queueLength')))
+                        : null,
+                    Is_Simulator__c = b.get('isSimulator') == true,
+                    Processor_Family__c = b.get('processorFamily') != null
+                        ? String.valueOf(b.get('processorFamily'))
+                        : null,
+                    Processor_Revision__c = b.get('processorRevision') != null
+                        ? String.valueOf(b.get('processorRevision'))
+                        : null,
                     Last_Synced__c = DateTime.now()
                 );
                 backendRecords.add(rec);
@@ -422,13 +416,14 @@ public with sharing class QRNGSetupController {
     }
 
     /**
-     * Discover IBM Quantum instances and their CRNs.
+     * Discover provider-specific instances (e.g. IBM CRNs, IonQ projects).
      * Auto-saves CRN if only one instance found.
      */
     @AuraEnabled
     public static List<Map<String, String>> discoverInstances() {
         try {
-            List<Map<String, String>> instances = IBMQuantumAuth.discoverInstances();
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            List<Map<String, String>> instances = provider.discoverInstances();
 
             // Auto-save if single instance
             if (instances.size() == 1) {
@@ -456,7 +451,8 @@ public with sharing class QRNGSetupController {
     @AuraEnabled
     public static Map<String, Object> getBackendHealth(String backendName) {
         try {
-            Map<String, Object> props = IBMQuantumService.getBackendProperties(
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            Map<String, Object> props = provider.getBackendProperties(
                 backendName
             );
             Map<String, Object> summary = new Map<String, Object>();
@@ -568,7 +564,10 @@ public with sharing class QRNGSetupController {
                 Median_Readout_Error__c,
                 Last_Calibration__c,
                 Last_Synced__c,
-                Provider__r.Name
+                Provider__r.Name,
+                CHSH_S_Value__c,
+                CHSH_Verified_At__c,
+                Quantum_Verified__c
             FROM QRNG_Backend__c
             WHERE Provider__r.Is_Active__c = TRUE
             ORDER BY Queue_Length__c ASC NULLS LAST
@@ -601,6 +600,9 @@ public with sharing class QRNGSetupController {
         dto.lastCalibration = b.Last_Calibration__c;
         dto.lastSynced = b.Last_Synced__c;
         dto.provider = b.Provider__r.Name;
+        dto.chshSValue = b.CHSH_S_Value__c;
+        dto.chshVerifiedAt = b.CHSH_Verified_At__c;
+        dto.quantumVerified = b.Quantum_Verified__c;
         return dto;
     }
 
@@ -652,7 +654,8 @@ public with sharing class QRNGSetupController {
             List<QRNG_Backend__c> toUpdate = new List<QRNG_Backend__c>();
             for (QRNG_Backend__c backend : backends) {
                 try {
-                    Map<String, Object> props = IBMQuantumService.getBackendProperties(
+                    QuantumProvider prov = QuantumProviderFactory.getActiveProvider();
+                    Map<String, Object> props = prov.getBackendProperties(
                         backend.Name
                     );
                     updateBackendFromProperties(backend, props);
@@ -771,6 +774,7 @@ public with sharing class QRNGSetupController {
         if (s != null) {
             settings.put('hasApiKey', String.isNotBlank(s.IBM_API_Key__c));
             settings.put('hasCRN', String.isNotBlank(s.Instance_CRN__c));
+            settings.put('crnValue', s.Instance_CRN__c);
             settings.put('defaultBackend', s.Default_Backend__c);
             settings.put('defaultShots', s.Default_Shots__c);
             settings.put('useBellTest', s.Use_Bell_Test__c);
@@ -923,7 +927,27 @@ public with sharing class QRNGSetupController {
     }
 
     /**
-     * Submit a QRNG job from LWC
+     * Submit a CHSH verification job for a backend.
+     * Delegates to the active provider's verification implementation.
+     * For IBM: uses Estimator V2 with optimal CHSH measurement angles.
+     *
+     * Governor limits: 3-4 callouts (provider-dependent)
+     */
+    @AuraEnabled
+    public static Id verifyBackendQuantum(String backendName) {
+        try {
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            return provider.submitVerificationJob(backendName, 4096);
+        } catch (Exception e) {
+            throw new AuraHandledException(
+                'Backend verification failed: ' + e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Submit a QRNG job from LWC.
+     * Uses the active provider's circuit building and job submission.
      */
     @AuraEnabled
     public static Id submitQRNGJob(
@@ -934,17 +958,19 @@ public with sharing class QRNGSetupController {
         Boolean useBellTest
     ) {
         try {
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
             QRNG_Settings__c settings = QRNG_Settings__c.getInstance();
+
             String backendName;
             if (String.isNotBlank(backend)) {
                 backendName = backend;
             } else if (settings != null && settings.Use_Least_Busy__c == true) {
-                // Always call live API for real-time queue data
-                backendName = IBMQuantumService.getLeastBusyBackend();
+                backendName = provider.getLeastBusyBackend();
             }
             if (String.isBlank(backendName) && settings != null) {
                 backendName = settings.Default_Backend__c;
             }
+
             Integer numQ = numQubits != null ? numQubits : 8;
             Integer numShots = shots != null
                 ? shots
@@ -954,32 +980,10 @@ public with sharing class QRNGSetupController {
                       : 1024);
             Boolean bell = useBellTest != null ? useBellTest : false;
 
-            // Fetch backend topology and calibration for qubit selection
-            Map<Integer, Double> readoutErrors;
-            try {
-                readoutErrors = IBMQuantumService.getReadoutErrors(backendName);
-            } catch (Exception ex) {
-                readoutErrors = null;
-            }
+            // Build circuit via provider (handles qubit selection, topology)
+            String qasm = provider.buildCircuit(numQ, backendName, bell);
 
-            String qasm;
-            if (bell) {
-                List<List<Integer>> couplingMap = IBMQuantumService.getCouplingMap(
-                    backendName
-                );
-                qasm = QRNGCircuitBuilder.buildBellTestCircuit(
-                    numQ / 2,
-                    couplingMap,
-                    readoutErrors
-                );
-            } else {
-                qasm = QRNGCircuitBuilder.buildStandardCircuit(
-                    numQ,
-                    readoutErrors
-                );
-            }
-
-            return IBMQuantumService.submitJob(
+            return provider.submitTrackedJob(
                 qasm,
                 backendName,
                 numShots,
@@ -1074,7 +1078,9 @@ public with sharing class QRNGSetupController {
                 Quantum_Job__c,
                 CreatedDate,
                 Tampered__c,
-                Last_Integrity_Check__c
+                Last_Integrity_Check__c,
+                Backend_Verified__c,
+                Backend_Verified_At__c
             FROM Fairness_Certificate__c
             WHERE Id = :certificateId
             LIMIT 1
@@ -1097,6 +1103,8 @@ public with sharing class QRNGSetupController {
         dto.createdDate = cert.CreatedDate;
         dto.tampered = cert.Tampered__c;
         dto.lastIntegrityCheck = cert.Last_Integrity_Check__c;
+        dto.backendVerified = cert.Backend_Verified__c;
+        dto.backendVerifiedAt = cert.Backend_Verified_At__c;
         return dto;
     }
 
@@ -1226,28 +1234,24 @@ public with sharing class QRNGSetupController {
                 );
             }
 
-            Map<String, Object> ibmStatus = IBMQuantumService.getJobStatus(
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            Map<String, Object> ibmStatus = provider.getJobStatus(
                 job.External_Job_ID__c
             );
 
-            // Extract status from response (handles nested state.status or top-level status)
-            String status;
-            if (ibmStatus.containsKey('state')) {
-                Map<String, Object> state = (Map<String, Object>) ibmStatus.get(
-                    'state'
-                );
-                status = (String) state.get('status');
-            } else {
-                status = (String) ibmStatus.get('status');
-            }
-
-            // Normalize status
-            String normalizedStatus = normalizeIBMStatus(status);
+            // Extract and normalize via shared utility
+            String rawStatus = IBMResponseParser.extractStatus(ibmStatus);
+            String normalizedStatus = IBMResponseParser.normalizeStatus(
+                rawStatus
+            );
 
             // Update job record — capture error details or clear if healthy
             job.Status__c = normalizedStatus;
             if (normalizedStatus == 'Failed') {
-                job.Error_Message__c = buildVerboseError(status, ibmStatus);
+                job.Error_Message__c = IBMResponseParser.buildErrorMessage(
+                    rawStatus,
+                    ibmStatus
+                );
             } else {
                 job.Error_Message__c = null;
             }
@@ -1256,7 +1260,7 @@ public with sharing class QRNGSetupController {
 
             Map<String, Object> result = new Map<String, Object>();
             result.put('status', normalizedStatus);
-            result.put('ibmStatus', status);
+            result.put('ibmStatus', rawStatus);
             result.put('jobId', jobId);
             return result;
         } catch (Exception e) {
@@ -1268,7 +1272,7 @@ public with sharing class QRNGSetupController {
 
     /**
      * Manually retrieve results for a completed job.
-     * Re-runs the result parsing and certificate creation pipeline.
+     * Delegates to QRNGJobProcessor for the actual parsing and certification pipeline.
      */
     @AuraEnabled
     public static Map<String, Object> retrieveJobResults(Id jobId) {
@@ -1285,7 +1289,9 @@ public with sharing class QRNGSetupController {
                     Purpose__c,
                     Use_Bell_Test__c,
                     Submitted_At__c,
-                    Raw_Results__c
+                    Raw_Results__c,
+                    Program_Id__c,
+                    Validation_Results__c
                 FROM Quantum_Job__c
                 WHERE Id = :jobId
                 LIMIT 1
@@ -1295,59 +1301,36 @@ public with sharing class QRNGSetupController {
                 throw new QRNGException('No external job ID on this record.');
             }
 
-            // Fetch results from IBM
-            String resultsJson = IBMQuantumService.getJobResults(
+            // Fetch results and status via provider
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            String resultsJson = provider.getJobResults(job.External_Job_ID__c);
+            Map<String, Object> ibmStatus = provider.getJobStatus(
                 job.External_Job_ID__c
             );
 
-            // Parse results — handle hex-encoded samples from IBM Sampler
-            Integer numQubits = job.Num_Qubits__c != null
-                ? (Integer) job.Num_Qubits__c
-                : 8;
-            List<String> bitstrings = QRNGResultParser.parseSamplerResults(
-                resultsJson,
-                numQubits
-            );
-            String rawBits = QRNGResultParser.concatenateBitstrings(bitstrings);
-            String debiasedBits = QRNGResultParser.vonNeumannDebias(rawBits);
-
-            // Get queue time from IBM status
-            Map<String, Object> ibmStatus = IBMQuantumService.getJobStatus(
-                job.External_Job_ID__c
-            );
-
-            // Update job
-            job.Status__c = 'Completed';
-            job.Completed_At__c = DateTime.now();
-            job.Raw_Results__c = rawBits.left(131072);
-            job.Debiased_Results__c = debiasedBits.left(131072);
-            if (job.Submitted_At__c != null) {
-                job.Execution_Time_ms__c =
-                    DateTime.now().getTime() - job.Submitted_At__c.getTime();
+            // Delegate to shared processor
+            QRNGJobProcessor.ProcessingResult pr;
+            if (job.Program_Id__c == 'estimator') {
+                pr = QRNGJobProcessor.processEstimatorCompletion(
+                    job,
+                    resultsJson,
+                    ibmStatus
+                );
+            } else {
+                pr = QRNGJobProcessor.processSamplerCompletion(
+                    job,
+                    resultsJson,
+                    ibmStatus
+                );
             }
-            job.Queue_Time_ms__c = extractQueueTimeMs(ibmStatus);
-            update job;
-
-            // Validate and create certificate
-            Map<String, Object> validation = QRNGValidator.validate(
-                debiasedBits
-            );
-            String validationJson = JSON.serialize(validation);
-            Boolean passed = validation.containsKey('passed')
-                ? (Boolean) validation.get('passed')
-                : true;
-            String certStatus = passed ? 'Certified' : 'Failed';
-            Id certId = FairnessCertificateService.createCertificate(
-                job.Id,
-                validationJson,
-                certStatus
-            );
 
             Map<String, Object> result = new Map<String, Object>();
-            result.put('status', 'Completed');
-            result.put('certificateId', certId);
-            result.put('rawBitsLength', rawBits.length());
-            result.put('debiasedBitsLength', debiasedBits.length());
+            result.put('status', pr.status);
+            result.put('certificateId', pr.certificateId);
+            result.put('chshSValue', pr.chshSValue);
+            result.put('bellTestPassed', pr.bellTestPassed);
+            result.put('rawBitsLength', pr.rawBitsLength);
+            result.put('debiasedBitsLength', pr.debiasedBitsLength);
             return result;
         } catch (Exception e) {
             throw new AuraHandledException(
@@ -1381,95 +1364,6 @@ public with sharing class QRNGSetupController {
         );
         insert ibm;
         return ibm;
-    }
-
-    private static String buildVerboseError(
-        String status,
-        Map<String, Object> statusResponse
-    ) {
-        String msg = 'IBM job status: ' + status;
-        if (statusResponse == null) {
-            return msg;
-        }
-        if (statusResponse.containsKey('error')) {
-            Object errObj = statusResponse.get('error');
-            if (errObj instanceof Map<String, Object>) {
-                Map<String, Object> error = (Map<String, Object>) errObj;
-                if (error.containsKey('code')) {
-                    msg += '\nError code: ' + error.get('code');
-                }
-                if (error.containsKey('message')) {
-                    msg += '\nError message: ' + (String) error.get('message');
-                }
-                if (error.containsKey('solution')) {
-                    msg += '\nSolution: ' + (String) error.get('solution');
-                }
-                if (error.containsKey('more_info')) {
-                    msg += '\nMore info: ' + (String) error.get('more_info');
-                }
-            } else {
-                msg += '\nError: ' + String.valueOf(errObj);
-            }
-        }
-        if (statusResponse.containsKey('state')) {
-            Object stateObj = statusResponse.get('state');
-            if (stateObj instanceof Map<String, Object>) {
-                Map<String, Object> state = (Map<String, Object>) stateObj;
-                if (state.containsKey('reason')) {
-                    msg += '\nReason: ' + (String) state.get('reason');
-                }
-                if (state.containsKey('reason_code')) {
-                    msg += '\nReason code: ' + state.get('reason_code');
-                }
-            }
-        }
-        return msg;
-    }
-
-    private static Decimal extractQueueTimeMs(
-        Map<String, Object> statusResponse
-    ) {
-        if (
-            statusResponse == null || !statusResponse.containsKey('timestamps')
-        ) {
-            return null;
-        }
-        Object tsObj = statusResponse.get('timestamps');
-        if (!(tsObj instanceof Map<String, Object>)) {
-            return null;
-        }
-        Map<String, Object> timestamps = (Map<String, Object>) tsObj;
-        String created = (String) timestamps.get('created');
-        String running = (String) timestamps.get('running');
-        if (String.isBlank(created) || String.isBlank(running)) {
-            return null;
-        }
-        try {
-            DateTime createdDt = DateTime.valueOf(
-                created.replace('T', ' ').replace('Z', '')
-            );
-            DateTime runningDt = DateTime.valueOf(
-                running.replace('T', ' ').replace('Z', '')
-            );
-            return runningDt.getTime() - createdDt.getTime();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private static String normalizeIBMStatus(String ibmStatus) {
-        if (ibmStatus == null)
-            return 'Pending';
-        String lower = ibmStatus.toLowerCase();
-        if (lower == 'completed' || lower == 'result_ready')
-            return 'Completed';
-        if (lower == 'running')
-            return 'Running';
-        if (lower == 'queued' || lower == 'pending_in_queue')
-            return 'Queued';
-        if (lower == 'failed' || lower == 'cancelled' || lower == 'canceled')
-            return 'Failed';
-        return 'Submitted';
     }
 
     /**
