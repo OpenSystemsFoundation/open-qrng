@@ -46,7 +46,7 @@ Use a **Formula** or **Decision** element:
 
 ### Step 5: Route Selected Transactions
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
 1. Update selected transactions: `Review_Status__c` = `Pending Review`
 2. Assign to compliance analysts (optionally via a second Quantum Random Assignment with `Uniform` type)

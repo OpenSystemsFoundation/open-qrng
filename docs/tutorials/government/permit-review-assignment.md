@@ -50,7 +50,7 @@ Use a **Scheduled Path** (every 30 minutes or hourly) to batch new applications:
 
 ### Step 5: Apply and Document
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
 1. Update each application's `OwnerId` to the assigned reviewer
 2. Store Certificate ID on the application record

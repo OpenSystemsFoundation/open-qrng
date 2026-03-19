@@ -52,9 +52,9 @@ The `Subset` type uses a Fisher-Yates shuffle to select `sampleSize` records fro
 
 ### Step 5: Create Review Tasks
 
-After `QRNG_Complete__e` fires, a second Flow:
+After `Quantum_Job_Complete__e` fires, a second Flow:
 
-1. Queries `QRNG_Assignment__c` records for the completed job
+1. Queries `Quantum_Assignment__c` records for the completed job
 2. For each selected Opportunity, creates a Task:
     - Subject: `Pipeline Review — Quantum Selected`
     - WhatId: the Opportunity
@@ -107,5 +107,5 @@ List<QuantumRandomAssignment.Output> results =
 ## Next Steps
 
 - Adjust the **sample size** dynamically based on pipeline growth using a formula or custom metadata
-- Build a **Dashboard** on `QRNG_Assignment__c` to track which deals were selected over time and verify even coverage
+- Build a **Dashboard** on `Quantum_Assignment__c` to track which deals were selected over time and verify even coverage
 - Enable **Bell Test** mode for quarter-end reviews to prove quantum origin via CHSH inequality violation

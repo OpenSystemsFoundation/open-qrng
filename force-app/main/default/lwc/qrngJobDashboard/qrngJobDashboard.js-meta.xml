@@ -2,7 +2,7 @@
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>66.0</apiVersion>
     <isExposed>true</isExposed>
-    <masterLabel>QRNG Job Dashboard</masterLabel>
+    <masterLabel>Quantum Job Dashboard</masterLabel>
     <description
     >Master job monitor showing all quantum jobs with filtering and navigation</description>
     <targets>

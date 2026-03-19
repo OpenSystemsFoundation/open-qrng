@@ -69,9 +69,9 @@ For group assignment, create placeholder "assignee" IDs representing each group.
 
 ### Step 6: Apply Group Assignments
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
-1. Query `QRNG_Assignment__c` for the completed job
+1. Query `Quantum_Assignment__c` for the completed job
 2. Map each participant to their assigned group
 3. Update `Treatment_Group__c` on each participant record
 4. Store the Certificate ID in `Randomization_Certificate__c`

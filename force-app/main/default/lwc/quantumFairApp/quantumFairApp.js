@@ -1,8 +1,8 @@
 import { LightningElement, track, wire } from 'lwc';
-import getSettings from '@salesforce/apex/QRNGSetupController.getSettings';
+import getSettings from '@salesforce/apex/SetupController.getSettings';
 import { subscribe, unsubscribe, onError } from 'lightning/empApi';
 
-const COMPLETE_CHANNEL = '/event/OpenSF__QRNG_Complete__e';
+const COMPLETE_CHANNEL = '/event/OpenSF__Quantum_Job_Complete__e';
 
 export default class QuantumFairApp extends LightningElement {
     @track activeJobs = [];

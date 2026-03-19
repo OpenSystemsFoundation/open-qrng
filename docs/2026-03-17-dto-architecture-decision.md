@@ -19,7 +19,7 @@ All Apex methods called by LWC components should return **inner class DTOs** (Da
 ## Pattern
 
 ```apex
-public class QRNGSetupController {
+public class SetupController {
     public class BackendHealthDTO {
         @AuraEnabled
         public String id;

@@ -66,7 +66,7 @@ After site selection, run a second Quantum Random Assignment to assign inspector
 
 ### Step 6: Create Inspection Records
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
 1. Create Inspection records for each selected site
 2. Assign the inspector

@@ -1,27 +1,27 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngConnectionSetup from 'c/qrngConnectionSetup';
-import testConnection from '@salesforce/apex/QRNGSetupController.testConnection';
-import getAvailableBackends from '@salesforce/apex/QRNGSetupController.getAvailableBackends';
-import discoverInstances from '@salesforce/apex/QRNGSetupController.discoverInstances';
-import saveSettings from '@salesforce/apex/QRNGSetupController.saveSettings';
+import testConnection from '@salesforce/apex/SetupController.testConnection';
+import getAvailableBackends from '@salesforce/apex/SetupController.getAvailableBackends';
+import discoverInstances from '@salesforce/apex/SetupController.discoverInstances';
+import saveSettings from '@salesforce/apex/SetupController.saveSettings';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.testConnection',
+    '@salesforce/apex/SetupController.testConnection',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getAvailableBackends',
+    '@salesforce/apex/SetupController.getAvailableBackends',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.discoverInstances',
+    '@salesforce/apex/SetupController.discoverInstances',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.saveSettings',
+    '@salesforce/apex/SetupController.saveSettings',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );

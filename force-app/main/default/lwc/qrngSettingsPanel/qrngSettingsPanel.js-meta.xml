@@ -2,7 +2,7 @@
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>66.0</apiVersion>
     <isExposed>true</isExposed>
-    <masterLabel>QRNG Settings Panel</masterLabel>
+    <masterLabel>Quantum Settings Panel</masterLabel>
     <description
     >Default backend, shots, and compliance email configuration</description>
     <targets>

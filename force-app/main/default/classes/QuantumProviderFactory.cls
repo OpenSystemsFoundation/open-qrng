@@ -23,18 +23,18 @@ public with sharing class QuantumProviderFactory {
      * Get a QuantumProvider instance for the given provider name.
      * @param providerName  Case-insensitive provider key (e.g. 'ibm')
      * @return QuantumProvider implementation
-     * @throws QRNGException if the provider name is not recognized
+     * @throws QuantumException if the provider name is not recognized
      */
     public static QuantumProvider getProvider(String providerName) {
         if (String.isBlank(providerName)) {
-            throw new QRNGException('Provider name cannot be blank');
+            throw new QuantumException('Provider name cannot be blank');
         }
 
         String key = providerName.toLowerCase().trim();
         System.Type providerType = PROVIDER_REGISTRY.get(key);
 
         if (providerType == null) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'Unsupported quantum provider: ' +
                     providerName +
                     '. Supported providers: ' +
@@ -49,14 +49,14 @@ public with sharing class QuantumProviderFactory {
     }
 
     /**
-     * Get the active QuantumProvider based on the org's QRNG_Provider__c records.
+     * Get the active QuantumProvider based on the org's Quantum_Provider__c records.
      * Falls back to IBM if no active provider is configured.
      * @return QuantumProvider for the first active provider
      */
     public static QuantumProvider getActiveProvider() {
-        List<QRNG_Provider__c> activeProviders = [
+        List<Quantum_Provider__c> activeProviders = [
             SELECT Provider_Key__c
-            FROM QRNG_Provider__c
+            FROM Quantum_Provider__c
             WHERE Is_Active__c = TRUE
             ORDER BY CreatedDate ASC
             LIMIT 1

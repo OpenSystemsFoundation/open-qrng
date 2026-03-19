@@ -10,7 +10,7 @@ This guide walks you through adding a new provider from scratch.
 LWC Components (provider-agnostic)
         │
         ▼
-QRNGSetupController ─── DTOs ──▶ Frontend
+SetupController ─── DTOs ──▶ Frontend
         │
         ▼
 QuantumProviderFactory.getActiveProvider()
@@ -45,7 +45,7 @@ public with sharing class YourProviderAuth {
         if (cachedToken != null && tokenExpiry > DateTime.now()) {
             return cachedToken;
         }
-        QRNG_Settings__c settings = QRNG_Settings__c.getOrgDefaults();
+        Quantum_Settings__c settings = Quantum_Settings__c.getOrgDefaults();
         String apiKey = settings.IBM_API_Key__c; // Reuse or add a custom field
 
         // Call your provider's token endpoint
@@ -110,7 +110,7 @@ public with sharing class YourProviderService {
     public static String getJobResults(String jobId) {
         String token = YourProviderAuth.getAccessToken();
         // Return the raw results JSON
-        // Must conform to the format expected by QRNGResultParser:
+        // Must conform to the format expected by ResultParser:
         // {"results":[{"data":{"meas":{"samples":["0110","1001",...]}}}]}
     }
 
@@ -176,7 +176,7 @@ public with sharing class YourProvider implements QuantumProvider {
         insert job;
 
         // 3. Start polling
-        System.enqueueJob(new QRNGJobPoller(job.Id, externalJobId, 0));
+        System.enqueueJob(new JobPoller(job.Id, externalJobId, 0));
         return job.Id;
     }
 
@@ -212,25 +212,25 @@ public with sharing class YourProvider implements QuantumProvider {
         Boolean useBellTest
     ) {
         // For providers with all-to-all connectivity (IonQ), just use
-        // QRNGCircuitBuilder.buildStandardCircuit(numQubits) directly.
+        // CircuitBuilder.buildStandardCircuit(numQubits) directly.
         // For providers with limited connectivity, fetch topology and optimize.
         if (useBellTest) {
-            return QRNGCircuitBuilder.buildBellTestCircuit(
+            return CircuitBuilder.buildBellTestCircuit(
                 numQubits / 2,
                 null,
                 null
             );
         }
-        return QRNGCircuitBuilder.buildStandardCircuit(numQubits);
+        return CircuitBuilder.buildStandardCircuit(numQubits);
     }
 
     // ── Verification ──
     public Id submitVerificationJob(String backendName, Integer shots) {
         // Submit a CHSH Bell test verification job using your provider's API.
         // The simplest approach: build a Bell state circuit, run it as a
-        // standard sampler job, and let QRNGValidator.calculateCHSH() compute
+        // standard sampler job, and let RandomnessValidator.calculateCHSH() compute
         // the S-value from the bitstrings.
-        String qasm = QRNGCircuitBuilder.buildBellTestCircuit(1, null, null);
+        String qasm = CircuitBuilder.buildBellTestCircuit(1, null, null);
         return submitTrackedJob(
             qasm,
             backendName,
@@ -260,9 +260,9 @@ private static final Map<String, System.Type> PROVIDER_REGISTRY = new Map<String
 };
 ```
 
-### 5. Create a QRNG_Provider\_\_c Record
+### 5. Create a Quantum_Provider\_\_c Record
 
-Your provider needs a record in the `QRNG_Provider__c` custom object to appear in the UI. Create it via the setup controller or data loader:
+Your provider needs a record in the `Quantum_Provider__c` custom object to appear in the UI. Create it via the setup controller or data loader:
 
 | Field               | Value                                           |
 | ------------------- | ----------------------------------------------- |
@@ -301,7 +301,7 @@ Every `.cls` file needs a matching `.cls-meta.xml`:
 
 ## Result Format Contract
 
-The most important integration point is the **results JSON format**. `QRNGResultParser` expects results from sampler jobs in this format:
+The most important integration point is the **results JSON format**. `ResultParser` expects results from sampler jobs in this format:
 
 ```json
 {
@@ -324,7 +324,7 @@ The most important integration point is the **results JSON format**. `QRNGResult
 If your provider returns a different format, you have two options:
 
 1. **Transform in your service class** — convert to the standard format before returning from `getJobResults()`
-2. **Extend QRNGResultParser** — add a new parser method and route based on `Provider__c`
+2. **Extend ResultParser** — add a new parser method and route based on `Provider__c`
 
 Option 1 is recommended for simplicity.
 

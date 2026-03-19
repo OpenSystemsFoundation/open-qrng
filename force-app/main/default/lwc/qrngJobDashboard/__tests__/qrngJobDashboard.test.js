@@ -1,13 +1,13 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngJobDashboard from 'c/qrngJobDashboard';
-import getRecentJobs from '@salesforce/apex/QRNGSetupController.getRecentJobs';
+import getRecentJobs from '@salesforce/apex/SetupController.getRecentJobs';
 import {
-    subscribeToQRNGEvents,
-    unsubscribeFromQRNGEvents
+    subscribeToQuantumEvents,
+    unsubscribeFromQuantumEvents
 } from 'c/qrngEventSubscription';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getRecentJobs',
+    '@salesforce/apex/SetupController.getRecentJobs',
     () => {
         const {
             createApexTestWireAdapter
@@ -40,10 +40,10 @@ jest.mock(
 jest.mock(
     'c/qrngEventSubscription',
     () => ({
-        subscribeToQRNGEvents: jest
+        subscribeToQuantumEvents: jest
             .fn()
             .mockReturnValue({ complete: null, failed: null }),
-        unsubscribeFromQRNGEvents: jest.fn()
+        unsubscribeFromQuantumEvents: jest.fn()
     }),
     { virtual: true }
 );
@@ -208,13 +208,13 @@ describe('c-qrng-job-dashboard', () => {
 
     it('subscribes to events on connect', () => {
         createComponent();
-        expect(subscribeToQRNGEvents).toHaveBeenCalled();
+        expect(subscribeToQuantumEvents).toHaveBeenCalled();
     });
 
     it('unsubscribes on disconnect', () => {
         const el = createComponent();
         document.body.removeChild(el);
-        expect(unsubscribeFromQRNGEvents).toHaveBeenCalled();
+        expect(unsubscribeFromQuantumEvents).toHaveBeenCalled();
     });
 
     it('Refresh button calls refreshApex', async () => {

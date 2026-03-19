@@ -2,7 +2,7 @@
 private class ComplianceEvidenceExporterTest {
     @TestSetup
     static void setup() {
-        QRNG_Settings__c settings = new QRNG_Settings__c(
+        Quantum_Settings__c settings = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId()
         );
         insert settings;

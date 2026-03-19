@@ -1,27 +1,27 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngBackgroundJobs from 'c/qrngBackgroundJobs';
-import startSweeper from '@salesforce/apex/QRNGSetupController.startSweeper';
-import stopSweeper from '@salesforce/apex/QRNGSetupController.stopSweeper';
-import startIntegrityCheck from '@salesforce/apex/QRNGSetupController.startIntegrityCheck';
-import stopIntegrityCheck from '@salesforce/apex/QRNGSetupController.stopIntegrityCheck';
+import startSweeper from '@salesforce/apex/SetupController.startSweeper';
+import stopSweeper from '@salesforce/apex/SetupController.stopSweeper';
+import startIntegrityCheck from '@salesforce/apex/SetupController.startIntegrityCheck';
+import stopIntegrityCheck from '@salesforce/apex/SetupController.stopIntegrityCheck';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.startSweeper',
+    '@salesforce/apex/SetupController.startSweeper',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.stopSweeper',
+    '@salesforce/apex/SetupController.stopSweeper',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.startIntegrityCheck',
+    '@salesforce/apex/SetupController.startIntegrityCheck',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.stopIntegrityCheck',
+    '@salesforce/apex/SetupController.stopIntegrityCheck',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );

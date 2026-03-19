@@ -1,10 +1,10 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngValidationResults from 'c/qrngValidationResults';
-import getValidationResults from '@salesforce/apex/QRNGSetupController.getValidationResults';
-import runValidationTests from '@salesforce/apex/QRNGSetupController.runValidationTests';
+import getValidationResults from '@salesforce/apex/SetupController.getValidationResults';
+import runValidationTests from '@salesforce/apex/SetupController.runValidationTests';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getValidationResults',
+    '@salesforce/apex/SetupController.getValidationResults',
     () => {
         const {
             createApexTestWireAdapter
@@ -15,7 +15,7 @@ jest.mock(
 );
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.runValidationTests',
+    '@salesforce/apex/SetupController.runValidationTests',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );

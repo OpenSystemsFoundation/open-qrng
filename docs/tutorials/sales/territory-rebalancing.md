@@ -60,9 +60,9 @@ Display a confirmation screen showing:
 
 ### Step 6: Apply Assignments (Event-Triggered Flow)
 
-Create a **Platform Event-Triggered Flow** on `QRNG_Complete__e`:
+Create a **Platform Event-Triggered Flow** on `Quantum_Job_Complete__e`:
 
-1. Query `QRNG_Assignment__c` where `Quantum_Job__c` = event's `Job_Id__c`
+1. Query `Quantum_Assignment__c` where `Quantum_Job__c` = event's `Job_Id__c`
 2. For each assignment, update the Account's `OwnerId` to the assigned rep
 3. Optionally log a Task on each Account noting the rebalance
 

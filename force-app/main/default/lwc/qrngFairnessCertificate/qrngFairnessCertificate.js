@@ -1,6 +1,6 @@
 import { LightningElement, api, wire, track } from 'lwc';
-import getCertificateDTO from '@salesforce/apex/QRNGSetupController.getCertificateDTO';
-import verifyCertificate from '@salesforce/apex/QRNGSetupController.verifyCertificate';
+import getCertificateDTO from '@salesforce/apex/SetupController.getCertificateDTO';
+import verifyCertificate from '@salesforce/apex/SetupController.verifyCertificate';
 
 export default class QrngFairnessCertificate extends LightningElement {
     @api certificateId;

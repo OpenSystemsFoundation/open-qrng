@@ -67,9 +67,9 @@
     <tabs>QuantumFair</tabs>
     <tabs>Quantum_Job__c</tabs>
     <tabs>Fairness_Certificate__c</tabs>
-    <tabs>QRNG_Provider__c</tabs>
-    <tabs>QRNG_Backend__c</tabs>
-    <tabs>QRNG_Assignment__c</tabs>
+    <tabs>Quantum_Provider__c</tabs>
+    <tabs>Quantum_Backend__c</tabs>
+    <tabs>Quantum_Assignment__c</tabs>
     <tabs>Compliance_Event__c</tabs>
     <uiType>Lightning</uiType>
     <utilityBar>QuantumFair_UtilityBar</utilityBar>
@@ -83,14 +83,14 @@
         </mappings>
         <mappings>
             <fieldName>Quantum_Job__c</fieldName>
-            <tab>QRNG_Assignment__c</tab>
+            <tab>Quantum_Assignment__c</tab>
         </mappings>
         <mappings>
             <fieldName>Provider__c</fieldName>
-            <tab>QRNG_Backend__c</tab>
+            <tab>Quantum_Backend__c</tab>
         </mappings>
         <mappings>
-            <tab>QRNG_Provider__c</tab>
+            <tab>Quantum_Provider__c</tab>
         </mappings>
         <mappings>
             <tab>QuantumFair</tab>

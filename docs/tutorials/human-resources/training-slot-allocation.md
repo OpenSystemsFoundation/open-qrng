@@ -52,7 +52,7 @@ Each selection gets its own Fairness Certificate.
 
 ### Step 6: Notify Participants
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
 1. Update selected applicants: `Status__c` = `Selected`
 2. Update waitlisted applicants: `Status__c` = `Waitlisted`

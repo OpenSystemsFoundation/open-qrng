@@ -2,7 +2,7 @@ import { createElement } from '@lwc/engine-dom';
 import QrngFairnessCertificate from 'c/qrngFairnessCertificate';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getCertificateDTO',
+    '@salesforce/apex/SetupController.getCertificateDTO',
     () => {
         const {
             createApexTestWireAdapter
@@ -13,13 +13,13 @@ jest.mock(
 );
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.verifyCertificate',
+    '@salesforce/apex/SetupController.verifyCertificate',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 
-import getCertificateDTO from '@salesforce/apex/QRNGSetupController.getCertificateDTO';
-import verifyCertificate from '@salesforce/apex/QRNGSetupController.verifyCertificate';
+import getCertificateDTO from '@salesforce/apex/SetupController.getCertificateDTO';
+import verifyCertificate from '@salesforce/apex/SetupController.verifyCertificate';
 
 function flushPromises() {
     return new Promise((resolve) => setTimeout(resolve, 0));

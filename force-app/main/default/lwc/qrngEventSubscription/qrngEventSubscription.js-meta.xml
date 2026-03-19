@@ -3,5 +3,5 @@
     <apiVersion>66.0</apiVersion>
     <isExposed>false</isExposed>
     <description
-    >Shared utility for subscribing to QRNG Platform Events</description>
+    >Shared utility for subscribing to Quantum Platform Events</description>
 </LightningComponentBundle>

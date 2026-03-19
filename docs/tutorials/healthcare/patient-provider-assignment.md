@@ -46,9 +46,9 @@ Add an **Action** element:
 
 ### Step 4: Apply the Assignment
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
-1. Query `QRNG_Assignment__c` for the completed job
+1. Query `Quantum_Assignment__c` for the completed job
 2. Update the patient's `Provider__c` lookup field
 3. Create a Task for the assigned provider: "New patient assigned"
 

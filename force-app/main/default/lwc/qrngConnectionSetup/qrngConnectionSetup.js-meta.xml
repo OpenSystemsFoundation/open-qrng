@@ -2,7 +2,7 @@
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>66.0</apiVersion>
     <isExposed>true</isExposed>
-    <masterLabel>QRNG Connection Setup</masterLabel>
+    <masterLabel>Quantum Connection Setup</masterLabel>
     <description>IBM Quantum connection and API key configuration</description>
     <targets>
         <target>lightning__AppPage</target>

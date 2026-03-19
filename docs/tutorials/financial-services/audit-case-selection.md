@@ -56,7 +56,7 @@ Add a **Screen** element showing:
 
 ### Step 6: Results Screen
 
-After `QRNG_Complete__e`:
+After `Quantum_Job_Complete__e`:
 
 - Display the selected accounts in a table
 - Show the Fairness Certificate ID
@@ -99,5 +99,5 @@ input.useBellTest = true;
 
 List<QuantumRandomAssignment.Output> results =
     QuantumRandomAssignment.assign(new List<QuantumRandomAssignment.Input>{input});
-// Store jobId for tracking, create Cases on QRNG_Complete__e
+// Store jobId for tracking, create Cases on Quantum_Job_Complete__e
 ```

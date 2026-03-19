@@ -29,11 +29,11 @@ The customer defines the decision space:
 | Assign N records to M assignees by capacity | 50 leads → 5 reps weighted by quota | `Weighted`      |
 | Select K records from a pool of N           | 10 deals from 500 for audit         | `Subset`        |
 
-**Qubit count.** QuantumFair defaults to **8 qubits** (configurable via `QRNG_Settings__c.Default_Qubits__c` or per-request). The assignment engine consumes `⌈log₂(M)⌉` debiased bits per assignment decision, where M is the number of assignees or the population size. Eight qubits at 1024 shots produces 8,192 raw bits — after von Neumann debiasing (~25% survival), roughly 2,048 clean bits, enough for hundreds of individual assignments from a single circuit execution.
+**Qubit count.** QuantumFair defaults to **8 qubits** (configurable via `Quantum_Settings__c.Default_Qubits__c` or per-request). The assignment engine consumes `⌈log₂(M)⌉` debiased bits per assignment decision, where M is the number of assignees or the population size. Eight qubits at 1024 shots produces 8,192 raw bits — after von Neumann debiasing (~25% survival), roughly 2,048 clean bits, enough for hundreds of individual assignments from a single circuit execution.
 
 > **Why not derive qubits from the problem size?** You could set qubits = `⌈log₂(N)⌉`, but in practice it is more efficient to run a fixed qubit count with many shots and draw from the resulting bit pool. A single 8-qubit, 1024-shot circuit produces enough randomness for most Salesforce use cases. The qubit count matters more for bits-per-shot throughput than for matching the problem domain.
 
-**Shot count.** Default is **1024 shots** (configurable via `QRNG_Settings__c.Default_Shots__c`). More shots means more raw bits and stronger statistical validation. The tension: for a single random selection you technically only need one shot, but proving the source is random requires many samples.
+**Shot count.** Default is **1024 shots** (configurable via `Quantum_Settings__c.Default_Shots__c`). More shots means more raw bits and stronger statistical validation. The tension: for a single random selection you technically only need one shot, but proving the source is random requires many samples.
 
 **Recommended minimums:**
 
@@ -44,7 +44,7 @@ The customer defines the decision space:
 | Large-scale assignment (100+) | 4096          | Debiasing loss requires deeper pool                        |
 | Bell-test certification       | 4096+         | CHSH needs statistical significance across 4 basis configs |
 
-**Implementation:** `QuantumRandomAssignment.cls` (invocable action entry point) and `QRNGCircuitBuilder.cls` (circuit generation).
+**Implementation:** `QuantumRandomAssignment.cls` (invocable action entry point) and `CircuitBuilder.cls` (circuit generation).
 
 ---
 
@@ -69,7 +69,7 @@ rz(pi/2) $1; sx $1; rz(pi/2) $1; meas[1] = measure $1;
 // ... repeat for each qubit
 ```
 
-**Qubit selection.** `QRNGCircuitBuilder.selectBestQubits()` ranks available physical qubits by readout error (lower is better) using cached calibration data from `QRNG_Backend_Config__mdt`. This reduces hardware bias at the source before debiasing even begins.
+**Qubit selection.** `CircuitBuilder.selectBestQubits()` ranks available physical qubits by readout error (lower is better) using cached calibration data from `Quantum_Backend_Config__mdt`. This reduces hardware bias at the source before debiasing even begins.
 
 ### Bell-Test CHSH Witness Circuit
 
@@ -118,9 +118,9 @@ Running Bell tests on IBM hardware costs queue time and credits. Three strategie
 | **Per-session / periodic**    | Routine assignments, high volume         | Good assurance, lower cost         |
 | **On-demand**                 | Low-risk with occasional spot checks     | Minimal cost, weaker guarantee     |
 
-A sensible production architecture for high-volume orgs would be: run CHSH once per backend per session, store the result as a **device attestation** record, and link it to all certificates generated during that window. If the S-value drops below 2.0, flag the backend as untrusted and halt certificate generation until it passes again. This is not yet implemented in QuantumFair but is a natural extension of the existing `QRNG_Backend_Config__mdt` pattern.
+A sensible production architecture for high-volume orgs would be: run CHSH once per backend per session, store the result as a **device attestation** record, and link it to all certificates generated during that window. If the S-value drops below 2.0, flag the backend as untrusted and halt certificate generation until it passes again. This is not yet implemented in QuantumFair but is a natural extension of the existing `Quantum_Backend_Config__mdt` pattern.
 
-**Implementation:** `QRNGCircuitBuilder.cls` (circuit generation), `IBMQuantumService.cls` (job submission), `QRNGJobPoller.cls` (async polling via Queueable chain).
+**Implementation:** `CircuitBuilder.cls` (circuit generation), `IBMQuantumService.cls` (job submission), `JobPoller.cls` (async polling via Queueable chain).
 
 ---
 
@@ -177,7 +177,7 @@ Take first 10 → unbiased sample
 
 > **A note on modular bias.** The current uniform assignment uses `mod M`, which introduces slight bias when the bit range (2^n) is not evenly divisible by M. For "pick 1 from 500" with 9 bits (range 0–511), values 500–511 map unevenly. In practice, this bias is negligible for Salesforce use cases (< 2.4% for the worst case), but proper rejection sampling — discard values ≥ M and draw again — would eliminate it entirely. The Fairness Certificate documents the mapping method used so auditors can assess this.
 
-**Implementation:** `QRNGResultParser.cls` (debiasing), `QuantumAssignmentEngine.cls` (domain mapping).
+**Implementation:** `ResultParser.cls` (debiasing), `QuantumAssignmentEngine.cls` (domain mapping).
 
 ---
 
@@ -198,7 +198,7 @@ These run synchronously during result processing. If any fail, the certificate i
 
 ### Extended Tests (Async, Non-Blocking)
 
-These run via `QRNGValidationRunner` (Queueable) after certification. They provide deeper assurance but do not block the assignment flow.
+These run via `ValidationRunner` (Queueable) after certification. They provide deeper assurance but do not block the assignment flow.
 
 | Test                        | What It Checks                             |
 | --------------------------- | ------------------------------------------ |
@@ -209,7 +209,7 @@ These run via `QRNGValidationRunner` (Queueable) after certification. They provi
 
 **Why two tiers?** The critical tests catch obvious hardware failures (stuck qubits, systematic bias) quickly. The extended tests catch subtler issues (correlations, drift) but take longer to compute and are not needed to block the user's workflow.
 
-**Implementation:** `QRNGValidator.cls` (all tests), `QRNGValidationRunner.cls` (async extended tests).
+**Implementation:** `RandomnessValidator.cls` (all tests), `ValidationRunner.cls` (async extended tests).
 
 ---
 
@@ -241,7 +241,7 @@ Fairness_Certificate__c
   │     ├── Raw_Results__c → SHA-256 must match Raw_Bitstring_Hash__c
   │     └── Debiased_Results__c → SHA-256 must match Debiased_Bitstring_Hash__c
   │
-  └── QRNG_Assignment__c (1:N)
+  └── Quantum_Assignment__c (1:N)
         ├── Assigned_Record_ID__c → which record was assigned
         ├── Assigned_To_ID__c → who it was assigned to
         ├── Assignment_Index__c → position in the random sequence
@@ -273,20 +273,20 @@ Here is the complete pipeline as executed by QuantumFair:
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ 2. QUANTUM EXECUTION                                        │
-│    QRNGCircuitBuilder → ISA-compliant OpenQASM 3.0          │
+│    CircuitBuilder → ISA-compliant OpenQASM 3.0          │
 │    IBMQuantumService → POST /v1/jobs (Sampler primitive)    │
-│    QRNGJobPoller → async polling (5s, 10s, 20s... backoff)  │
+│    JobPoller → async polling (5s, 10s, 20s... backoff)  │
 └──────────────────────┬──────────────────────────────────────┘
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ 3. POST-PROCESSING                                          │
-│    QRNGResultParser → extract bitstrings from IBM response  │
+│    ResultParser → extract bitstrings from IBM response  │
 │    Von Neumann debiasing → ~2,048 clean bits from 8,192    │
 └──────────────────────┬──────────────────────────────────────┘
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ 4. VALIDATION                                               │
-│    QRNGValidator → frequency, runs, chi-squared tests       │
+│    RandomnessValidator → frequency, runs, chi-squared tests       │
 │    All pass? → proceed                                      │
 │    Any fail? → mark job Failed, deny certificate, notify    │
 └──────────────────────┬──────────────────────────────────────┘
@@ -302,13 +302,13 @@ Here is the complete pipeline as executed by QuantumFair:
 ┌─────────────────────────────────────────────────────────────┐
 │ 6. ASSIGNMENT                                               │
 │    QuantumAssignmentEngine → consume bits, map to domain    │
-│    Create QRNG_Assignment__c records linking:               │
+│    Create Quantum_Assignment__c records linking:               │
 │      record → assignee → certificate → random bits used    │
 └──────────────────────┬──────────────────────────────────────┘
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ 7. DELIVERY                                                 │
-│    Publish QRNG_Complete__e Platform Event                  │
+│    Publish Quantum_Job_Complete__e Platform Event                  │
 │    LWC receives via empApi → update UI in real time         │
 │    Custom Notification → alert requesting user              │
 └─────────────────────────────────────────────────────────────┘
@@ -335,8 +335,8 @@ The quantum pipeline, debiasing, validation, and certification are identical reg
 1. **Get Records** — query the records you want to assign or sample
 2. **Extract IDs** — build a text collection of record IDs (and assignee IDs if applicable)
 3. **Quantum Random Assignment** (Action) — pass the IDs, choose assignment type, set purpose
-4. **Wait for Platform Event** — `QRNG_Complete__e` fires when the job finishes
-5. **Get Assignments** — query `QRNG_Assignment__c` where `Quantum_Job__c` = the completed job
+4. **Wait for Platform Event** — `Quantum_Job_Complete__e` fires when the job finishes
+5. **Get Assignments** — query `Quantum_Assignment__c` where `Quantum_Job__c` = the completed job
 6. **Act on Results** — update records, create tasks, send notifications
 
 ### Quick-Start Template (Apex)
@@ -357,7 +357,7 @@ input.purpose = 'Descriptive label for the certificate';
 List<QuantumRandomAssignment.Output> results =
     QuantumRandomAssignment.assign(new List<QuantumRandomAssignment.Input>{input});
 
-// Results are async — listen for QRNG_Complete__e or query Quantum_Job__c
+// Results are async — listen for Quantum_Job_Complete__e or query Quantum_Job__c
 Id jobId = results[0].jobId;
 ```
 
@@ -373,7 +373,7 @@ The current `Uniform` assignment uses `mod M` to map bits to assignees. When 2^n
 
 ### 2. CHSH Device Attestation Records
 
-Running a Bell test per-job is the most conservative approach but expensive at scale. A `QRNG_Device_Attestation__c` object that stores periodic CHSH results per backend, with certificates linking to the nearest passing attestation, would reduce IBM cost while maintaining trust. If the S-value drops below 2.0, halt all certificate generation for that backend until it passes again.
+Running a Bell test per-job is the most conservative approach but expensive at scale. A `Quantum_Device_Attestation__c` object that stores periodic CHSH results per backend, with certificates linking to the nearest passing attestation, would reduce IBM cost while maintaining trust. If the S-value drops below 2.0, halt all certificate generation for that backend until it passes again.
 
 ### 3. Toeplitz Hashing for Higher Bit Yield
 

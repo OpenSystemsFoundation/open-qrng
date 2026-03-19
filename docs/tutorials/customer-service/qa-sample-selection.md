@@ -48,7 +48,7 @@ Run a second Quantum Random Assignment to distribute selected interactions among
 
 ### Step 5: Create QA Tasks
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
 1. Create a QA Review task for each selected interaction
 2. Assign to the quantum-selected QA analyst

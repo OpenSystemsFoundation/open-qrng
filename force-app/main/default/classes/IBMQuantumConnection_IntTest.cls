@@ -49,7 +49,7 @@ private class IBMQuantumConnection_IntTest {
         Test.setMock(HttpCalloutMock.class, new MockIBMSuccess());
 
         // Simulate having a configured API key
-        QRNG_Settings__c settings = new QRNG_Settings__c(
+        Quantum_Settings__c settings = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             IBM_API_Key__c = 'mock-api-key',
             Default_Backend__c = 'test_backend'
@@ -59,7 +59,7 @@ private class IBMQuantumConnection_IntTest {
         IBMQuantumAuth.clearCache();
 
         Test.startTest();
-        Map<String, Object> result = QRNGSetupController.testConnection();
+        Map<String, Object> result = SetupController.testConnection();
         Test.stopTest();
 
         System.assertEquals(
@@ -74,7 +74,7 @@ private class IBMQuantumConnection_IntTest {
     static void testConnectionFailsWithBadKey() {
         Test.setMock(HttpCalloutMock.class, new MockIBMAuthFailure());
 
-        QRNG_Settings__c settings = new QRNG_Settings__c(
+        Quantum_Settings__c settings = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             IBM_API_Key__c = 'bad-key'
         );
@@ -83,7 +83,7 @@ private class IBMQuantumConnection_IntTest {
         IBMQuantumAuth.clearCache();
 
         Test.startTest();
-        Map<String, Object> result = QRNGSetupController.testConnection();
+        Map<String, Object> result = SetupController.testConnection();
         Test.stopTest();
 
         System.assertEquals(
@@ -99,7 +99,7 @@ private class IBMQuantumConnection_IntTest {
         IBMQuantumAuth.clearCache();
 
         Test.startTest();
-        Map<String, Object> result = QRNGSetupController.testConnection();
+        Map<String, Object> result = SetupController.testConnection();
         Test.stopTest();
 
         System.assertEquals(
@@ -113,7 +113,7 @@ private class IBMQuantumConnection_IntTest {
     static void testListBackendsSuccess() {
         Test.setMock(HttpCalloutMock.class, new MockIBMSuccess());
 
-        QRNG_Settings__c settings = new QRNG_Settings__c(
+        Quantum_Settings__c settings = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             IBM_API_Key__c = 'mock-api-key'
         );
@@ -122,7 +122,7 @@ private class IBMQuantumConnection_IntTest {
         IBMQuantumAuth.clearCache();
 
         Test.startTest();
-        List<Map<String, Object>> backends = QRNGSetupController.getAvailableBackends();
+        List<Map<String, Object>> backends = SetupController.getAvailableBackends();
         Test.stopTest();
 
         System.assertEquals(

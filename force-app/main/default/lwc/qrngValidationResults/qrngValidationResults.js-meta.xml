@@ -12,7 +12,7 @@
             </objects>
         </targetConfig>
     </targetConfigs>
-    <masterLabel>QRNG Validation Results</masterLabel>
+    <masterLabel>Quantum Validation Results</masterLabel>
     <description
     >Displays randomness validation test results with Run All Tests button.</description>
 </LightningComponentBundle>

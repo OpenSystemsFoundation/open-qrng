@@ -1,8 +1,8 @@
 import { LightningElement, api, track } from 'lwc';
-import startSweeper from '@salesforce/apex/QRNGSetupController.startSweeper';
-import stopSweeper from '@salesforce/apex/QRNGSetupController.stopSweeper';
-import startIntegrityCheck from '@salesforce/apex/QRNGSetupController.startIntegrityCheck';
-import stopIntegrityCheck from '@salesforce/apex/QRNGSetupController.stopIntegrityCheck';
+import startSweeper from '@salesforce/apex/SetupController.startSweeper';
+import stopSweeper from '@salesforce/apex/SetupController.stopSweeper';
+import startIntegrityCheck from '@salesforce/apex/SetupController.startIntegrityCheck';
+import stopIntegrityCheck from '@salesforce/apex/SetupController.stopIntegrityCheck';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class QrngBackgroundJobs extends LightningElement {

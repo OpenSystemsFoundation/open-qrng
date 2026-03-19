@@ -1,9 +1,9 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngComplianceExport from 'c/qrngComplianceExport';
-import exportComplianceEvidence from '@salesforce/apex/QRNGSetupController.exportComplianceEvidence';
+import exportComplianceEvidence from '@salesforce/apex/SetupController.exportComplianceEvidence';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.exportComplianceEvidence',
+    '@salesforce/apex/SetupController.exportComplianceEvidence',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );

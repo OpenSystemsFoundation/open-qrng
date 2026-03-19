@@ -50,7 +50,7 @@ Use a **Scheduled Path** (every 15 minutes) to batch escalations:
 
 ### Step 5: Apply Assignment
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
 1. Update each case's `Escalation_Owner__c`
 2. Send high-priority notification to the assigned agent

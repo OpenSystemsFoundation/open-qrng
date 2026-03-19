@@ -39,9 +39,9 @@ Add a **Get Records** element:
 
 ### Step 4: Create Audit Tasks
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
-1. Query `QRNG_Assignment__c` for selected records
+1. Query `Quantum_Assignment__c` for selected records
 2. Create a Task for each:
     - Subject: "Quality Audit Review"
     - WhatId: the selected encounter
@@ -50,7 +50,7 @@ On `QRNG_Complete__e`:
 
 ### Step 5: Audit Report
 
-Create a Salesforce Report on `QRNG_Assignment__c`:
+Create a Salesforce Report on `Quantum_Assignment__c`:
 
 - Filter: Purpose contains "Quality Audit"
 - Group by: month

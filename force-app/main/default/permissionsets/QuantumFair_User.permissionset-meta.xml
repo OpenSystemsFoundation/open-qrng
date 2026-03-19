@@ -30,7 +30,7 @@
         <allowEdit>false</allowEdit>
         <allowRead>true</allowRead>
         <modifyAllRecords>false</modifyAllRecords>
-        <object>QRNG_Assignment__c</object>
+        <object>Quantum_Assignment__c</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
     <objectPermissions>
@@ -39,7 +39,7 @@
         <allowEdit>false</allowEdit>
         <allowRead>true</allowRead>
         <modifyAllRecords>false</modifyAllRecords>
-        <object>QRNG_Provider__c</object>
+        <object>Quantum_Provider__c</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
     <objectPermissions>
@@ -48,7 +48,7 @@
         <allowEdit>false</allowEdit>
         <allowRead>true</allowRead>
         <modifyAllRecords>false</modifyAllRecords>
-        <object>QRNG_Backend__c</object>
+        <object>Quantum_Backend__c</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
     <fieldPermissions>
@@ -233,147 +233,147 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Provider__c.Provider_Key__c</field>
+        <field>Quantum_Provider__c.Provider_Key__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Provider__c.Provider_Class__c</field>
+        <field>Quantum_Provider__c.Provider_Class__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Provider__c.Auth_Endpoint__c</field>
+        <field>Quantum_Provider__c.Auth_Endpoint__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Provider__c.API_Base_URL__c</field>
+        <field>Quantum_Provider__c.API_Base_URL__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Provider__c.Is_Active__c</field>
+        <field>Quantum_Provider__c.Is_Active__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Provider__c.Status__c</field>
+        <field>Quantum_Provider__c.Status__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Provider__c.Last_Synced__c</field>
+        <field>Quantum_Provider__c.Last_Synced__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Backend_Key__c</field>
+        <field>Quantum_Backend__c.Backend_Key__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Status__c</field>
+        <field>Quantum_Backend__c.Status__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Num_Qubits__c</field>
+        <field>Quantum_Backend__c.Num_Qubits__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Queue_Length__c</field>
+        <field>Quantum_Backend__c.Queue_Length__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Is_Simulator__c</field>
+        <field>Quantum_Backend__c.Is_Simulator__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Processor_Family__c</field>
+        <field>Quantum_Backend__c.Processor_Family__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Processor_Revision__c</field>
+        <field>Quantum_Backend__c.Processor_Revision__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Max_Shots__c</field>
+        <field>Quantum_Backend__c.Max_Shots__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Avg_T1_us__c</field>
+        <field>Quantum_Backend__c.Avg_T1_us__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Avg_T2_us__c</field>
+        <field>Quantum_Backend__c.Avg_T2_us__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Median_Gate_Error__c</field>
+        <field>Quantum_Backend__c.Median_Gate_Error__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Median_Readout_Error__c</field>
+        <field>Quantum_Backend__c.Median_Readout_Error__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Last_Calibration__c</field>
+        <field>Quantum_Backend__c.Last_Calibration__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.Last_Synced__c</field>
+        <field>Quantum_Backend__c.Last_Synced__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.CHSH_S_Value__c</field>
+        <field>Quantum_Backend__c.CHSH_S_Value__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.CHSH_Verified_At__c</field>
+        <field>Quantum_Backend__c.CHSH_Verified_At__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Backend__c.CHSH_Job_Id__c</field>
+        <field>Quantum_Backend__c.CHSH_Job_Id__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Assignment__c.Certificate__c</field>
+        <field>Quantum_Assignment__c.Certificate__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Assignment__c.Assigned_Record_ID__c</field>
+        <field>Quantum_Assignment__c.Assigned_Record_ID__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Assignment__c.Assigned_To_ID__c</field>
+        <field>Quantum_Assignment__c.Assigned_To_ID__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Assignment__c.Assignment_Index__c</field>
+        <field>Quantum_Assignment__c.Assignment_Index__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
-        <field>QRNG_Assignment__c.Random_Value__c</field>
+        <field>Quantum_Assignment__c.Random_Value__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <tabSettings>
@@ -385,11 +385,11 @@
         <visibility>Visible</visibility>
     </tabSettings>
     <tabSettings>
-        <tab>QRNG_Provider__c</tab>
+        <tab>Quantum_Provider__c</tab>
         <visibility>Visible</visibility>
     </tabSettings>
     <tabSettings>
-        <tab>QRNG_Backend__c</tab>
+        <tab>Quantum_Backend__c</tab>
         <visibility>Visible</visibility>
     </tabSettings>
     <tabSettings>

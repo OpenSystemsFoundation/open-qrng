@@ -2,7 +2,7 @@
  * Utility class for parsing IBM Quantum API responses.
  * Centralizes status extraction, normalization, error message building,
  * and timestamp parsing that were previously duplicated across
- * QRNGJobPoller, QRNGJobSweeper, and QRNGSetupController.
+ * JobPoller, JobSweeper, and SetupController.
  *
  * All methods are stateless (public static). No DML or SOQL.
  */

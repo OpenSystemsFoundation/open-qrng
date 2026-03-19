@@ -52,9 +52,9 @@ Use section IDs as the "Assignee IDs" in the quantum assignment.
 
 ### Step 6: Apply Section Assignments
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
-1. Query `QRNG_Assignment__c` for the job
+1. Query `Quantum_Assignment__c` for the job
 2. Update each student's `Section__c` field to the assigned section
 3. Update section enrollment counts
 

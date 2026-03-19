@@ -51,9 +51,9 @@ Rather than submitting one quantum job per application, use a **Scheduled Path**
 
 ### Step 5: Apply Assignments
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
-1. Query `QRNG_Assignment__c` for the job
+1. Query `Quantum_Assignment__c` for the job
 2. Update each application's `Underwriter__c` field
 3. Send notification to each underwriter with their new applications
 

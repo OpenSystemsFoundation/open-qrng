@@ -131,11 +131,11 @@ open-qrng/
 │   ├── objects/
 │   │   ├── Quantum_Job__c/          ← Job records with QPU time tracking
 │   │   ├── Fairness_Certificate__c/ ← Chain-linked certificates with verification fields
-│   │   ├── QRNG_Assignment__c/      ← Individual assignment records
-│   │   ├── QRNG_Backend__c/         ← Backend config + NIST 800-90B entropy fields
+│   │   ├── Quantum_Assignment__c/      ← Individual assignment records
+│   │   ├── Quantum_Backend__c/         ← Backend config + NIST 800-90B entropy fields
 │   │   ├── Compliance_Event__c/     ← Exception-only compliance audit log
 │   │   ├── Compliance_Control__mdt/ ← Control-to-framework mapping (24 seed records)
-│   │   └── QRNG_Settings__c/        ← Hierarchy custom settings
+│   │   └── Quantum_Settings__c/        ← Hierarchy custom settings
 │   ├── customMetadata/       ← Compliance control seed records (ISO/SOC/NIST/GDPR/eIDAS)
 │   ├── namedCredentials/     ← IBM_Quantum_Runtime, IBM_Quantum External Credential
 │   ├── permissionsets/       ← QuantumFair_Admin, QuantumFair_User, QuantumFair_Auditor

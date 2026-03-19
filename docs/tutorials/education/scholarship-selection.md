@@ -46,7 +46,7 @@ Launch from a Scholarship Program record page.
 
 ### Step 5: Award and Notify
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
 1. Update selected applicants: `Award_Status__c` = `Selected`
 2. Update non-selected: `Award_Status__c` = `Not Selected`

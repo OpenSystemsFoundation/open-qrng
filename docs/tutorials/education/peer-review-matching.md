@@ -39,15 +39,15 @@ For peer review, each student is both a "record" (submission to review) and an "
 
 ### Step 4: Handle Self-Assignments
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
-1. Query `QRNG_Assignment__c` records
+1. Query `Quantum_Assignment__c` records
 2. Check for cases where `Assigned_Record_ID__c` = `Assigned_To_ID__c`
 3. Swap with an adjacent assignment (document the swap as a manual override)
 
 ### Step 5: Create Review Assignments
 
-For each `QRNG_Assignment__c` record:
+For each `Quantum_Assignment__c` record:
 
 1. Create a Peer Review record: `Reviewer__c` = assigned user, `Submission__c` = assigned record
 2. Notify reviewers with their assignment

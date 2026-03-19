@@ -57,7 +57,7 @@ Add as an action on a Shift Schedule or custom object record page.
 
 ### Step 5: Apply and Notify
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
 1. Update shift records with assigned employees
 2. Send notifications: "You have been assigned to {Shift Name}. This assignment was made using quantum randomization. Certificate: {CertificateId}"

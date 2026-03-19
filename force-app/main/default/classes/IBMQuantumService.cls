@@ -13,7 +13,7 @@ public with sharing class IBMQuantumService {
      * Get the Instance CRN from settings.
      */
     private static String getInstanceCRN() {
-        QRNG_Settings__c settings = QRNG_Settings__c.getInstance();
+        Quantum_Settings__c settings = Quantum_Settings__c.getInstance();
         return settings != null ? settings.Instance_CRN__c : null;
     }
 
@@ -111,13 +111,15 @@ public with sharing class IBMQuantumService {
             );
             insert failedJob;
 
-            QRNG_Failed__e failEvent = new QRNG_Failed__e(
+            Quantum_Job_Failed__e failEvent = new Quantum_Job_Failed__e(
                 Job_Id__c = failedJob.Id,
                 Error_Message__c = e.getMessage().left(255)
             );
             EventBus.publish(failEvent);
 
-            throw new QRNGException('Job submission failed: ' + e.getMessage());
+            throw new QuantumException(
+                'Job submission failed: ' + e.getMessage()
+            );
         }
 
         // DML after callout succeeds
@@ -138,7 +140,7 @@ public with sharing class IBMQuantumService {
         insert job;
 
         // Enqueue poller
-        System.enqueueJob(new QRNGJobPoller(job.Id, ibmJobId, 0));
+        System.enqueueJob(new JobPoller(job.Id, ibmJobId, 0));
 
         return job.Id;
     }
@@ -171,7 +173,7 @@ public with sharing class IBMQuantumService {
 
         String instanceCRN = getInstanceCRN();
         if (String.isBlank(instanceCRN)) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'Instance CRN not configured. Please set it in the Setup tab.'
             );
         }
@@ -190,7 +192,7 @@ public with sharing class IBMQuantumService {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200 && res.getStatusCode() != 201) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'IBM job submission failed: ' +
                     res.getStatusCode() +
                     ' ' +
@@ -225,7 +227,7 @@ public with sharing class IBMQuantumService {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'Failed to get job status: ' + res.getStatusCode()
             );
         }
@@ -254,7 +256,7 @@ public with sharing class IBMQuantumService {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'Failed to get job results: ' + res.getStatusCode()
             );
         }
@@ -283,7 +285,7 @@ public with sharing class IBMQuantumService {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'Failed to get backends: ' + res.getStatusCode()
             );
         }
@@ -320,7 +322,7 @@ public with sharing class IBMQuantumService {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'Failed to get backend properties: ' +
                     res.getStatusCode() +
                     ' ' +
@@ -500,13 +502,13 @@ public with sharing class IBMQuantumService {
             );
             insert failedJob;
 
-            QRNG_Failed__e failEvent = new QRNG_Failed__e(
+            Quantum_Job_Failed__e failEvent = new Quantum_Job_Failed__e(
                 Job_Id__c = failedJob.Id,
                 Error_Message__c = e.getMessage().left(255)
             );
             EventBus.publish(failEvent);
 
-            throw new QRNGException(
+            throw new QuantumException(
                 'Estimator job submission failed: ' + e.getMessage()
             );
         }
@@ -536,7 +538,7 @@ public with sharing class IBMQuantumService {
         );
         insert job;
 
-        System.enqueueJob(new QRNGJobPoller(job.Id, ibmJobId, 0));
+        System.enqueueJob(new JobPoller(job.Id, ibmJobId, 0));
 
         return job.Id;
     }
@@ -579,7 +581,7 @@ public with sharing class IBMQuantumService {
 
         String instanceCRN = getInstanceCRN();
         if (String.isBlank(instanceCRN)) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'Instance CRN not configured. Please set it in the Setup tab.'
             );
         }
@@ -598,7 +600,7 @@ public with sharing class IBMQuantumService {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200 && res.getStatusCode() != 201) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'IBM estimator job submission failed: ' +
                     res.getStatusCode() +
                     ' ' +
@@ -654,13 +656,13 @@ public with sharing class IBMQuantumService {
             );
             insert failedJob;
 
-            QRNG_Failed__e failEvent = new QRNG_Failed__e(
+            Quantum_Job_Failed__e failEvent = new Quantum_Job_Failed__e(
                 Job_Id__c = failedJob.Id,
                 Error_Message__c = e.getMessage().left(255)
             );
             EventBus.publish(failEvent);
 
-            throw new QRNGException(
+            throw new QuantumException(
                 'CHSH Estimator job submission failed: ' + e.getMessage()
             );
         }
@@ -704,7 +706,7 @@ public with sharing class IBMQuantumService {
         );
         insert job;
 
-        System.enqueueJob(new QRNGJobPoller(job.Id, ibmJobId, 0));
+        System.enqueueJob(new JobPoller(job.Id, ibmJobId, 0));
 
         return job.Id;
     }
@@ -744,7 +746,7 @@ public with sharing class IBMQuantumService {
 
         String instanceCRN = getInstanceCRN();
         if (String.isBlank(instanceCRN)) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'Instance CRN not configured. Please set it in the Setup tab.'
             );
         }
@@ -763,7 +765,7 @@ public with sharing class IBMQuantumService {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200 && res.getStatusCode() != 201) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'IBM CHSH estimator job submission failed: ' +
                     res.getStatusCode() +
                     ' ' +
@@ -808,7 +810,7 @@ public with sharing class IBMQuantumService {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'Failed to get backend configuration: ' +
                     res.getStatusCode() +
                     ' ' +

@@ -53,9 +53,9 @@ A Screen Flow that recruiters launch from a Job Requisition to select interview 
 
 ### Step 6: Apply Panel Assignment
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
-1. Query `QRNG_Assignment__c` for selected panelists
+1. Query `Quantum_Assignment__c` for selected panelists
 2. Create Interview records linking each panelist to the requisition
 3. Send calendar invites or notifications to selected panelists
 4. Store Certificate ID on the requisition for HR audit
@@ -67,7 +67,7 @@ The Fairness Certificate supports Diversity, Equity & Inclusion goals:
 - Proves panel selection was not influenced by personal relationships
 - Provides auditable evidence for EEOC or OFCCP inquiries
 - Over time, quantum randomness ensures all eligible employees serve on panels equitably
-- Run a report on `QRNG_Assignment__c` to verify distribution across demographics
+- Run a report on `Quantum_Assignment__c` to verify distribution across demographics
 
 ## Constraints and Stratification
 

@@ -8,7 +8,7 @@ private class IBMQuantumAuth_Test {
                 false,
                 'Should throw exception when no API key configured'
             );
-        } catch (QRNGException e) {
+        } catch (QuantumException e) {
             System.assert(
                 e.getMessage().contains('not configured'),
                 'Should indicate missing config'
@@ -42,7 +42,7 @@ private class IBMQuantumAuth_Test {
                 false,
                 'Should throw when refreshing with no API key'
             );
-        } catch (QRNGException e) {
+        } catch (QuantumException e) {
             System.assert(true, 'Exception thrown as expected');
         }
     }
@@ -94,7 +94,7 @@ private class IBMQuantumAuth_Test {
     @IsTest
     static void testDiscoverInstances() {
         Test.setMock(HttpCalloutMock.class, new MockDiscoverInstances());
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             IBM_API_Key__c = 'test-api-key'
         );
@@ -136,7 +136,7 @@ private class IBMQuantumAuth_Test {
     @IsTest
     static void testGetAccessTokenViaExchange() {
         Test.setMock(HttpCalloutMock.class, new MockTokenExchange());
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             IBM_API_Key__c = 'test-api-key'
         );
@@ -159,7 +159,7 @@ private class IBMQuantumAuth_Test {
     @IsTest
     static void testTestApiKeyTrue() {
         Test.setMock(HttpCalloutMock.class, new MockTokenExchange());
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             IBM_API_Key__c = 'test-api-key'
         );

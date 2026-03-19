@@ -1,6 +1,6 @@
 import { LightningElement, api } from 'lwc';
 
-// CHSH basis configurations matching QRNGCircuitBuilder.buildBellCircuitFromPairs
+// CHSH basis configurations matching CircuitBuilder.buildBellCircuitFromPairs
 const CHSH_CONFIGS = [
     { label: 'S₀', alice: '0', bob: 'π/8', aliceLabel: '', bobLabel: 'π/8' },
     {

@@ -1,10 +1,10 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { refreshApex } from '@salesforce/apex';
-import getRecentJobs from '@salesforce/apex/QRNGSetupController.getRecentJobs';
+import getRecentJobs from '@salesforce/apex/SetupController.getRecentJobs';
 import {
-    subscribeToQRNGEvents,
-    unsubscribeFromQRNGEvents
+    subscribeToQuantumEvents,
+    unsubscribeFromQuantumEvents
 } from 'c/qrngEventSubscription';
 
 const STATUS_CONFIG = {
@@ -59,7 +59,7 @@ export default class QrngJobDashboard extends NavigationMixin(
     ];
 
     connectedCallback() {
-        this._eventSub = subscribeToQRNGEvents(
+        this._eventSub = subscribeToQuantumEvents(
             () => {
                 refreshApex(this._wiredResult);
             },
@@ -70,7 +70,7 @@ export default class QrngJobDashboard extends NavigationMixin(
     }
 
     disconnectedCallback() {
-        unsubscribeFromQRNGEvents(this._eventSub);
+        unsubscribeFromQuantumEvents(this._eventSub);
     }
 
     @wire(getRecentJobs)

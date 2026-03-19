@@ -31,7 +31,7 @@ QuantumFair is currently hardcoded to IBM Quantum. To become a truly provider-ag
 
 **Implementation:**
 
-- Add `syncBackends()` method to `IBMQuantumService` that calls `/v1/backends` and upserts `QRNG_Backend_Config__mdt` records
+- Add `syncBackends()` method to `IBMQuantumService` that calls `/v1/backends` and upserts `Quantum_Backend_Config__mdt` records
 - Add `getBackendProperties(backendName)` method that calls `/v1/backends/{id}/properties`
 - Display backend health summary in the Setup tab (T1/T2 averages, median gate error, readout error, queue depth)
 - Add "Refresh Backends" button to sync live data
@@ -105,7 +105,7 @@ Implementations:
 
 ### 3.2 Provider Registry (Custom Metadata)
 
-Enhance `QRNG_Backend_Config__mdt` or create new `QRNG_Provider__mdt`:
+Enhance `Quantum_Backend_Config__mdt` or create new `Quantum_Provider__mdt`:
 
 | Field               | Type     | Description                                          |
 | ------------------- | -------- | ---------------------------------------------------- |
@@ -133,7 +133,7 @@ Different providers have different native gate sets:
 - Let each provider's transpiler handle decomposition
 - For IBM: we do ISA decomposition in Apex (already implemented)
 - For others: submit standard QASM and let their API handle it
-- Store native gate set in `QRNG_Backend_Config__mdt.Native_Gates__c`
+- Store native gate set in `Quantum_Backend_Config__mdt.Native_Gates__c`
 
 ### 3.4 Credential Management
 
@@ -148,7 +148,7 @@ Each provider needs different credentials:
 | Quantinuum    | Username + Password → Token                          |
 | Custom        | Configurable (API Key, OAuth, Basic Auth)            |
 
-**Storage:** Use `QRNG_Settings__c` with a `Provider_Credentials__c` Long Text Area field containing encrypted JSON per provider. Or use Named Credentials per provider (preferred for security).
+**Storage:** Use `Quantum_Settings__c` with a `Provider_Credentials__c` Long Text Area field containing encrypted JSON per provider. Or use Named Credentials per provider (preferred for security).
 
 ### 3.5 Data Model Updates
 
@@ -163,7 +163,7 @@ Each provider needs different credentials:
 
 ## 4. Enhanced Backend Config Metadata
 
-Update `QRNG_Backend_Config__mdt` with additional fields:
+Update `Quantum_Backend_Config__mdt` with additional fields:
 
 | Field                     | Type      | Description                           |
 | ------------------------- | --------- | ------------------------------------- |
@@ -203,7 +203,7 @@ Update `QRNG_Backend_Config__mdt` with additional fields:
 - [ ] Refactor `IBMQuantumService` → `IBMQuantumProvider` implementing interface
 - [ ] Refactor `IBMQuantumAuth` → provider-specific auth
 - [ ] Create `QuantumProviderFactory` for provider selection
-- [ ] Update `QRNG_Backend_Config__mdt` with new fields
+- [ ] Update `Quantum_Backend_Config__mdt` with new fields
 - [ ] Provider selector in Setup UI
 
 ### Phase 3: Additional Providers (Future)
@@ -227,7 +227,7 @@ Update `QRNG_Backend_Config__mdt` with additional fields:
 
 ### Current State
 
-- We generate ISA-compliant OpenQASM 3.0 in Apex (`QRNGCircuitBuilder`)
+- We generate ISA-compliant OpenQASM 3.0 in Apex (`CircuitBuilder`)
 - Native gates: `rz(θ)`, `sx`, `x`, `ecr` (IBM Heron r2 specific)
 - H decomposition: `rz(π/2) → sx → rz(π/2)`
 
@@ -267,6 +267,6 @@ Update `QRNG_Backend_Config__mdt` with additional fields:
 
 - **IBM minutes budget:** 200 min total across all packages. Backend property fetches don't consume execution minutes (metadata only).
 - **Governor limits:** Backend sync could hit callout limits if many backends. Batch with care.
-- **Custom Metadata deployment:** `QRNG_Backend_Config__mdt` is Protected — updates require package version or deploy. Consider using Custom Settings for dynamic data instead.
+- **Custom Metadata deployment:** `Quantum_Backend_Config__mdt` is Protected — updates require package version or deploy. Consider using Custom Settings for dynamic data instead.
 - **Security:** Never store credentials in Custom Metadata (readable). Use Custom Settings (Hierarchy) or Named Credentials.
 - **Field renames** (`IBM_Job_ID__c` → `External_Job_ID__c`): Breaking change for managed package. Needs migration strategy.

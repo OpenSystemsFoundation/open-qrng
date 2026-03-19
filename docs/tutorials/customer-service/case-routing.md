@@ -49,7 +49,7 @@ Use a **Scheduled Path** (every 15 minutes) instead of per-record triggering:
 
 ### Step 5: Apply Routing
 
-On `QRNG_Complete__e`:
+On `Quantum_Job_Complete__e`:
 
 1. Update each case's `OwnerId` to the assigned agent
 2. Send notification to each agent

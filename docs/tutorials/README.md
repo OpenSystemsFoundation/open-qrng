@@ -82,7 +82,7 @@ All tutorials follow the same core pattern:
 1. **Collect record IDs** — gather the records to be assigned or sampled
 2. **Collect assignee IDs** — gather the users, queues, or groups receiving assignments
 3. **Call the QuantumFair invocable action** — `Quantum Random Assignment` in Flow Builder
-4. **Handle the result** — the action is async; listen for `QRNG_Complete__e` or check the Quantum Job record
+4. **Handle the result** — the action is async; listen for `Quantum_Job_Complete__e` or check the Quantum Job record
 5. **View the certificate** — every assignment gets a Fairness Certificate for audit
 
 ## Flow vs. Apex

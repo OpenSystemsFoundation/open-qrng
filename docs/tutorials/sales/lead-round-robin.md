@@ -76,14 +76,14 @@ Add an **Action** element:
 
 ### Step 6: Handle the Async Result
 
-The quantum job runs asynchronously. Results arrive via the `QRNG_Complete__e` Platform Event. You have two options:
+The quantum job runs asynchronously. Results arrive via the `Quantum_Job_Complete__e` Platform Event. You have two options:
 
 **Option A: Platform Event-Triggered Flow (Recommended)**
 
-Create a second Flow triggered by `QRNG_Complete__e`:
+Create a second Flow triggered by `Quantum_Job_Complete__e`:
 
 1. Match on `Job_Id__c` = the submitted job ID
-2. Query `QRNG_Assignment__c` records for that job
+2. Query `Quantum_Assignment__c` records for that job
 3. Update each Lead's `OwnerId` to the assigned rep
 
 **Option B: Check the Job Record**
@@ -147,4 +147,4 @@ Auditors can independently verify the assignment by:
 
 - Enable **Bell Test** mode for high-stakes assignments (proves quantum origin via CHSH inequality violation)
 - Add a **Weighted** assignment type if senior reps should receive more leads
-- Build a **Report** on `QRNG_Assignment__c` to track distribution over time
+- Build a **Report** on `Quantum_Assignment__c` to track distribution over time
