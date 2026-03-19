@@ -124,6 +124,7 @@ public class QRNGJobSweeper implements Schedulable {
             List<Quantum_Job__c> jobsToUpdate = new List<Quantum_Job__c>();
             List<Quantum_Job__c> completedJobs = new List<Quantum_Job__c>();
             List<Map<String, Object>> completedResponses = new List<Map<String, Object>>();
+            List<String> completedResults = new List<String>();
 
             for (Quantum_Job__c job : pendingJobs) {
                 try {
@@ -143,8 +144,14 @@ public class QRNGJobSweeper implements Schedulable {
                         job.Queue_Time_ms__c = IBMResponseParser.extractQueueTimeMs(
                             statusResponse
                         );
+                        // Fetch results now (before any DML) to avoid
+                        // "uncommitted work pending" callout restriction
+                        String resultsJson = provider.getJobResults(
+                            job.External_Job_ID__c
+                        );
                         completedJobs.add(job);
                         completedResponses.add(statusResponse);
+                        completedResults.add(resultsJson);
                     } else if (normalized == 'Failed') {
                         job.Error_Message__c = IBMResponseParser.buildErrorMessage(
                             rawStatus,
@@ -165,13 +172,11 @@ public class QRNGJobSweeper implements Schedulable {
                 update jobsToUpdate;
             }
 
-            // Process completed jobs (results + certificates)
+            // Process completed jobs (results already fetched above)
             for (Integer i = 0; i < completedJobs.size(); i++) {
                 Quantum_Job__c job = completedJobs[i];
                 try {
-                    String resultsJson = provider.getJobResults(
-                        job.External_Job_ID__c
-                    );
+                    String resultsJson = completedResults[i];
                     if (job.Program_Id__c == 'estimator') {
                         QRNGJobProcessor.processEstimatorCompletion(
                             job,
