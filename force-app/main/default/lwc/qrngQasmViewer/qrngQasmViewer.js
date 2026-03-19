@@ -303,6 +303,7 @@ export default class QrngQasmViewer extends LightningElement {
         canvas.height = height;
 
         const ctx = canvas.getContext('2d');
+        if (!ctx) return;
         ctx.clearRect(0, 0, width, height);
 
         // Assign columns: each op gets a column. Track max column per qubit.
