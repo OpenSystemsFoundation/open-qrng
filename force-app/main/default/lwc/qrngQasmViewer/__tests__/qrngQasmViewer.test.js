@@ -121,7 +121,7 @@ describe('c-qrng-qasm-viewer', () => {
 
     it('disconnectedCallback does not throw', () => {
         const element = createComponent();
-        document.body.removeChild(element);
+        expect(() => document.body.removeChild(element)).not.toThrow();
     });
 
     // ── splitCircuits (prototype) ──
