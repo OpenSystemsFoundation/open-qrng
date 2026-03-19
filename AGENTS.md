@@ -36,7 +36,8 @@ Classes are organized by domain responsibility:
 | `circuits/`     | OpenQASM 3.0 circuit generation (ISA-compliant)                 |
 | `jobs/`         | Async polling (Queueable chain), job sweeper, poll scheduler    |
 | `results/`      | Result parsing, von Neumann debiasing, statistical validation   |
-| `certificates/` | Fairness certificate service, integrity verification job        |
+| `certificates/` | Fairness certificate service, integrity verification, chaining  |
+| `compliance/`   | Event logger, digest email, summary job, evidence export        |
 | `controllers/`  | LWC controllers, @InvocableMethod for Flow Builder              |
 | `shared/`       | Interfaces (QuantumProvider, QRNGConsumer), factory, exceptions |
 | `tests/`        | All @isTest classes                                             |
@@ -55,9 +56,14 @@ Classes are organized by domain responsibility:
 | `QRNGResultParser`           | `results/`      | Bitstring extraction + von Neumann debiasing   |
 | `QRNGValidator`              | `results/`      | Statistical randomness tests                   |
 | `QuantumAssignmentEngine`    | `results/`      | Random assignment algorithms                   |
-| `FairnessCertificateService` | `certificates/` | Certificate creation + hashing                 |
+| `FairnessCertificateService` | `certificates/` | Certificate creation + chain linking           |
 | `IntegrityVerificationJob`   | `certificates/` | Nightly re-hash verification of certificates   |
-| `QRNGSetupController`        | `controllers/`  | LWC controller for admin setup                 |
+| `ComplianceEventLogger`      | `compliance/`   | Exception-only audit event creation + hashing  |
+| `ComplianceDigestJob`        | `compliance/`   | Daily hash digest email to compliance mailbox  |
+| `ComplianceSummaryJob`       | `compliance/`   | Monthly aggregate compliance summary           |
+| `ComplianceEvidenceExporter` | `compliance/`   | Framework-specific evidence JSON export        |
+| `ComplianceControlService`   | `compliance/`   | Query compliance control-to-framework mapping  |
+| `QRNGSetupController`        | `controllers/`  | LWC controller for admin setup + job dashboard |
 | `QuantumRandomAssignment`    | `controllers/`  | @InvocableMethod for Flow Builder              |
 | `QuantumProvider`            | `shared/`       | Interface for quantum backend providers        |
 | `QuantumProviderFactory`     | `shared/`       | Factory for obtaining provider instances       |
@@ -87,19 +93,29 @@ Classes are organized by domain responsibility:
 
 ### Component Map
 
-| Component                 | Purpose                                   |
-| ------------------------- | ----------------------------------------- |
-| `quantumFairApp`          | Main app shell                            |
-| `qrngSetup`               | Admin config panel (backend picker, test) |
-| `qrngJobStatusPanel`      | Backend health and job status dashboard   |
-| `qrngRequestForm`         | Assignment request form                   |
-| `qrngJobMonitor`          | Real-time job status (empApi)             |
-| `qrngCircuitVisualizer`   | Canvas 2D circuit diagram                 |
-| `qrngResultsVisualizer`   | Canvas 2D measurement charts              |
-| `qrngFairnessCertificate` | Certificate document view                 |
-| `qrngAssignmentTable`     | Results table                             |
-| `qrngAuditTrail`          | Historical timeline                       |
-| `qrngBellTestIndicator`   | CSS gauge for CHSH value                  |
+| Component                 | Purpose                                                                   |
+| ------------------------- | ------------------------------------------------------------------------- |
+| `quantumFairApp`          | Main app shell (5-tab layout: Dashboard/Jobs/Setup/Operations/Compliance) |
+| `qrngSetup`               | Admin setup orchestrator (delegates to child components)                  |
+| `qrngConnectionSetup`     | API key input + auto-connection test                                      |
+| `qrngSettingsPanel`       | Backend, shots, compliance email config                                   |
+| `qrngHealthMonitor`       | Backend health with fidelity scoring + timestamps                         |
+| `qrngBackgroundJobs`      | Scheduler management UI                                                   |
+| `qrngJobDashboard`        | Filterable job table with real-time Platform Event updates                |
+| `qrngJobStatusPanel`      | Job type + status display on record pages                                 |
+| `qrngJobMonitor`          | Real-time single-job status via empApi                                    |
+| `qrngQasmViewer`          | Canvas 2D OpenQASM circuit renderer (ISA + multi-circuit)                 |
+| `qrngCircuitVisualizer`   | Legacy circuit diagram                                                    |
+| `qrngResultsVisualizer`   | Canvas 2D measurement charts                                              |
+| `qrngValidationResults`   | Statistical + CHSH results (job-type aware)                               |
+| `qrngRequestForm`         | Assignment request form                                                   |
+| `qrngFairnessCertificate` | Certificate document view                                                 |
+| `qrngAssignmentTable`     | Results table                                                             |
+| `qrngAuditTrail`          | Historical timeline with real-time updates                                |
+| `qrngBellTestIndicator`   | CSS gauge for CHSH S-value                                                |
+| `qrngChshVisualizer`      | CHSH correlator breakdown chart                                           |
+| `qrngComplianceExport`    | Framework evidence JSON download                                          |
+| `qrngEventSubscription`   | Shared Platform Event subscription utility                                |
 
 ---
 
@@ -109,11 +125,12 @@ Classes are organized by domain responsibility:
 
 ### Conventions
 
-- Custom objects: `Quantum_Job__c`, `Fairness_Certificate__c`, `QRNG_Assignment__c`
-- Custom Metadata Type: `QRNG_Backend_Config__mdt` (Protected)
+- Custom objects: `Quantum_Job__c`, `Fairness_Certificate__c`, `QRNG_Assignment__c`, `QRNG_Backend__c`, `Compliance_Event__c`
+- Custom Metadata Types: `QRNG_Backend_Config__mdt` (Protected), `Compliance_Control__mdt` (24 seed records)
+- Custom Settings: `QRNG_Settings__c` (Hierarchy — default backend, shots, compliance email)
 - Platform Events: `QRNG_Complete__e`, `QRNG_Failed__e`
 - OWD for custom objects: Private (sharing rules for access control)
-- Permission sets: `QuantumFair_Admin`, `QuantumFair_User` — never use profiles
+- Permission sets: `QuantumFair_Admin`, `QuantumFair_User`, `QuantumFair_Auditor` (read-only) — never use profiles
 - Named Credential: `IBM_Quantum_Runtime` + External Credential: `IBM_Quantum`
 - All metadata XML must be valid for API version 66.0
 - Field-level security: explicitly set in permission sets, never default-open

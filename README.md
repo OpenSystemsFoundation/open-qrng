@@ -12,9 +12,10 @@ QuantumFair uses real IBM Quantum hardware to generate true randomness — prova
 1. **Request** — A Flow, Apex trigger, or LWC requests random values for a purpose (e.g., "assign 50 leads across 5 reps fairly")
 2. **Generate** — Apex builds an ISA-compliant OpenQASM 3.0 circuit using native Heron r2 gates (`rz`, `sx`, `x`, `ecr`) and submits it to IBM Quantum via Named Credentials
 3. **Execute** — IBM Quantum hardware runs the circuit. A Queueable chain polls for results.
-4. **Certify** — Statistical validation (monobit, runs test, chi-squared) + optional CHSH Bell-test. A `Fairness_Certificate__c` record stores circuit params, raw measurement hashes, and validation results.
-5. **Assign** — Quantum random bits drive the assignment. The certificate links to every assigned record.
-6. **Audit** — Any auditor can verify: circuit ran on IBM hardware (job ID), measurements are statistically random, assignment follows deterministically from measurements.
+4. **Certify** — Statistical validation (monobit, runs test, chi-squared). Certificates are chain-linked via SHA-256 hashes for tamper-evident ordering.
+5. **Verify** — A separate CHSH Bell test circuit proves quantum origin (S > 2.0 violates classical bounds). Results include correlator breakdown and S-value visualization.
+6. **Assign** — Quantum random bits drive the assignment. The certificate links to every assigned record.
+7. **Audit** — Framework-agnostic compliance: evidence maps to ISO 27001, SOC 2, NIST 800-90B, GDPR, and eIDAS. Daily hash digests sent to external compliance mailbox. Read-only `QuantumFair_Auditor` permission set for external auditors.
 
 ## Use Cases
 
@@ -70,11 +71,13 @@ sf org open
 ## Post-Install Setup
 
 1. Assign `QuantumFair_Admin` permission set to your admin user
-2. Open the QuantumFair Setup tab
-3. Enter your IBM Quantum API key into the External Credential (guided wizard)
-4. Select your preferred backend (wizard shows available QPUs with health status)
-5. Run a test circuit (1 qubit, 100 shots) to verify connectivity
-6. Assign `QuantumFair_User` permission set to users who need random assignments
+2. Open the **QuantumFair** app from the App Launcher
+3. Go to the **Setup** tab → **Connection** section
+4. Enter your IBM Quantum API key — connection is tested automatically on save
+5. Configure default backend (defaults to "Least Busy") and shots in **Settings**
+6. Optionally set a **Compliance Email** address for daily hash digest reports
+7. Assign `QuantumFair_User` permission set to users who need random assignments
+8. Assign `QuantumFair_Auditor` permission set to external auditors (read-only access)
 
 ## Development
 
@@ -99,24 +102,45 @@ open-qrng/
 │   │   ├── jobs/             ← Async polling (Queueable chain), sweeper, scheduler
 │   │   ├── results/          ← Result parsing, von Neumann debiasing, validation
 │   │   ├── certificates/     ← Fairness certificate service, integrity verification
+│   │   ├── compliance/       ← Event logger, digest email, summary job, evidence export
 │   │   ├── controllers/      ← LWC controllers, @InvocableMethod for Flow
 │   │   ├── shared/           ← Provider interface, factory, consumer interface, exceptions
 │   │   └── tests/            ← All @isTest classes
 │   ├── lwc/
-│   │   ├── quantumFairApp/           ← Main app shell
-│   │   ├── qrngSetup/               ← Admin config (backend picker, connection test)
-│   │   ├── qrngJobStatusPanel/      ← Backend health and job status dashboard
+│   │   ├── quantumFairApp/           ← Main app shell (5-tab layout)
+│   │   ├── qrngSetup/               ← Admin setup orchestrator
+│   │   ├── qrngConnectionSetup/     ← API key + connection test
+│   │   ├── qrngSettingsPanel/       ← Backend, shots, compliance email config
+│   │   ├── qrngHealthMonitor/       ← Backend health with fidelity scoring
+│   │   ├── qrngBackgroundJobs/      ← Scheduler management
+│   │   ├── qrngJobDashboard/        ← Filterable job table with real-time updates
 │   │   ├── qrngJobMonitor/          ← Real-time job status via empApi
-│   │   ├── qrngCircuitVisualizer/   ← Canvas 2D circuit diagram
+│   │   ├── qrngJobStatusPanel/      ← Job type + status display
+│   │   ├── qrngQasmViewer/          ← Canvas 2D OpenQASM circuit renderer
+│   │   ├── qrngCircuitVisualizer/   ← Legacy circuit diagram
 │   │   ├── qrngResultsVisualizer/   ← Canvas 2D measurement charts
+│   │   ├── qrngValidationResults/   ← Statistical + CHSH results (job-type aware)
 │   │   ├── qrngRequestForm/         ← Assignment request form
 │   │   ├── qrngFairnessCertificate/ ← Certificate document view
 │   │   ├── qrngAssignmentTable/     ← Results table
-│   │   ├── qrngAuditTrail/          ← Historical job/certificate timeline
-│   │   └── qrngBellTestIndicator/   ← CSS gauge for CHSH value
-│   ├── objects/              ← Quantum_Job__c, Fairness_Certificate__c, QRNG_Assignment__c
+│   │   ├── qrngAuditTrail/          ← Historical timeline (real-time updates)
+│   │   ├── qrngBellTestIndicator/   ← CSS gauge for CHSH S-value
+│   │   ├── qrngChshVisualizer/      ← CHSH correlator breakdown chart
+│   │   ├── qrngComplianceExport/    ← Framework evidence JSON download
+│   │   └── qrngEventSubscription/   ← Shared Platform Event subscription utility
+│   ├── objects/
+│   │   ├── Quantum_Job__c/          ← Job records with QPU time tracking
+│   │   ├── Fairness_Certificate__c/ ← Chain-linked certificates with verification fields
+│   │   ├── QRNG_Assignment__c/      ← Individual assignment records
+│   │   ├── QRNG_Backend__c/         ← Backend config + NIST 800-90B entropy fields
+│   │   ├── Compliance_Event__c/     ← Exception-only compliance audit log
+│   │   ├── Compliance_Control__mdt/ ← Control-to-framework mapping (24 seed records)
+│   │   └── QRNG_Settings__c/        ← Hierarchy custom settings
+│   ├── customMetadata/       ← Compliance control seed records (ISO/SOC/NIST/GDPR/eIDAS)
 │   ├── namedCredentials/     ← IBM_Quantum_Runtime, IBM_Quantum External Credential
-│   ├── permissionsets/       ← QuantumFair_Admin, QuantumFair_User
+│   ├── permissionsets/       ← QuantumFair_Admin, QuantumFair_User, QuantumFair_Auditor
+│   ├── layouts/              ← Page layouts for all custom objects
+│   ├── flexipages/           ← Record pages for Job, Certificate, Compliance Event
 │   └── flows/                ← Sample: Quantum Random Lead Assignment
 ├── config/                   ← Scratch org definition
 ├── ARCHITECTURE.md           ← Full system design (source of truth)
@@ -128,21 +152,23 @@ open-qrng/
 
 ### Now (Current Sprint)
 
-- Integrity verification nightly job (`IntegrityVerificationJob`)
-- Coupling map qubit selection for ISA circuit generation
-- Bell test circuit fixes for native Heron r2 gate set
-- DTO pattern across all LWC components for Apex-to-LWC communication
+- Multi-provider architecture (IonQ simulator support alongside IBM Quantum)
+- Generic provider abstraction for backend-agnostic job submission
+- Flow-based quantum assignment builder
+- Assignment engine integration with fairness certificates
 
 ### Next (Upcoming)
 
-- Flow-based quantum assignment builder
-- Assignment engine integration with fairness certificates
 - AppExchange security review prep
 - Bulk job submission
-- Multi-backend failover
+- Multi-backend failover with automatic least-busy routing
+- Custom Labels for i18n support
+- Big Object migration for high-volume compliance logging
+- Enhanced CHSH visualization with correlator scatter plot
 
 ### Future (Longer Term)
 
+- Additional quantum providers (Amazon Braket, Azure Quantum)
 - Quantum Pareto (QAMOO) optimization package
 - PQC readiness scanner
 - Quantum key distribution integration
