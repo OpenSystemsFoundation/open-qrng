@@ -104,7 +104,7 @@ public with sharing class IBMQuantumService {
                 Num_Qubits__c = numQubits,
                 Purpose__c = purpose,
                 Use_Bell_Test__c = useBellTest != null ? useBellTest : false,
-                Job_Type__c = 'QRNG',
+                Job_Type__c = 'Quantum',
                 Requested_By__c = UserInfo.getUserId(),
                 Submitted_At__c = DateTime.now(),
                 Error_Message__c = e.getMessage()
@@ -133,7 +133,7 @@ public with sharing class IBMQuantumService {
             Num_Qubits__c = numQubits,
             Purpose__c = purpose,
             Use_Bell_Test__c = useBellTest != null ? useBellTest : false,
-            Job_Type__c = 'QRNG',
+            Job_Type__c = 'Quantum',
             Requested_By__c = UserInfo.getUserId(),
             Submitted_At__c = DateTime.now()
         );

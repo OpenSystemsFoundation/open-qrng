@@ -814,6 +814,6 @@ describe('c-qrng-job-status-panel', () => {
         const detailValues =
             element.shadowRoot.querySelectorAll('.detail-value');
         const texts = Array.from(detailValues).map((d) => d.textContent.trim());
-        expect(texts).toContain('QRNG');
+        expect(texts).toContain('Quantum');
     });
 });
