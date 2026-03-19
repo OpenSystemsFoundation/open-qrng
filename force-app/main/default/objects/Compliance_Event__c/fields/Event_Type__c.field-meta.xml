@@ -38,6 +38,21 @@
                 <default>false</default>
                 <label>MONTHLY_SUMMARY</label>
             </value>
+            <value>
+                <fullName>CHAIN_GAP</fullName>
+                <default>false</default>
+                <label>CHAIN_GAP</label>
+            </value>
+            <value>
+                <fullName>VALIDATION_FAILURE</fullName>
+                <default>false</default>
+                <label>VALIDATION_FAILURE</label>
+            </value>
+            <value>
+                <fullName>EVIDENCE_EXPORTED</fullName>
+                <default>false</default>
+                <label>EVIDENCE_EXPORTED</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

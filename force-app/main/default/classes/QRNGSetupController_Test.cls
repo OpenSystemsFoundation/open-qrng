@@ -984,7 +984,10 @@ private class QRNGSetupController_Test {
         Map<String, Object> results = QRNGSetupController.getValidationResults(
             job.Id
         );
-        System.assertEquals(0, results.size());
+        // Map always contains jobType and circuitQasm even when no validation data
+        System.assert(results.containsKey('jobType'));
+        System.assert(results.containsKey('circuitQasm'));
+        System.assert(!results.containsKey('monobit'));
     }
 
     // ── verifyCertificate ───────────────────────────────────────────
