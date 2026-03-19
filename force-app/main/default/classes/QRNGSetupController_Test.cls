@@ -434,8 +434,8 @@ private class QRNGSetupController_Test {
             Execution_Time_ms__c = 3000,
             Queue_Time_ms__c = 1500,
             Poll_Count__c = 3,
-            Raw_Results__c = '01100110',
-            Debiased_Results__c = '0110'
+            Raw_Results__c = '0x66',
+            Debiased_Results__c = '0x6'
         );
         insert job;
 
@@ -452,8 +452,8 @@ private class QRNGSetupController_Test {
         System.assertEquals(3, dto.pollCount);
         System.assertEquals(3000, dto.executionTimeMs);
         System.assertEquals(1500, dto.queueTimeMs);
-        System.assertEquals('01100110', dto.rawResults);
-        System.assertEquals('0110', dto.debiasedResults);
+        System.assertEquals('0x66', dto.rawResults);
+        System.assertEquals('0x6', dto.debiasedResults);
     }
 
     @IsTest
@@ -483,8 +483,8 @@ private class QRNGSetupController_Test {
             Status__c = 'Completed',
             Shots__c = 1024,
             Num_Qubits__c = 8,
-            Raw_Results__c = '01100110',
-            Debiased_Results__c = '0110',
+            Raw_Results__c = '0x66',
+            Debiased_Results__c = '0x6',
             Purpose__c = 'Cert DTO test',
             Requested_By__c = UserInfo.getUserId()
         );
@@ -530,8 +530,8 @@ private class QRNGSetupController_Test {
             Status__c = 'Completed',
             Shots__c = 1024,
             Num_Qubits__c = 8,
-            Raw_Results__c = '01100110',
-            Debiased_Results__c = '0110',
+            Raw_Results__c = '0x66',
+            Debiased_Results__c = '0x6',
             Purpose__c = 'Audit trail test',
             Requested_By__c = UserInfo.getUserId()
         );
@@ -737,8 +737,8 @@ private class QRNGSetupController_Test {
             Status__c = 'Completed',
             Shots__c = 1024,
             Num_Qubits__c = 8,
-            Raw_Results__c = '01100110',
-            Debiased_Results__c = '0110',
+            Raw_Results__c = '0x66',
+            Debiased_Results__c = '0x6',
             Requested_By__c = UserInfo.getUserId()
         );
         insert job;
@@ -825,7 +825,7 @@ private class QRNGSetupController_Test {
             Status__c = 'Completed',
             Shots__c = 1024,
             Num_Qubits__c = 8,
-            Debiased_Results__c = '01100110101001011010010110100101',
+            Debiased_Results__c = '0x66a5a5a5',
             Raw_Results__c = '0x69a5a5a5',
             Use_Bell_Test__c = false
         );
@@ -896,7 +896,7 @@ private class QRNGSetupController_Test {
             Status__c = 'Completed',
             Shots__c = 1024,
             Num_Qubits__c = 4,
-            Debiased_Results__c = '01100110101001011010010110100101',
+            Debiased_Results__c = '0x66a5a5a5',
             Raw_Results__c = '0110100111100011',
             Use_Bell_Test__c = true
         );
@@ -919,7 +919,7 @@ private class QRNGSetupController_Test {
             Status__c = 'Completed',
             Shots__c = 1024,
             Num_Qubits__c = 8,
-            Debiased_Results__c = '01100110101001011010010110100101',
+            Debiased_Results__c = '0x66a5a5a5',
             Raw_Results__c = '0x69a5a5a5',
             Use_Bell_Test__c = false,
             Requested_By__c = UserInfo.getUserId()

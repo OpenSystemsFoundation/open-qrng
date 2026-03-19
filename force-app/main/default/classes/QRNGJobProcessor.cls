@@ -84,7 +84,10 @@ public with sharing class QRNGJobProcessor {
         job.Result_Fingerprint__c = QRNGResultParser.generateFingerprint(
             rawBits
         );
-        job.Debiased_Results__c = debiasedBits.left(131072);
+        String encodedDebiased = QRNGResultParser.encodeForStorage(
+            debiasedBits
+        );
+        job.Debiased_Results__c = encodedDebiased.left(131072);
         job.Completed_At__c = DateTime.now();
         stampExecutionTime(job);
         if (statusResponse != null) {

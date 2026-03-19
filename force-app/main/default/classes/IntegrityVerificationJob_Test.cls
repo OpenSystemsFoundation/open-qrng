@@ -9,18 +9,16 @@ private class IntegrityVerificationJob_Test {
             Status__c = 'Completed',
             Shots__c = 4,
             Num_Qubits__c = 4,
-            Raw_Results__c = '0110100111100011',
-            Debiased_Results__c = '0101',
+            Raw_Results__c = '0x69e3',
+            Debiased_Results__c = '0x5',
             Submitted_At__c = DateTime.now().addMinutes(-10),
             Completed_At__c = DateTime.now()
         );
         insert job;
 
         // Create a matching certificate with correct hashes
-        String rawHash = FairnessCertificateService.computeSHA256(
-            '0110100111100011'
-        );
-        String debiasedHash = FairnessCertificateService.computeSHA256('0101');
+        String rawHash = FairnessCertificateService.computeSHA256('0x69e3');
+        String debiasedHash = FairnessCertificateService.computeSHA256('0x5');
         Fairness_Certificate__c cert = new Fairness_Certificate__c(
             Quantum_Job__c = job.Id,
             External_Job_ID__c = 'job_integrity_test',

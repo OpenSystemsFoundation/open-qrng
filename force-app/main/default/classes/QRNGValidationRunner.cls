@@ -25,9 +25,14 @@ public class QRNGValidationRunner implements Queueable {
             return;
         }
 
+        // Decode hex-encoded debiased results back to binary for validation
+        String debiasedBits = QRNGResultParser.decodeRawResults(
+            job.Debiased_Results__c
+        );
+
         // Run extended tests
         Map<String, Object> extendedResults = QRNGValidator.validateExtended(
-            job.Debiased_Results__c
+            debiasedBits
         );
 
         // Merge with existing validation results
