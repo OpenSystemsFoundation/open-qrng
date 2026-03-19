@@ -1,0 +1,443 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <description>Admin-driven Screen Flow to reassign Accounts during territory changes using quantum-certified randomization. The admin selects a territory or account filter, chooses target reps, picks Uniform or Weighted assignment, and submits to QuantumFair. Includes Bell Test option for high-stakes rebalances. A Fairness Certificate proves no favoritism.</description>
+    <interviewLabel>QRNG Account Rebalance {!$Flow.CurrentDateTime}</interviewLabel>
+    <isTemplate>true</isTemplate>
+    <label>QRNG Account Territory Rebalance</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>Flow</processType>
+    <status>Draft</status>
+
+    <!-- ============================================================
+         VARIABLES
+         ============================================================ -->
+    <variables>
+        <name>varAccountIds</name>
+        <dataType>String</dataType>
+        <isCollection>true</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>varRepIds</name>
+        <dataType>String</dataType>
+        <isCollection>true</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>varJobId</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>true</isOutput>
+    </variables>
+    <variables>
+        <name>varAssignmentType</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>varWeights</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>varPurpose</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>varUseBellTest</name>
+        <dataType>Boolean</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <value>
+            <booleanValue>true</booleanValue>
+        </value>
+    </variables>
+    <!-- TODO: Replace with your target rep group/queue ID -->
+    <variables>
+        <name>varRepGroupId</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <value>
+            <stringValue>00G000000000000</stringValue>
+        </value>
+    </variables>
+
+    <!-- ============================================================
+         CHOICES for Assignment Type picklist
+         ============================================================ -->
+    <choices>
+        <name>choiceUniform</name>
+        <choiceText>Uniform (equal distribution)</choiceText>
+        <dataType>String</dataType>
+        <value>
+            <stringValue>Uniform</stringValue>
+        </value>
+    </choices>
+    <choices>
+        <name>choiceWeighted</name>
+        <choiceText>Weighted (custom proportions)</choiceText>
+        <dataType>String</dataType>
+        <value>
+            <stringValue>Weighted</stringValue>
+        </value>
+    </choices>
+
+    <!-- ============================================================
+         START
+         ============================================================ -->
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Input_Screen</targetReference>
+        </connector>
+    </start>
+
+    <!-- ============================================================
+         SCREEN 1 — Admin input
+         ============================================================ -->
+    <screens>
+        <name>Input_Screen</name>
+        <label>Rebalance Configuration</label>
+        <locationX>176</locationX>
+        <locationY>134</locationY>
+        <allowBack>false</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <connector>
+            <targetReference>Get_Accounts</targetReference>
+        </connector>
+        <fields>
+            <name>screenHeader</name>
+            <fieldText>&lt;p&gt;&lt;b&gt;Quantum Account Rebalance&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Reassign accounts across reps using quantum-certified randomization. A Fairness Certificate will be generated to prove the assignment was unbiased.&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <fields>
+            <name>inputAssignmentType</name>
+            <choiceReferences>choiceUniform</choiceReferences>
+            <choiceReferences>choiceWeighted</choiceReferences>
+            <dataType>String</dataType>
+            <defaultValue>
+                <stringValue>Uniform</stringValue>
+            </defaultValue>
+            <fieldText>Assignment Type</fieldText>
+            <fieldType>RadioButtons</fieldType>
+            <isRequired>true</isRequired>
+        </fields>
+        <fields>
+            <name>inputWeights</name>
+            <dataType>String</dataType>
+            <fieldText>Weights (comma-separated, e.g. 40,35,25)</fieldText>
+            <fieldType>InputField</fieldType>
+            <helpText>Only used if Assignment Type is Weighted. One weight per rep, proportional — they do not need to sum to 100.</helpText>
+            <isRequired>false</isRequired>
+        </fields>
+        <fields>
+            <name>inputPurpose</name>
+            <dataType>String</dataType>
+            <defaultValue>
+                <stringValue>Territory Rebalance</stringValue>
+            </defaultValue>
+            <fieldText>Purpose / Reason</fieldText>
+            <fieldType>InputField</fieldType>
+            <isRequired>true</isRequired>
+        </fields>
+        <fields>
+            <name>inputBellTest</name>
+            <dataType>Boolean</dataType>
+            <defaultValue>
+                <booleanValue>true</booleanValue>
+            </defaultValue>
+            <fieldText>Enable Bell Test (proves quantum origin via CHSH inequality)</fieldText>
+            <fieldType>InputField</fieldType>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+
+    <!-- ============================================================
+         STEP 2 — Get Accounts (TODO: adjust filters for your territory)
+         ============================================================ -->
+    <recordLookups>
+        <name>Get_Accounts</name>
+        <label>Get Accounts</label>
+        <locationX>176</locationX>
+        <locationY>242</locationY>
+        <connector>
+            <targetReference>Get_Reps</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>IsDeleted</field>
+            <operator>EqualTo</operator>
+            <value>
+                <booleanValue>false</booleanValue>
+            </value>
+        </filters>
+        <!-- TODO: Add your territory or account filters here, e.g.:
+             Territory2Id, Type, Industry, OwnerId, etc. -->
+        <getFirstRecordOnly>false</getFirstRecordOnly>
+        <object>Account</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+
+    <!-- ============================================================
+         STEP 3 — Get target reps
+         ============================================================ -->
+    <recordLookups>
+        <name>Get_Reps</name>
+        <label>Get Reps</label>
+        <locationX>176</locationX>
+        <locationY>350</locationY>
+        <connector>
+            <targetReference>Loop_Accounts</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>GroupId</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>varRepGroupId</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>false</getFirstRecordOnly>
+        <object>GroupMember</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+
+    <!-- ============================================================
+         STEP 4 — Extract Account IDs
+         ============================================================ -->
+    <loops>
+        <name>Loop_Accounts</name>
+        <label>Loop Accounts</label>
+        <locationX>176</locationX>
+        <locationY>458</locationY>
+        <collectionReference>Get_Accounts</collectionReference>
+        <iterationOrder>Asc</iterationOrder>
+        <nextValueConnector>
+            <targetReference>Add_Account_Id</targetReference>
+        </nextValueConnector>
+        <noMoreValuesConnector>
+            <targetReference>Loop_Rep_Members</targetReference>
+        </noMoreValuesConnector>
+    </loops>
+    <assignments>
+        <name>Add_Account_Id</name>
+        <label>Add Account Id</label>
+        <locationX>308</locationX>
+        <locationY>458</locationY>
+        <assignmentItems>
+            <assignToReference>varAccountIds</assignToReference>
+            <operator>Add</operator>
+            <value>
+                <elementReference>Loop_Accounts.Id</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Loop_Accounts</targetReference>
+        </connector>
+    </assignments>
+
+    <!-- ============================================================
+         STEP 5 — Extract Rep IDs
+         ============================================================ -->
+    <loops>
+        <name>Loop_Rep_Members</name>
+        <label>Loop Rep Members</label>
+        <locationX>176</locationX>
+        <locationY>566</locationY>
+        <collectionReference>Get_Reps</collectionReference>
+        <iterationOrder>Asc</iterationOrder>
+        <nextValueConnector>
+            <targetReference>Add_Rep_Member_Id</targetReference>
+        </nextValueConnector>
+        <noMoreValuesConnector>
+            <targetReference>Set_Screen_Values</targetReference>
+        </noMoreValuesConnector>
+    </loops>
+    <assignments>
+        <name>Add_Rep_Member_Id</name>
+        <label>Add Rep Member Id</label>
+        <locationX>308</locationX>
+        <locationY>566</locationY>
+        <assignmentItems>
+            <assignToReference>varRepIds</assignToReference>
+            <operator>Add</operator>
+            <value>
+                <elementReference>Loop_Rep_Members.UserOrGroupId</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Loop_Rep_Members</targetReference>
+        </connector>
+    </assignments>
+
+    <!-- ============================================================
+         STEP 6 — Map screen inputs to variables
+         ============================================================ -->
+    <assignments>
+        <name>Set_Screen_Values</name>
+        <label>Set Screen Values</label>
+        <locationX>176</locationX>
+        <locationY>674</locationY>
+        <assignmentItems>
+            <assignToReference>varAssignmentType</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>inputAssignmentType</elementReference>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>varWeights</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>inputWeights</elementReference>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>varPurpose</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>inputPurpose</elementReference>
+            </value>
+        </assignmentItems>
+        <assignmentItems>
+            <assignToReference>varUseBellTest</assignToReference>
+            <operator>Assign</operator>
+            <value>
+                <elementReference>inputBellTest</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Check_Has_Records</targetReference>
+        </connector>
+    </assignments>
+
+    <!-- ============================================================
+         STEP 7 — Guard check
+         ============================================================ -->
+    <decisions>
+        <name>Check_Has_Records</name>
+        <label>Has Accounts and Reps?</label>
+        <locationX>176</locationX>
+        <locationY>782</locationY>
+        <defaultConnectorLabel>No Records</defaultConnectorLabel>
+        <rules>
+            <name>Has_Records</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>varAccountIds</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>varRepIds</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Quantum_Rebalance</targetReference>
+            </connector>
+            <label>Has Records</label>
+        </rules>
+    </decisions>
+
+    <!-- ============================================================
+         STEP 8 — Invoke QuantumFair Assignment
+         ============================================================ -->
+    <actionCalls>
+        <name>Quantum_Rebalance</name>
+        <label>Quantum Rebalance Accounts</label>
+        <locationX>176</locationX>
+        <locationY>890</locationY>
+        <actionName>OpenSF__QuantumRandomAssignment</actionName>
+        <actionType>apex</actionType>
+        <connector>
+            <targetReference>Confirmation_Screen</targetReference>
+        </connector>
+        <inputParameters>
+            <name>recordIds</name>
+            <value>
+                <elementReference>varAccountIds</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>assigneeIds</name>
+            <value>
+                <elementReference>varRepIds</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>assignmentType</name>
+            <value>
+                <elementReference>varAssignmentType</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>weights</name>
+            <value>
+                <elementReference>varWeights</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>purpose</name>
+            <value>
+                <elementReference>varPurpose</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>useBellTest</name>
+            <value>
+                <elementReference>varUseBellTest</elementReference>
+            </value>
+        </inputParameters>
+        <outputParameters>
+            <assignToReference>varJobId</assignToReference>
+            <name>jobId</name>
+        </outputParameters>
+    </actionCalls>
+
+    <!-- ============================================================
+         SCREEN 2 — Confirmation
+         ============================================================ -->
+    <screens>
+        <name>Confirmation_Screen</name>
+        <label>Assignment Submitted</label>
+        <locationX>176</locationX>
+        <locationY>998</locationY>
+        <allowBack>false</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <fields>
+            <name>confirmationMessage</name>
+            <fieldText>&lt;p&gt;&lt;b&gt;Quantum assignment submitted successfully!&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Job ID: {!varJobId}&lt;/p&gt;&lt;p&gt;The assignment is running on IBM Quantum hardware. You will receive a Platform Event (QRNG_Complete__e) when results are ready.&lt;/p&gt;&lt;p&gt;A Fairness Certificate will be created automatically to prove the assignment was unbiased.&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+</Flow>

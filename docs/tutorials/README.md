@@ -4,6 +4,8 @@ Step-by-step guides for Salesforce admins to implement quantum-certified fair ra
 
 > **New here?** Start with the [Generalized Pipeline](generalized-pipeline.md) guide to understand the end-to-end QRNG formula before diving into a domain-specific tutorial.
 
+> **Want a head start?** QuantumFair ships with [out-of-the-box Flow Templates](flow-templates.md) for Lead, Case, Opportunity, and Account — plus a generic template you can copy and adapt for any object.
+
 ## Prerequisites
 
 Before following any tutorial, ensure:
