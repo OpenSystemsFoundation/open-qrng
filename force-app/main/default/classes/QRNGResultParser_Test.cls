@@ -395,8 +395,8 @@ private class QRNGResultParser_Test {
         String json = '{"results":[{"data":{"evs":[2.61],"stds":[0.04]},"metadata":{"shots":4096}}],"metadata":{"resilience":{"measure_mitigation":true,"zne_mitigation":false,"pec_mitigation":false},"twirling":{"enable_measure":true,"enable_gates":false,"strategy":"active"}}}';
         String summary = QRNGResultParser.formatEstimatorSummary(
             json,
-            2.61,
-            0.04
+            (Double) 2.61,
+            (Double) 0.04
         );
         System.assert(summary.contains('PASS'), 'Should show PASS');
         System.assert(summary.contains('2.61'), 'Should contain S-value');
@@ -420,8 +420,8 @@ private class QRNGResultParser_Test {
         String json = '{"results":[{"data":{"evs":[1.5],"stds":[0.1]}}]}';
         String summary = QRNGResultParser.formatEstimatorSummary(
             json,
-            1.5,
-            0.1
+            (Double) 1.5,
+            (Double) 0.1
         );
         System.assert(summary.contains('FAIL'), 'Should show FAIL');
     }
@@ -431,7 +431,7 @@ private class QRNGResultParser_Test {
         String json = '{"results":[{"data":{"evs":[2.3]}}]}';
         String summary = QRNGResultParser.formatEstimatorSummary(
             json,
-            2.3,
+            (Double) 2.3,
             null
         );
         System.assert(
@@ -445,8 +445,8 @@ private class QRNGResultParser_Test {
         // Should not throw — gracefully handles parse errors
         String summary = QRNGResultParser.formatEstimatorSummary(
             'not json',
-            2.5,
-            0.05
+            (Double) 2.5,
+            (Double) 0.05
         );
         System.assert(
             summary.contains('Could not parse'),

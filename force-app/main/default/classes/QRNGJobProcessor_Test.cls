@@ -327,7 +327,7 @@ private class QRNGJobProcessor_Test {
         };
 
         String summary = QRNGJobProcessor.buildEstimatorSummary(
-            2.61,
+            (Double) 2.61,
             evs,
             stds,
             labels,
@@ -351,7 +351,7 @@ private class QRNGJobProcessor_Test {
         Map<String, Double> coeffs = new Map<String, Double>{ 'ZZ' => 1.0 };
 
         String summary = QRNGJobProcessor.buildEstimatorSummary(
-            1.5,
+            (Double) 1.5,
             evs,
             stds,
             labels,
@@ -374,7 +374,7 @@ private class QRNGJobProcessor_Test {
         insert job;
 
         Test.startTest();
-        QRNGJobProcessor.updateBackendVerification('nonexistent', 2.5, job.Id);
+        QRNGJobProcessor.updateBackendVerification('nonexistent', (Double) 2.5, job.Id);
         Test.stopTest();
 
         // No exception means success
