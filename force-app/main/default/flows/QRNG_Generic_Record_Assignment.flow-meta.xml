@@ -1,0 +1,424 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <description>Generic Screen Flow template for quantum-certified random assignment. Works with ANY object — accepts record IDs and assignee IDs as text input, supports all three assignment modes (Uniform, Weighted, Subset), and includes Bell Test toggle. Copy this template and adapt it: replace the text inputs with Get Records elements for your specific object, or use it as-is for ad-hoc assignments by pasting IDs directly.</description>
+    <interviewLabel>QRNG Generic Assignment {!$Flow.CurrentDateTime}</interviewLabel>
+    <isTemplate>true</isTemplate>
+    <label>QRNG Generic Record Assignment</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>Flow</processType>
+    <status>Draft</status>
+
+    <!-- ============================================================
+         VARIABLES
+         ============================================================ -->
+    <variables>
+        <name>varRecordIds</name>
+        <dataType>String</dataType>
+        <isCollection>true</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>varAssigneeIds</name>
+        <dataType>String</dataType>
+        <isCollection>true</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>varJobId</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>true</isOutput>
+    </variables>
+    <variables>
+        <name>varSuccess</name>
+        <dataType>Boolean</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>true</isOutput>
+    </variables>
+
+    <!-- ============================================================
+         CHOICES
+         ============================================================ -->
+    <choices>
+        <name>choiceUniform</name>
+        <choiceText>Uniform — equal probability for each assignee</choiceText>
+        <dataType>String</dataType>
+        <value>
+            <stringValue>Uniform</stringValue>
+        </value>
+    </choices>
+    <choices>
+        <name>choiceWeighted</name>
+        <choiceText>Weighted — custom proportions per assignee</choiceText>
+        <dataType>String</dataType>
+        <value>
+            <stringValue>Weighted</stringValue>
+        </value>
+    </choices>
+    <choices>
+        <name>choiceSubset</name>
+        <choiceText>Subset — select a random sample (no assignees needed)</choiceText>
+        <dataType>String</dataType>
+        <value>
+            <stringValue>Subset</stringValue>
+        </value>
+    </choices>
+
+    <!-- ============================================================
+         START
+         ============================================================ -->
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Config_Screen</targetReference>
+        </connector>
+    </start>
+
+    <!-- ============================================================
+         SCREEN 1 — Configuration
+         ============================================================ -->
+    <screens>
+        <name>Config_Screen</name>
+        <label>Quantum Assignment Configuration</label>
+        <locationX>176</locationX>
+        <locationY>134</locationY>
+        <allowBack>false</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <connector>
+            <targetReference>Parse_Record_Ids</targetReference>
+        </connector>
+        <fields>
+            <name>headerText</name>
+            <fieldText>&lt;p&gt;&lt;b style="font-size: 16px;"&gt;QuantumFair — Generic Record Assignment&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Assign any records to any assignees using quantum-certified randomization. Paste comma-separated IDs below, or replace these text inputs with Get Records elements for your specific object.&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <fields>
+            <name>inputRecordIds</name>
+            <dataType>String</dataType>
+            <fieldText>Record IDs (comma-separated)</fieldText>
+            <fieldType>LargeTextArea</fieldType>
+            <helpText>Paste the 15- or 18-character Salesforce IDs of the records to assign or sample. Example: 001xx000003DGb1,001xx000003DGb2,001xx000003DGb3</helpText>
+            <isRequired>true</isRequired>
+        </fields>
+        <fields>
+            <name>inputAssignmentType</name>
+            <choiceReferences>choiceUniform</choiceReferences>
+            <choiceReferences>choiceWeighted</choiceReferences>
+            <choiceReferences>choiceSubset</choiceReferences>
+            <dataType>String</dataType>
+            <defaultValue>
+                <stringValue>Uniform</stringValue>
+            </defaultValue>
+            <fieldText>Assignment Type</fieldText>
+            <fieldType>RadioButtons</fieldType>
+            <isRequired>true</isRequired>
+        </fields>
+        <fields>
+            <name>inputAssigneeIds</name>
+            <dataType>String</dataType>
+            <fieldText>Assignee IDs (comma-separated, leave blank for Subset)</fieldText>
+            <fieldType>LargeTextArea</fieldType>
+            <helpText>User or Queue IDs that will receive assignments. Not needed for Subset mode. Example: 005xx000001Svs1,005xx000001Svs2</helpText>
+            <isRequired>false</isRequired>
+        </fields>
+        <fields>
+            <name>inputWeights</name>
+            <dataType>String</dataType>
+            <fieldText>Weights (comma-separated, Weighted mode only)</fieldText>
+            <fieldType>InputField</fieldType>
+            <helpText>One weight per assignee. Proportional — they don't need to sum to 100. Example: 40,35,25</helpText>
+            <isRequired>false</isRequired>
+        </fields>
+        <fields>
+            <name>inputSampleSize</name>
+            <dataType>Number</dataType>
+            <defaultValue>
+                <numberValue>10.0</numberValue>
+            </defaultValue>
+            <fieldText>Sample Size (Subset mode only)</fieldText>
+            <fieldType>InputField</fieldType>
+            <helpText>Number of records to select from the pool.</helpText>
+            <isRequired>false</isRequired>
+            <scale>0</scale>
+        </fields>
+        <fields>
+            <name>inputPurpose</name>
+            <dataType>String</dataType>
+            <defaultValue>
+                <stringValue>Quantum Random Assignment</stringValue>
+            </defaultValue>
+            <fieldText>Purpose</fieldText>
+            <fieldType>InputField</fieldType>
+            <helpText>Description for the Fairness Certificate. Be specific — this is your audit trail.</helpText>
+            <isRequired>true</isRequired>
+        </fields>
+        <fields>
+            <name>inputBellTest</name>
+            <dataType>Boolean</dataType>
+            <defaultValue>
+                <booleanValue>false</booleanValue>
+            </defaultValue>
+            <fieldText>Enable Bell Test (proves quantum origin via CHSH inequality violation)</fieldText>
+            <fieldType>InputField</fieldType>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+
+    <!-- ============================================================
+         STEP 2 — Parse comma-separated Record IDs into collection
+         Apex formula: SPLIT removes spaces and splits on commas
+         ============================================================ -->
+    <formulas>
+        <name>Parse_Record_Ids</name>
+        <label>Parse Record IDs</label>
+        <locationX>176</locationX>
+        <locationY>242</locationY>
+        <connector>
+            <targetReference>Check_Assignment_Type</targetReference>
+        </connector>
+        <dataType>String</dataType>
+        <expression>SUBSTITUTE({!inputRecordIds}, &quot; &quot;, &quot;&quot;)</expression>
+    </formulas>
+
+    <!-- ============================================================
+         STEP 3 — Decide path based on assignment type
+         ============================================================ -->
+    <decisions>
+        <name>Check_Assignment_Type</name>
+        <label>Which Assignment Type?</label>
+        <locationX>176</locationX>
+        <locationY>350</locationY>
+        <defaultConnector>
+            <targetReference>Quantum_Assign_Uniform</targetReference>
+        </defaultConnector>
+        <defaultConnectorLabel>Uniform (default)</defaultConnectorLabel>
+        <rules>
+            <name>Is_Weighted</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>inputAssignmentType</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Weighted</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Quantum_Assign_Weighted</targetReference>
+            </connector>
+            <label>Weighted</label>
+        </rules>
+        <rules>
+            <name>Is_Subset</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>inputAssignmentType</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <stringValue>Subset</stringValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Quantum_Assign_Subset</targetReference>
+            </connector>
+            <label>Subset</label>
+        </rules>
+    </decisions>
+
+    <!-- ============================================================
+         PATH A — Uniform Assignment
+         ============================================================ -->
+    <actionCalls>
+        <name>Quantum_Assign_Uniform</name>
+        <label>Quantum Assign (Uniform)</label>
+        <locationX>176</locationX>
+        <locationY>458</locationY>
+        <actionName>OpenSF__QuantumRandomAssignment</actionName>
+        <actionType>apex</actionType>
+        <connector>
+            <targetReference>Result_Screen</targetReference>
+        </connector>
+        <inputParameters>
+            <name>recordIds</name>
+            <value>
+                <elementReference>varRecordIds</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>assigneeIds</name>
+            <value>
+                <elementReference>varAssigneeIds</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>assignmentType</name>
+            <value>
+                <stringValue>Uniform</stringValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>purpose</name>
+            <value>
+                <elementReference>inputPurpose</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>useBellTest</name>
+            <value>
+                <elementReference>inputBellTest</elementReference>
+            </value>
+        </inputParameters>
+        <outputParameters>
+            <assignToReference>varJobId</assignToReference>
+            <name>jobId</name>
+        </outputParameters>
+        <outputParameters>
+            <assignToReference>varSuccess</assignToReference>
+            <name>success</name>
+        </outputParameters>
+    </actionCalls>
+
+    <!-- ============================================================
+         PATH B — Weighted Assignment
+         ============================================================ -->
+    <actionCalls>
+        <name>Quantum_Assign_Weighted</name>
+        <label>Quantum Assign (Weighted)</label>
+        <locationX>440</locationX>
+        <locationY>458</locationY>
+        <actionName>OpenSF__QuantumRandomAssignment</actionName>
+        <actionType>apex</actionType>
+        <connector>
+            <targetReference>Result_Screen</targetReference>
+        </connector>
+        <inputParameters>
+            <name>recordIds</name>
+            <value>
+                <elementReference>varRecordIds</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>assigneeIds</name>
+            <value>
+                <elementReference>varAssigneeIds</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>assignmentType</name>
+            <value>
+                <stringValue>Weighted</stringValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>weights</name>
+            <value>
+                <elementReference>inputWeights</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>purpose</name>
+            <value>
+                <elementReference>inputPurpose</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>useBellTest</name>
+            <value>
+                <elementReference>inputBellTest</elementReference>
+            </value>
+        </inputParameters>
+        <outputParameters>
+            <assignToReference>varJobId</assignToReference>
+            <name>jobId</name>
+        </outputParameters>
+        <outputParameters>
+            <assignToReference>varSuccess</assignToReference>
+            <name>success</name>
+        </outputParameters>
+    </actionCalls>
+
+    <!-- ============================================================
+         PATH C — Subset Selection
+         ============================================================ -->
+    <actionCalls>
+        <name>Quantum_Assign_Subset</name>
+        <label>Quantum Select (Subset)</label>
+        <locationX>704</locationX>
+        <locationY>458</locationY>
+        <actionName>OpenSF__QuantumRandomAssignment</actionName>
+        <actionType>apex</actionType>
+        <connector>
+            <targetReference>Result_Screen</targetReference>
+        </connector>
+        <inputParameters>
+            <name>recordIds</name>
+            <value>
+                <elementReference>varRecordIds</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>assignmentType</name>
+            <value>
+                <stringValue>Subset</stringValue>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>sampleSize</name>
+            <value>
+                <elementReference>inputSampleSize</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>purpose</name>
+            <value>
+                <elementReference>inputPurpose</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>useBellTest</name>
+            <value>
+                <elementReference>inputBellTest</elementReference>
+            </value>
+        </inputParameters>
+        <outputParameters>
+            <assignToReference>varJobId</assignToReference>
+            <name>jobId</name>
+        </outputParameters>
+        <outputParameters>
+            <assignToReference>varSuccess</assignToReference>
+            <name>success</name>
+        </outputParameters>
+    </actionCalls>
+
+    <!-- ============================================================
+         RESULT SCREEN
+         ============================================================ -->
+    <screens>
+        <name>Result_Screen</name>
+        <label>Assignment Result</label>
+        <locationX>440</locationX>
+        <locationY>566</locationY>
+        <allowBack>false</allowBack>
+        <allowFinish>true</allowFinish>
+        <allowPause>false</allowPause>
+        <fields>
+            <name>resultText</name>
+            <fieldText>&lt;p&gt;&lt;b style="font-size: 16px;"&gt;Quantum Assignment Submitted&lt;/b&gt;&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;&lt;b&gt;Job ID:&lt;/b&gt; {!varJobId}&lt;/p&gt;&lt;p&gt;&lt;b&gt;Status:&lt;/b&gt; Running on IBM Quantum hardware&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;The assignment is processing asynchronously. When complete:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;A &lt;b&gt;QRNG_Complete__e&lt;/b&gt; Platform Event will fire&lt;/li&gt;&lt;li&gt;The &lt;b&gt;Quantum Job&lt;/b&gt; record will update to Completed&lt;/li&gt;&lt;li&gt;A &lt;b&gt;Fairness Certificate&lt;/b&gt; will be generated with cryptographic proof&lt;/li&gt;&lt;li&gt;Individual &lt;b&gt;QRNG Assignment&lt;/b&gt; records will link each record to its assignee&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;&lt;i&gt;To auto-apply assignments, create a Platform Event-Triggered Flow on QRNG_Complete__e that updates record owners based on QRNG_Assignment__c records.&lt;/i&gt;&lt;/p&gt;</fieldText>
+            <fieldType>DisplayText</fieldType>
+        </fields>
+        <showFooter>true</showFooter>
+        <showHeader>true</showHeader>
+    </screens>
+</Flow>
