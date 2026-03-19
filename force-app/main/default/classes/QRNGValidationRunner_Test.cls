@@ -13,11 +13,12 @@ private class QRNGValidationRunner_Test {
     @IsTest
     static void testRunnerStoresExtendedResults() {
         String testBits = generateTestBits(2000);
+        String encodedBits = QRNGResultParser.encodeForStorage(testBits);
 
         Quantum_Job__c job = new Quantum_Job__c(
             Status__c = 'Completed',
             Backend__c = 'test_backend',
-            Debiased_Results__c = testBits,
+            Debiased_Results__c = encodedBits,
             Validation_Results__c = '{"passed":true,"frequencyTest":true}'
         );
         insert job;

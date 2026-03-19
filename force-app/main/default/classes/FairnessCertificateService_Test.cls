@@ -9,8 +9,8 @@ private class FairnessCertificateService_Test {
             Circuit_QASM__c = 'OPENQASM 3.0; bit[1] meas;',
             Shots__c = 1024,
             Num_Qubits__c = 8,
-            Raw_Results__c = '01101001',
-            Debiased_Results__c = '01',
+            Raw_Results__c = '0x69',
+            Debiased_Results__c = '0x1',
             Purpose__c = 'Test purpose',
             Requested_By__c = UserInfo.getUserId()
         );

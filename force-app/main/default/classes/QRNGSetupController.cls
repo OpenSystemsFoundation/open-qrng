@@ -188,14 +188,17 @@ public with sharing class QRNGSetupController {
             );
         }
 
-        // Run critical tests
-        Map<String, Object> results = QRNGValidator.validate(
+        // Decode hex-encoded debiased results back to binary for validation
+        String debiasedBits = QRNGResultParser.decodeRawResults(
             job.Debiased_Results__c
         );
 
+        // Run critical tests
+        Map<String, Object> results = QRNGValidator.validate(debiasedBits);
+
         // Run extended tests
         Map<String, Object> extendedResults = QRNGValidator.validateExtended(
-            job.Debiased_Results__c
+            debiasedBits
         );
         results.putAll(extendedResults);
 
