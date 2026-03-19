@@ -106,7 +106,7 @@ private class QRNGSetupController_Test {
 
     @IsTest
     static void testGetRecentJobs() {
-        List<Quantum_Job__c> jobs = QRNGSetupController.getRecentJobs();
+        List<QRNGSetupController.JobSummaryDTO> jobs = QRNGSetupController.getRecentJobs();
         System.assertNotEquals(null, jobs);
     }
 
