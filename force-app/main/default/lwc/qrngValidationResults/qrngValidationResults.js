@@ -97,7 +97,58 @@ export default class QrngValidationResults extends LightningElement {
     }
 
     get hasResults() {
-        return this._results && Object.keys(this._results).length > 0;
+        return (
+            this._results &&
+            Object.keys(this._results).length > 0 &&
+            // Exclude results that only contain jobType metadata
+            (this._results.passed != null || this._results.chshSValue != null)
+        );
+    }
+
+    @track showCircuitModal = false;
+
+    get isVerifyJob() {
+        return this._results?.jobType === 'CHSH Verification';
+    }
+
+    get circuitQubits() {
+        // CHSH uses pairs; numPairs * 2 qubits, default 8
+        const pairs = this._results?.numPairs;
+        return pairs ? pairs * 2 : 8;
+    }
+
+    handleViewCircuit() {
+        this.showCircuitModal = true;
+    }
+
+    handleCloseCircuit() {
+        this.showCircuitModal = false;
+    }
+
+    get showCriticalTests() {
+        return !this.isVerifyJob;
+    }
+
+    get showExtendedTests() {
+        return !this.isVerifyJob;
+    }
+
+    get validationResultsJson() {
+        return this._results ? JSON.stringify(this._results) : '';
+    }
+
+    get circuitQasm() {
+        return this._results?.circuitQasm || '';
+    }
+
+    get hasCircuit() {
+        return !!this.circuitQasm;
+    }
+
+    get cardTitle() {
+        return this.isVerifyJob
+            ? 'Quantum Verification Results'
+            : 'Randomness Validation';
     }
 
     get hasExtendedResults() {

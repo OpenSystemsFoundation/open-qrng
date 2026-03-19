@@ -10,21 +10,55 @@
                         <c-qrng-request-form
                             onjobsubmitted={handleJobSubmitted}
                         ></c-qrng-request-form>
-                        <template if:true={activeJobId}>
-                            <div class="slds-m-top_medium">
-                                <c-qrng-job-monitor
-                                    job-id={activeJobId}
-                                    onjobcomplete={handleJobComplete}
-                                ></c-qrng-job-monitor>
-                            </div>
+                        <template if:true={hasActiveJobs}>
+                            <template
+                                for:each={activeJobs}
+                                for:item="job"
+                            >
+                                <div
+                                    key={job.key}
+                                    class="slds-m-top_medium slds-is-relative"
+                                >
+                                    <template
+                                        if:true={job.completed}
+                                    >
+                                        <lightning-button-icon
+                                            icon-name="utility:close"
+                                            variant="bare"
+                                            alternative-text="Dismiss"
+                                            class="dismiss-btn"
+                                            data-jobid={job.id}
+                                            onclick={handleDismissJob}
+                                        ></lightning-button-icon>
+                                    </template>
+                                    <c-qrng-job-monitor
+                                        job-id={job.id}
+                                        onjobcomplete={handleJobComplete}
+                                    ></c-qrng-job-monitor>
+                                </div>
+                            </template>
                         </template>
+                    </div>
+                </lightning-tab>
+                <lightning-tab label="Jobs">
+                    <div class="slds-p-around_small">
+                        <c-qrng-job-dashboard></c-qrng-job-dashboard>
                     </div>
                 </lightning-tab>
                 <lightning-tab label="Setup">
                     <c-qrng-setup></c-qrng-setup>
                 </lightning-tab>
-                <lightning-tab label="Audit Trail">
-                    <c-qrng-audit-trail></c-qrng-audit-trail>
+                <lightning-tab label="Operations">
+                    <div class="slds-p-around_small">
+                        <c-qrng-background-jobs></c-qrng-background-jobs>
+                        <c-qrng-health-monitor></c-qrng-health-monitor>
+                    </div>
+                </lightning-tab>
+                <lightning-tab label="Compliance">
+                    <div class="slds-p-around_small">
+                        <c-qrng-audit-trail></c-qrng-audit-trail>
+                        <c-qrng-compliance-export></c-qrng-compliance-export>
+                    </div>
                 </lightning-tab>
             </lightning-tabset>
         </div>

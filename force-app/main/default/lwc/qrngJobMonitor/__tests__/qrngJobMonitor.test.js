@@ -462,17 +462,17 @@ describe('c-qrng-job-monitor', () => {
     });
 
     // ── isCompleted / isInProgress getters ───────────────────────
-    it('isCompleted is true and renders results section', async () => {
+    it('isCompleted is true and renders certificate section', async () => {
         const element = createComponent({ jobId: '001xx000003DGb1' });
         getCertificateByJobId.mockResolvedValue({ Id: 'cert-001' });
 
         getJobStatusDTO.emit(MOCK_JOB_COMPLETED);
         await flushPromises();
 
-        const resultsViz = element.shadowRoot.querySelector(
-            'c-qrng-results-visualizer'
+        const cert = element.shadowRoot.querySelector(
+            'c-qrng-fairness-certificate'
         );
-        expect(resultsViz).not.toBeNull();
+        expect(cert).not.toBeNull();
     });
 
     it('subscribe error is handled gracefully', async () => {

@@ -94,6 +94,7 @@ public with sharing class QRNGJobProcessor {
             job.Queue_Time_ms__c = IBMResponseParser.extractQueueTimeMs(
                 statusResponse
             );
+            stampQpuTime(job, statusResponse);
         }
         job.Validation_Results__c = validationJson;
         update job;
@@ -232,6 +233,7 @@ public with sharing class QRNGJobProcessor {
             job.Queue_Time_ms__c = IBMResponseParser.extractQueueTimeMs(
                 statusResponse
             );
+            stampQpuTime(job, statusResponse);
         }
         job.Validation_Results__c = validationJson;
         update job;
@@ -278,6 +280,7 @@ public with sharing class QRNGJobProcessor {
             job.Queue_Time_ms__c = IBMResponseParser.extractQueueTimeMs(
                 statusResponse
             );
+            stampQpuTime(job, statusResponse);
         }
         update job;
 
@@ -325,6 +328,21 @@ public with sharing class QRNGJobProcessor {
         if (job.Submitted_At__c != null) {
             job.Execution_Time_ms__c =
                 DateTime.now().getTime() - job.Submitted_At__c.getTime();
+        }
+    }
+
+    /**
+     * Extract and stamp QPU time from IBM status response.
+     */
+    private static void stampQpuTime(
+        Quantum_Job__c job,
+        Map<String, Object> statusResponse
+    ) {
+        Decimal qpuSeconds = IBMResponseParser.extractQpuTimeSeconds(
+            statusResponse
+        );
+        if (qpuSeconds != null) {
+            job.QPU_Time_seconds__c = qpuSeconds;
         }
     }
 

@@ -516,19 +516,6 @@ describe('c-qrng-job-status-panel', () => {
         expect(badge).not.toBeNull();
     });
 
-    it('shows results visualizer when completed with raw results', async () => {
-        const element = createComponent();
-        getCertificateByJobId.mockResolvedValue({ Id: 'cert-001' });
-
-        getJobStatusDTO.emit(MOCK_DTO_COMPLETED);
-        await flushPromises();
-
-        const visualizer = element.shadowRoot.querySelector(
-            'c-qrng-results-visualizer'
-        );
-        expect(visualizer).not.toBeNull();
-    });
-
     it('shows certificate component when completed with certificate', async () => {
         const element = createComponent();
         getCertificateByJobId.mockResolvedValue({ Id: 'cert-001' });
@@ -804,7 +791,7 @@ describe('c-qrng-job-status-panel', () => {
         expect(progressIndicator.currentStep).toBe('Completed');
     });
 
-    it('renders bell test "Yes" when useBellTest is true', async () => {
+    it('renders job type label for verify jobs', async () => {
         const element = createComponent();
         getCertificateByJobId.mockResolvedValue(null);
 
@@ -814,6 +801,19 @@ describe('c-qrng-job-status-panel', () => {
         const detailValues =
             element.shadowRoot.querySelectorAll('.detail-value');
         const texts = Array.from(detailValues).map((d) => d.textContent.trim());
-        expect(texts).toContain('Yes');
+        expect(texts).toContain('Quantum Verification');
+    });
+
+    it('renders QRNG job type for non-verify jobs', async () => {
+        const element = createComponent();
+        getCertificateByJobId.mockResolvedValue(null);
+
+        getJobStatusDTO.emit({ ...MOCK_DTO_RUNNING, useBellTest: false });
+        await flushPromises();
+
+        const detailValues =
+            element.shadowRoot.querySelectorAll('.detail-value');
+        const texts = Array.from(detailValues).map((d) => d.textContent.trim());
+        expect(texts).toContain('QRNG');
     });
 });

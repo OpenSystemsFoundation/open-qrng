@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomMetadata
+    xmlns="http://soap.sforce.com/2006/04/metadata"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+>
+    <label>Entropy Source Doc - NIST 800-90B</label>
+    <protected>true</protected>
+    <values>
+        <field>Control_Key__c</field>
+        <value xsi:type="xsd:string">ENTROPY_SOURCE_DOC</value>
+    </values>
+    <values>
+        <field>Framework__c</field>
+        <value xsi:type="xsd:string">NIST_800_90B</value>
+    </values>
+    <values>
+        <field>Framework_Reference__c</field>
+        <value xsi:type="xsd:string">Section 2</value>
+    </values>
+    <values>
+        <field>Control_Description__c</field>
+        <value
+            xsi:type="xsd:string"
+        >QPU documentation provides entropy source documentation per NIST SP 800-90B requirements for noise source characterization.</value>
+    </values>
+    <values>
+        <field>Evidence_Type__c</field>
+        <value xsi:type="xsd:string">QRNG_Backend_Config__mdt</value>
+    </values>
+</CustomMetadata>

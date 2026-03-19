@@ -44,6 +44,45 @@ public with sharing class QRNGSetupController {
         public DateTime chshVerifiedAt;
         @AuraEnabled
         public Boolean quantumVerified;
+        @AuraEnabled
+        public String chshJobId;
+        @AuraEnabled
+        public String recordId;
+    }
+
+    public class JobSummaryDTO {
+        @AuraEnabled
+        public String id;
+        @AuraEnabled
+        public String name;
+        @AuraEnabled
+        public String externalJobId;
+        @AuraEnabled
+        public String backend;
+        @AuraEnabled
+        public String status;
+        @AuraEnabled
+        public String jobType;
+        @AuraEnabled
+        public Boolean useBellTest;
+        @AuraEnabled
+        public Integer shots;
+        @AuraEnabled
+        public Integer numQubits;
+        @AuraEnabled
+        public String purpose;
+        @AuraEnabled
+        public DateTime submittedAt;
+        @AuraEnabled
+        public DateTime completedAt;
+        @AuraEnabled
+        public Decimal executionTimeMs;
+        @AuraEnabled
+        public Decimal qpuTimeSeconds;
+        @AuraEnabled
+        public String requestedByName;
+        @AuraEnabled
+        public String errorMessage;
     }
 
     public class JobStatusDTO {
@@ -256,18 +295,23 @@ public with sharing class QRNGSetupController {
     @AuraEnabled(cacheable=true)
     public static Map<String, Object> getValidationResults(Id jobId) {
         Quantum_Job__c job = [
-            SELECT Id, Validation_Results__c
+            SELECT Id, Validation_Results__c, Job_Type__c, Circuit_QASM__c
             FROM Quantum_Job__c
             WHERE Id = :jobId
             LIMIT 1
         ];
 
+        Map<String, Object> result;
         if (String.isNotBlank(job.Validation_Results__c)) {
-            return (Map<String, Object>) JSON.deserializeUntyped(
+            result = (Map<String, Object>) JSON.deserializeUntyped(
                 job.Validation_Results__c
             );
+        } else {
+            result = new Map<String, Object>();
         }
-        return new Map<String, Object>();
+        result.put('jobType', job.Job_Type__c);
+        result.put('circuitQasm', job.Circuit_QASM__c);
+        return result;
     }
 
     /**
@@ -570,6 +614,7 @@ public with sharing class QRNGSetupController {
                 Provider__r.Name,
                 CHSH_S_Value__c,
                 CHSH_Verified_At__c,
+                CHSH_Job_Id__c,
                 Quantum_Verified__c
             FROM QRNG_Backend__c
             WHERE Provider__r.Is_Active__c = TRUE
@@ -606,6 +651,8 @@ public with sharing class QRNGSetupController {
         dto.chshSValue = b.CHSH_S_Value__c;
         dto.chshVerifiedAt = b.CHSH_Verified_At__c;
         dto.quantumVerified = b.Quantum_Verified__c;
+        dto.chshJobId = b.CHSH_Job_Id__c;
+        dto.recordId = b.Id;
         return dto;
     }
 
@@ -783,6 +830,7 @@ public with sharing class QRNGSetupController {
             settings.put('useBellTest', s.Use_Bell_Test__c);
             settings.put('useLeastBusy', s.Use_Least_Busy__c);
             settings.put('pollIntervalMinutes', s.Poll_Interval_Minutes__c);
+            settings.put('complianceEmail', s.Compliance_Email__c);
         } else {
             settings.put('hasApiKey', false);
             settings.put('hasCRN', false);
@@ -791,6 +839,7 @@ public with sharing class QRNGSetupController {
             settings.put('useBellTest', false);
             settings.put('useLeastBusy', false);
             settings.put('pollIntervalMinutes', 5);
+            settings.put('complianceEmail', '');
         }
         settings.put('sweeperActive', QRNGJobSweeper.isScheduled());
         settings.put(
@@ -859,7 +908,8 @@ public with sharing class QRNGSetupController {
         Integer defaultShots,
         Boolean useBellTest,
         Boolean useLeastBusy,
-        Integer pollIntervalMinutes
+        Integer pollIntervalMinutes,
+        String complianceEmail
     ) {
         QRNG_Settings__c settings = QRNG_Settings__c.getOrgDefaults();
 
@@ -890,11 +940,32 @@ public with sharing class QRNGSetupController {
         if (pollIntervalMinutes != null && pollIntervalMinutes > 0) {
             settings.Poll_Interval_Minutes__c = pollIntervalMinutes;
         }
+        if (complianceEmail != null) {
+            settings.Compliance_Email__c = complianceEmail;
+        }
 
         upsert settings;
 
         // Clear auth cache since API key may have changed
         IBMQuantumAuth.clearCache();
+    }
+
+    /**
+     * Export compliance evidence package as JSON for a given framework and date range.
+     */
+    @AuraEnabled
+    public static String exportComplianceEvidence(
+        String framework,
+        String startDate,
+        String endDate
+    ) {
+        Date sDate = Date.valueOf(startDate);
+        Date eDate = Date.valueOf(endDate);
+        return ComplianceEvidenceExporter.exportForFramework(
+            framework,
+            sDate,
+            eDate
+        );
     }
 
     /**
@@ -1003,8 +1074,8 @@ public with sharing class QRNGSetupController {
      * Get recent QRNG jobs
      */
     @AuraEnabled(cacheable=true)
-    public static List<Quantum_Job__c> getRecentJobs() {
-        return [
+    public static List<JobSummaryDTO> getRecentJobs() {
+        List<Quantum_Job__c> jobs = [
             SELECT
                 Id,
                 Name,
@@ -1015,14 +1086,44 @@ public with sharing class QRNGSetupController {
                 Num_Qubits__c,
                 Purpose__c,
                 Use_Bell_Test__c,
+                Job_Type__c,
                 Submitted_At__c,
                 Completed_At__c,
+                Execution_Time_ms__c,
+                QPU_Time_seconds__c,
                 Requested_By__c,
+                Requested_By__r.Name,
                 Error_Message__c
             FROM Quantum_Job__c
             ORDER BY CreatedDate DESC
-            LIMIT 50
+            LIMIT 100
         ];
+        List<JobSummaryDTO> result = new List<JobSummaryDTO>();
+        for (Quantum_Job__c job : jobs) {
+            JobSummaryDTO dto = new JobSummaryDTO();
+            dto.id = job.Id;
+            dto.name = job.Name;
+            dto.externalJobId = job.External_Job_ID__c;
+            dto.backend = job.Backend__c;
+            dto.status = job.Status__c;
+            dto.jobType = job.Job_Type__c;
+            dto.useBellTest = job.Use_Bell_Test__c;
+            dto.shots = job.Shots__c != null ? (Integer) job.Shots__c : null;
+            dto.numQubits = job.Num_Qubits__c != null
+                ? (Integer) job.Num_Qubits__c
+                : null;
+            dto.purpose = job.Purpose__c;
+            dto.submittedAt = job.Submitted_At__c;
+            dto.completedAt = job.Completed_At__c;
+            dto.executionTimeMs = job.Execution_Time_ms__c;
+            dto.qpuTimeSeconds = job.QPU_Time_seconds__c;
+            dto.requestedByName = job.Requested_By__r != null
+                ? job.Requested_By__r.Name
+                : null;
+            dto.errorMessage = job.Error_Message__c;
+            result.add(dto);
+        }
+        return result;
     }
 
     /**

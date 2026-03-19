@@ -1,0 +1,24 @@
+.stat-card {
+    text-align: center;
+    padding: 0.75rem;
+    background: var(--slds-g-color-neutral-base-95, #f3f3f3);
+    border-radius: 0.5rem;
+}
+.stat-active {
+    border-left: 3px solid #fe9339;
+}
+.stat-completed {
+    border-left: 3px solid #2e844a;
+}
+.stat-failed {
+    border-left: 3px solid #ea001e;
+}
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--slds-g-color-brand-base-50, #0176d3);
+}
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--slds-g-color-neutral-base-30, #706e6b);
+}

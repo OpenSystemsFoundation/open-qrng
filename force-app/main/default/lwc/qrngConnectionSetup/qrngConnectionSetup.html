@@ -1,0 +1,133 @@
+<template>
+    <div
+        class="slds-section slds-is-open slds-m-bottom_medium"
+    >
+        <h3 class="slds-section__title">
+            <span
+                class="slds-truncate slds-p-horizontal_small"
+                title="Connection"
+                >Connection</span
+            >
+        </h3>
+        <div class="slds-section__content">
+            <!-- Onboarding: No API key configured yet -->
+            <template if:false={hasApiKey}>
+                <div
+                    class="slds-grid slds-gutters slds-grid_vertical-align-end slds-m-bottom_small"
+                >
+                    <div class="slds-col slds-grow">
+                        <lightning-input
+                            type="password"
+                            label="IBM Quantum API Key"
+                            value={apiKey}
+                            onchange={handleApiKeyChange}
+                            placeholder="Enter your IBM Quantum API key"
+                            autocomplete="off"
+                        >
+                        </lightning-input>
+                    </div>
+                    <div class="slds-col slds-no-flex">
+                        <lightning-button
+                            label="Save Key"
+                            variant="brand"
+                            onclick={handleSaveApiKey}
+                            disabled={isSavingKey}
+                            icon-name="utility:save"
+                        >
+                        </lightning-button>
+                    </div>
+                </div>
+                <p
+                    class="slds-text-body_small slds-text-color_weak"
+                >
+                    Enter your IBM Quantum API key to get
+                    started. The rest of the settings will
+                    become available after saving.
+                </p>
+            </template>
+
+            <!-- Configured: Full connection UI -->
+            <template if:true={hasApiKey}>
+                <div
+                    class="slds-grid slds-gutters slds-m-bottom_small"
+                >
+                    <div class="slds-col">
+                        <lightning-badge
+                            label={connectionStatusLabel}
+                            class={connectionBadgeClass}
+                        >
+                        </lightning-badge>
+                    </div>
+                    <div
+                        class="slds-col slds-col_bump-left"
+                    >
+                        <lightning-button
+                            label="Test Connection"
+                            variant="neutral"
+                            onclick={handleTestConnection}
+                            disabled={isTestingConnection}
+                        >
+                        </lightning-button>
+                    </div>
+                </div>
+                <template if:true={connectionMessage}>
+                    <p
+                        class="slds-text-body_small slds-text-color_weak slds-m-bottom_small"
+                    >
+                        {connectionMessage}
+                    </p>
+                </template>
+
+                <div
+                    class="slds-form-element slds-m-bottom_small"
+                >
+                    <label class="slds-form-element__label"
+                        >IBM Quantum API Key</label
+                    >
+                    <div
+                        class="slds-form-element__control slds-grid slds-grid_vertical-align-center"
+                    >
+                        <lightning-badge
+                            label="Configured"
+                            class="slds-badge slds-theme_success slds-m-right_small"
+                        ></lightning-badge>
+                        <lightning-button
+                            label="Change"
+                            variant="neutral"
+                            onclick={handleChangeApiKey}
+                            icon-name="utility:edit"
+                        ></lightning-button>
+                    </div>
+                </div>
+
+                <div
+                    class="slds-grid slds-gutters slds-m-bottom_small"
+                >
+                    <div class="slds-col slds-grow">
+                        <lightning-input
+                            label="Instance CRN"
+                            value={instanceCRN}
+                            onchange={handleCRNChange}
+                            placeholder="crn:v1:bluemix:public:quantum-computing:..."
+                            field-level-help="Find this in your IBM Cloud dashboard under your Quantum service instance"
+                            autocomplete="off"
+                        >
+                        </lightning-input>
+                    </div>
+                    <div
+                        class="slds-col slds-no-flex slds-align-bottom"
+                    >
+                        <lightning-button
+                            label="Auto-detect"
+                            variant="neutral"
+                            onclick={handleDiscoverCRN}
+                            disabled={isDiscoveringCRN}
+                            icon-name="utility:search"
+                        >
+                        </lightning-button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</template>

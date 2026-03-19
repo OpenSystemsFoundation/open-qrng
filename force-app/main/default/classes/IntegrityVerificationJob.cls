@@ -1,11 +1,13 @@
 /**
  * Nightly scheduled job that verifies SHA-256 integrity of all Fairness Certificates.
  * Re-computes hashes from Quantum_Job__c data and flags tampered records.
+ * Also verifies certificate chain continuity (each cert's Previous_Certificate_Hash__c
+ * must match the actual prior cert's Chain_Hash__c).
  *
  * Pattern: Schedulable outer class + inner Queueable worker.
  * Uses cursor-based pagination (Id >) to handle large cert volumes.
  *
- * Governor limits per worker execution: ~4 SOQL, 1 DML, 0 callouts
+ * Governor limits per worker execution: ~5 SOQL, 1-2 DML, 0 callouts
  */
 public class IntegrityVerificationJob implements Schedulable {
     public static final String JOB_NAME = 'QRNG_Integrity_Verification';
@@ -61,6 +63,7 @@ public class IntegrityVerificationJob implements Schedulable {
     /**
      * Inner Queueable worker. Processes certificates in batches using
      * cursor-based pagination (WHERE Id > lastProcessedId).
+     * Verifies both hash integrity and chain continuity.
      */
     public class IntegrityVerificationWorker implements Queueable {
         private Id lastProcessedId;
@@ -78,7 +81,11 @@ public class IntegrityVerificationJob implements Schedulable {
                         Id,
                         Quantum_Job__c,
                         Raw_Bitstring_Hash__c,
-                        Debiased_Bitstring_Hash__c
+                        Debiased_Bitstring_Hash__c,
+                        Chain_Hash__c,
+                        Previous_Certificate__c,
+                        Previous_Certificate_Hash__c,
+                        Chain_Position__c
                     FROM Fairness_Certificate__c
                     WHERE Status__c = 'Certified'
                     ORDER BY Id ASC
@@ -90,7 +97,11 @@ public class IntegrityVerificationJob implements Schedulable {
                         Id,
                         Quantum_Job__c,
                         Raw_Bitstring_Hash__c,
-                        Debiased_Bitstring_Hash__c
+                        Debiased_Bitstring_Hash__c,
+                        Chain_Hash__c,
+                        Previous_Certificate__c,
+                        Previous_Certificate_Hash__c,
+                        Chain_Position__c
                     FROM Fairness_Certificate__c
                     WHERE Status__c = 'Certified' AND Id > :lastProcessedId
                     ORDER BY Id ASC
@@ -118,8 +129,30 @@ public class IntegrityVerificationJob implements Schedulable {
                 ]
             );
 
+            // Bulk-query previous certificates for chain verification
+            Set<Id> prevCertIds = new Set<Id>();
+            for (Fairness_Certificate__c c : certs) {
+                if (c.Previous_Certificate__c != null) {
+                    prevCertIds.add(c.Previous_Certificate__c);
+                }
+            }
+            Map<Id, Fairness_Certificate__c> prevCertMap = new Map<Id, Fairness_Certificate__c>();
+            if (!prevCertIds.isEmpty()) {
+                prevCertMap = new Map<Id, Fairness_Certificate__c>(
+                    [
+                        SELECT Id, Chain_Hash__c
+                        FROM Fairness_Certificate__c
+                        WHERE Id IN :prevCertIds
+                    ]
+                );
+            }
+
             // Verify each certificate
             List<Fairness_Certificate__c> toUpdate = new List<Fairness_Certificate__c>();
+            List<Compliance_Event__c> events = new List<Compliance_Event__c>();
+            Integer passCount = 0;
+            Integer failCount = 0;
+
             for (Fairness_Certificate__c cert : certs) {
                 Quantum_Job__c job = jobMap.get(cert.Quantum_Job__c);
                 if (job == null) {
@@ -135,17 +168,62 @@ public class IntegrityVerificationJob implements Schedulable {
                         : ''
                 );
 
-                Boolean tampered =
+                Boolean hashTampered =
                     cert.Raw_Bitstring_Hash__c != rawHash ||
                     cert.Debiased_Bitstring_Hash__c != debiasedHash;
 
+                // Verify chain link
+                Boolean chainBroken = false;
+                if (
+                    cert.Previous_Certificate__c != null &&
+                    cert.Previous_Certificate_Hash__c != null
+                ) {
+                    Fairness_Certificate__c prevCert = prevCertMap.get(
+                        cert.Previous_Certificate__c
+                    );
+                    if (
+                        prevCert != null &&
+                        prevCert.Chain_Hash__c !=
+                        cert.Previous_Certificate_Hash__c
+                    ) {
+                        chainBroken = true;
+                    }
+                }
+
+                Boolean tampered = hashTampered || chainBroken;
                 cert.Tampered__c = tampered;
                 cert.Last_Integrity_Check__c = DateTime.now();
                 toUpdate.add(cert);
+
+                if (tampered) {
+                    failCount++;
+                    Compliance_Event__c evt = new Compliance_Event__c();
+                    evt.Event_Type__c = chainBroken
+                        ? 'CHAIN_BREAK_DETECTED'
+                        : 'TAMPER_DETECTED';
+                    evt.Severity__c = 'CRITICAL';
+                    evt.Related_Certificate__c = cert.Id;
+                    evt.Related_Job__c = cert.Quantum_Job__c;
+                    Map<String, Object> detail = new Map<String, Object>{
+                        'hashTampered' => hashTampered,
+                        'chainBroken' => chainBroken,
+                        'certificateId' => cert.Id,
+                        'chainPosition' => cert.Chain_Position__c
+                    };
+                    evt.Detail__c = JSON.serialize(detail);
+                    events.add(evt);
+                } else {
+                    passCount++;
+                }
             }
 
             if (!toUpdate.isEmpty()) {
                 update toUpdate;
+            }
+
+            // Log any compliance events for tampered/chain-broken certs
+            if (!events.isEmpty()) {
+                ComplianceEventLogger.logBulk(events);
             }
 
             // Chain to next batch if we got a full batch

@@ -1,6 +1,6 @@
 <template>
     <lightning-card
-        title="Randomness Validation"
+        title={cardTitle}
         icon-name="standard:calibration"
     >
         <div slot="actions">
@@ -39,59 +39,73 @@
                     </template>
                 </div>
 
-                <!-- Critical Tests Section -->
-                <div class="slds-m-bottom_medium">
-                    <h3
-                        class="slds-text-heading_small slds-m-bottom_x-small section-header"
-                    >
-                        Critical Gate Tests
-                        <span
-                            class="slds-text-body_small slds-text-color_weak"
-                            >&mdash; blocks
-                            certification</span
-                        >
-                    </h3>
-                    <div class="test-grid">
-                        <template
-                            for:each={criticalTests}
-                            for:item="test"
-                        >
-                            <div
-                                key={test.key}
-                                class={test.badgeClass}
-                            >
-                                <lightning-icon
-                                    icon-name={test.iconName}
-                                    variant={test.iconVariant}
-                                    size="x-small"
-                                    class="slds-m-right_xx-small"
-                                ></lightning-icon>
-                                <div>
-                                    <span class="test-label"
-                                        >{test.label}</span
-                                    >
-                                    <span class="test-desc"
-                                        >{test.description}</span
-                                    >
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
-
-                <!-- Bell Test Section (if applicable) -->
-                <template if:true={hasBellResults}>
+                <!-- Critical Tests Section (QRNG jobs only) -->
+                <template if:true={showCriticalTests}>
                     <div class="slds-m-bottom_medium">
                         <h3
                             class="slds-text-heading_small slds-m-bottom_x-small section-header"
                         >
-                            Quantum Origin Proof
+                            Critical Gate Tests
                             <span
                                 class="slds-text-body_small slds-text-color_weak"
-                                >&mdash; CHSH S =
-                                {chshSValue}</span
+                                >&mdash; blocks
+                                certification</span
                             >
                         </h3>
+                        <div class="test-grid">
+                            <template
+                                for:each={criticalTests}
+                                for:item="test"
+                            >
+                                <div
+                                    key={test.key}
+                                    class={test.badgeClass}
+                                >
+                                    <lightning-icon
+                                        icon-name={test.iconName}
+                                        variant={test.iconVariant}
+                                        size="x-small"
+                                        class="slds-m-right_xx-small"
+                                    ></lightning-icon>
+                                    <div>
+                                        <span
+                                            class="test-label"
+                                            >{test.label}</span
+                                        >
+                                        <span
+                                            class="test-desc"
+                                            >{test.description}</span
+                                        >
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Bell Test Section (if applicable) -->
+                <template if:true={hasBellResults}>
+                    <div class="slds-m-bottom_medium">
+                        <div
+                            class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-bottom_x-small"
+                        >
+                            <h3
+                                class="slds-text-heading_small section-header"
+                            >
+                                Quantum Origin Proof
+                                <span
+                                    class="slds-text-body_small slds-text-color_weak"
+                                    >&mdash; CHSH S =
+                                    {chshSValue}</span
+                                >
+                            </h3>
+                            <lightning-button
+                                label="View Circuit"
+                                icon-name="utility:preview"
+                                variant="neutral"
+                                onclick={handleViewCircuit}
+                            ></lightning-button>
+                        </div>
                         <div class="test-grid">
                             <template
                                 for:each={bellTests}
@@ -121,51 +135,60 @@
                             </template>
                         </div>
                     </div>
+
+                    <!-- CHSH Visualizer: gauge + correlator breakdown -->
+                    <c-qrng-chsh-visualizer
+                        validation-results={validationResultsJson}
+                    ></c-qrng-chsh-visualizer>
                 </template>
 
-                <!-- Extended Tests Section -->
-                <div class="slds-m-bottom_small">
-                    <h3
-                        class="slds-text-heading_small slds-m-bottom_x-small section-header"
-                    >
-                        Extended NIST Tests
-                        <template
-                            if:false={hasExtendedResults}
+                <!-- Extended Tests Section (QRNG jobs only) -->
+                <template if:true={showExtendedTests}>
+                    <div class="slds-m-bottom_small">
+                        <h3
+                            class="slds-text-heading_small slds-m-bottom_x-small section-header"
                         >
-                            <span
-                                class="slds-text-body_small slds-text-color_weak"
-                                >&mdash; pending (click Run
-                                All Tests)</span
+                            Extended NIST Tests
+                            <template
+                                if:false={hasExtendedResults}
                             >
-                        </template>
-                    </h3>
-                    <div class="test-grid">
-                        <template
-                            for:each={extendedTests}
-                            for:item="test"
-                        >
-                            <div
-                                key={test.key}
-                                class={test.badgeClass}
+                                <span
+                                    class="slds-text-body_small slds-text-color_weak"
+                                    >&mdash; pending (click
+                                    Run All Tests)</span
+                                >
+                            </template>
+                        </h3>
+                        <div class="test-grid">
+                            <template
+                                for:each={extendedTests}
+                                for:item="test"
                             >
-                                <lightning-icon
-                                    icon-name={test.iconName}
-                                    variant={test.iconVariant}
-                                    size="x-small"
-                                    class="slds-m-right_xx-small"
-                                ></lightning-icon>
-                                <div>
-                                    <span class="test-label"
-                                        >{test.label}</span
-                                    >
-                                    <span class="test-desc"
-                                        >{test.description}</span
-                                    >
+                                <div
+                                    key={test.key}
+                                    class={test.badgeClass}
+                                >
+                                    <lightning-icon
+                                        icon-name={test.iconName}
+                                        variant={test.iconVariant}
+                                        size="x-small"
+                                        class="slds-m-right_xx-small"
+                                    ></lightning-icon>
+                                    <div>
+                                        <span
+                                            class="test-label"
+                                            >{test.label}</span
+                                        >
+                                        <span
+                                            class="test-desc"
+                                            >{test.description}</span
+                                        >
+                                    </div>
                                 </div>
-                            </div>
-                        </template>
+                            </template>
+                        </div>
                     </div>
-                </div>
+                </template>
             </template>
 
             <template if:false={hasResults}>
@@ -199,4 +222,42 @@
             </template>
         </div>
     </lightning-card>
+
+    <!-- Circuit Diagram Modal -->
+    <template if:true={showCircuitModal}>
+        <section
+            role="dialog"
+            tabindex="-1"
+            class="slds-modal slds-fade-in-open slds-modal_large"
+        >
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <lightning-button-icon
+                        icon-name="utility:close"
+                        alternative-text="Close"
+                        class="slds-modal__close"
+                        onclick={handleCloseCircuit}
+                    ></lightning-button-icon>
+                    <h2 class="slds-modal__title">
+                        Quantum Circuit Diagram
+                    </h2>
+                </header>
+                <div
+                    class="slds-modal__content slds-p-around_medium"
+                >
+                    <c-qrng-circuit-visualizer
+                        num-qubits="8"
+                        use-bell-test
+                    ></c-qrng-circuit-visualizer>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button
+                        label="Close"
+                        onclick={handleCloseCircuit}
+                    ></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
 </template>

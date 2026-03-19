@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Health_Test_Passed__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description
+    >Whether the most recent entropy health test passed</description>
+    <externalId>false</externalId>
+    <label>Health Test Passed</label>
+    <type>Checkbox</type>
+</CustomField>

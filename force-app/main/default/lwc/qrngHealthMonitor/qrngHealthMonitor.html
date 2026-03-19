@@ -1,0 +1,194 @@
+<template>
+    <div
+        class="slds-section slds-is-open slds-m-bottom_medium"
+    >
+        <h3 class="slds-section__title">
+            <span
+                class="slds-truncate slds-p-horizontal_small"
+                title="Backend Health"
+                >Backend Health</span
+            >
+        </h3>
+        <div class="slds-section__content">
+            <div
+                class="slds-m-bottom_small slds-grid slds-gutters slds-grid_vertical-align-center"
+            >
+                <div class="slds-col">
+                    <lightning-button
+                        label="Refresh Backend Health"
+                        variant="neutral"
+                        onclick={handleRefreshHealth}
+                        disabled={isLoadingHealth}
+                        icon-name="utility:refresh"
+                    >
+                    </lightning-button>
+                </div>
+                <div class="slds-col">
+                    <lightning-button
+                        label="Verify All Backends"
+                        variant="brand"
+                        onclick={handleVerifyAll}
+                        disabled={verifyingBackend}
+                        icon-name="utility:check"
+                    >
+                    </lightning-button>
+                </div>
+                <template if:true={lastRefreshedLabel}>
+                    <div
+                        class="slds-col slds-col_bump-left"
+                    >
+                        <span
+                            class="slds-text-body_small slds-text-color_weak"
+                            >{lastRefreshedLabel}</span
+                        >
+                    </div>
+                </template>
+            </div>
+            <template if:true={isLoadingHealth}>
+                <lightning-spinner
+                    alternative-text="Loading..."
+                    size="small"
+                ></lightning-spinner>
+            </template>
+            <template if:true={hasBackendHealth}>
+                <p
+                    class="slds-text-body_small slds-text-color_weak slds-m-bottom_small"
+                >
+                    Fidelity score: weighted composite of
+                    gate fidelity (40%), readout fidelity
+                    (25%), T1 coherence (20%), and T2
+                    coherence (15%). Hover the score for
+                    breakdown.
+                </p>
+                <div class="slds-scrollable_x">
+                    <table
+                        class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped"
+                    >
+                        <thead>
+                            <tr>
+                                <th>Backend</th>
+                                <th>Fidelity</th>
+                                <th>Status</th>
+                                <th>Qubits</th>
+                                <th>Queue</th>
+                                <th>Processor</th>
+                                <th>Avg T1</th>
+                                <th>Avg T2</th>
+                                <th>Gate Err</th>
+                                <th>Readout Err</th>
+                                <th>Quantum</th>
+                                <th>S-Value</th>
+                                <th>Verified</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template
+                                for:each={backendHealthList}
+                                for:item="b"
+                            >
+                                <tr key={b.id}>
+                                    <td>
+                                        <strong
+                                            >{b.name}</strong
+                                        >
+                                    </td>
+                                    <td>
+                                        <span
+                                            class={b.fidelityClass}
+                                            title={b.fidelityTitle}
+                                            >{b.fidelityScore}</span
+                                        >
+                                    </td>
+                                    <td>
+                                        <span
+                                            class={b.statusClass}
+                                            >{b.status}</span
+                                        >
+                                    </td>
+                                    <td>{b.qubits}</td>
+                                    <td>{b.queueLength}</td>
+                                    <td>{b.processor}</td>
+                                    <td>{b.avgT1}</td>
+                                    <td>{b.avgT2}</td>
+                                    <td>{b.gateError}</td>
+                                    <td>
+                                        {b.readoutError}
+                                    </td>
+                                    <td>
+                                        <lightning-badge
+                                            label={b.verificationBadge}
+                                            class={b.verificationClass}
+                                        ></lightning-badge>
+                                    </td>
+                                    <td>
+                                        <template
+                                            if:true={b.hasVerifyJob}
+                                        >
+                                            <a
+                                                data-jobid={b.chshJobId}
+                                                onclick={handleNavigateToJob}
+                                                class="slds-text-link"
+                                                >{b.chshSValue}</a
+                                            >
+                                        </template>
+                                        <template
+                                            if:false={b.hasVerifyJob}
+                                        >
+                                            {b.chshSValue}
+                                        </template>
+                                    </td>
+                                    <td>
+                                        <template
+                                            if:true={b.chshVerifiedAt}
+                                        >
+                                            <lightning-formatted-date-time
+                                                value={b.chshVerifiedAt}
+                                                year="numeric"
+                                                month="short"
+                                                day="2-digit"
+                                                hour="2-digit"
+                                                minute="2-digit"
+                                            ></lightning-formatted-date-time>
+                                        </template>
+                                        <template
+                                            if:false={b.chshVerifiedAt}
+                                        >
+                                            &mdash;
+                                        </template>
+                                    </td>
+                                    <td>
+                                        <lightning-button
+                                            label="Verify"
+                                            variant="neutral"
+                                            data-backend={b.name}
+                                            onclick={handleVerifyBackend}
+                                            icon-name="utility:check"
+                                            disabled={verifyingBackend}
+                                        ></lightning-button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
+            <template if:true={verificationJobId}>
+                <div class="slds-m-top_medium">
+                    <c-qrng-job-monitor
+                        job-id={verificationJobId}
+                    ></c-qrng-job-monitor>
+                </div>
+            </template>
+            <template if:false={hasBackendHealth}>
+                <p
+                    class="slds-text-body_small slds-text-color_weak"
+                >
+                    No backend data yet. Click Test
+                    Connection to sync backends, then
+                    Refresh to fetch health data.
+                </p>
+            </template>
+        </div>
+    </div>
+</template>

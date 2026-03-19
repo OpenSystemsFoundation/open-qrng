@@ -1,14 +1,33 @@
 import { LightningElement, wire, track } from 'lwc';
+import { refreshApex } from '@salesforce/apex';
 import getAuditTrailDTO from '@salesforce/apex/QRNGSetupController.getAuditTrailDTO';
+import {
+    subscribeToQRNGEvents,
+    unsubscribeFromQRNGEvents
+} from 'c/qrngEventSubscription';
 
 export default class QrngAuditTrail extends LightningElement {
     @track certificates = [];
     @track selectedCertId = null;
 
+    _wiredResult;
+    _eventSub;
+
+    connectedCallback() {
+        this._eventSub = subscribeToQRNGEvents(() => {
+            refreshApex(this._wiredResult);
+        }, null);
+    }
+
+    disconnectedCallback() {
+        unsubscribeFromQRNGEvents(this._eventSub);
+    }
+
     @wire(getAuditTrailDTO)
-    wiredTrail({ data, error }) {
-        if (data) {
-            this.certificates = data.map((cert) => ({
+    wiredTrail(result) {
+        this._wiredResult = result;
+        if (result.data) {
+            this.certificates = result.data.map((cert) => ({
                 ...cert,
                 iconName: cert.tampered
                     ? 'standard:first_non_empty'
@@ -23,8 +42,8 @@ export default class QrngAuditTrail extends LightningElement {
                 badgeLabel: cert.tampered ? 'Tampered' : cert.status,
                 isQuantumCertified: cert.chshSValue && cert.chshSValue > 2.0
             }));
-        } else if (error) {
-            console.error('Error loading audit trail:', error);
+        } else if (result.error) {
+            console.error('Error loading audit trail:', result.error);
         }
     }
 

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Conditioning_Component__c</fullName>
+    <defaultValue
+    >&quot;Von Neumann debiasing (pairwise extraction)&quot;</defaultValue>
+    <description
+    >Algorithm used to condition raw entropy into unbiased output</description>
+    <externalId>false</externalId>
+    <label>Conditioning Component</label>
+    <length>255</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>
