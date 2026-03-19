@@ -798,11 +798,10 @@ private class QRNGSetupController_Test {
 
     @IsTest
     static void testBuildPauliString() {
-        // 11-qubit system, operators on qubits 5 and 10
-        // Pauli string convention: rightmost = qubit 0
-        String zz = QRNGSetupController.buildPauliString(11, 5, 10, 'Z', 'Z');
+        // buildPauliString moved to IBMQuantumProvider — test via that class
+        // 11-qubit system, ZZ on qubits 5 and 10
+        String zz = IBMQuantumProvider.buildPauliString(11, 5, 10);
         System.assertEquals(11, zz.length(), 'Should be 11 characters');
-        // qubit 10 is at index 0 (leftmost), qubit 5 is at index 5
         System.assertEquals('Z', zz.substring(0, 1), 'qubit 10 should be Z');
         System.assertEquals('Z', zz.substring(5, 6), 'qubit 5 should be Z');
         System.assertEquals(
@@ -812,8 +811,8 @@ private class QRNGSetupController_Test {
         );
 
         // 2-qubit system, qubits 0 and 1
-        String xz = QRNGSetupController.buildPauliString(2, 0, 1, 'X', 'Z');
-        System.assertEquals('ZX', xz, 'qubit 1=Z (left), qubit 0=X (right)');
+        String zz2 = IBMQuantumProvider.buildPauliString(2, 0, 1);
+        System.assertEquals('ZZ', zz2, 'qubit 1=Z (left), qubit 0=Z (right)');
     }
 
     // ── runValidationTests ──────────────────────────────────────────

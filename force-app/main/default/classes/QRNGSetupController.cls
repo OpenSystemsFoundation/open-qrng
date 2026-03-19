@@ -328,18 +328,19 @@ public with sharing class QRNGSetupController {
     }
 
     /**
-     * Test the IBM Quantum connection
+     * Test the quantum provider connection using stored credentials.
      */
     @AuraEnabled
     public static Map<String, Object> testConnection() {
         Map<String, Object> result = new Map<String, Object>();
         try {
-            Boolean connected = IBMQuantumAuth.testApiKey();
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            Boolean connected = provider.testConnection();
             result.put('connected', connected);
             result.put(
                 'message',
                 connected
-                    ? 'Connected to IBM Quantum'
+                    ? 'Connected to ' + provider.getProviderName()
                     : 'Connection failed - check API key'
             );
         } catch (Exception e) {
@@ -350,68 +351,13 @@ public with sharing class QRNGSetupController {
     }
 
     /**
-     * Get available IBM Quantum backends
+     * Get available quantum backends from the active provider.
      */
     @AuraEnabled
     public static List<Map<String, Object>> getAvailableBackends() {
         try {
-            String backendsJson = IBMQuantumService.getBackends();
-            Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(
-                backendsJson
-            );
-
-            List<Map<String, Object>> backends = new List<Map<String, Object>>();
-
-            // Parse response - structure may be {"devices": [...]} or direct array
-            List<Object> devices;
-            if (response.containsKey('devices')) {
-                devices = (List<Object>) response.get('devices');
-            } else if (response.containsKey('backends')) {
-                devices = (List<Object>) response.get('backends');
-            } else {
-                devices = new List<Object>();
-            }
-
-            for (Object device : devices) {
-                Map<String, Object> deviceMap = (Map<String, Object>) device;
-                Map<String, Object> backend = new Map<String, Object>();
-                backend.put('name', deviceMap.get('name'));
-                backend.put(
-                    'status',
-                    deviceMap.containsKey('status')
-                        ? deviceMap.get('status')
-                        : 'unknown'
-                );
-                backend.put(
-                    'qubits',
-                    deviceMap.containsKey('qubits')
-                        ? deviceMap.get('qubits')
-                        : (deviceMap.containsKey('num_qubits')
-                              ? deviceMap.get('num_qubits')
-                              : 0)
-                );
-                // Queue length
-                if (deviceMap.containsKey('pending_jobs')) {
-                    backend.put('queueLength', deviceMap.get('pending_jobs'));
-                } else if (deviceMap.containsKey('queue_length')) {
-                    backend.put('queueLength', deviceMap.get('queue_length'));
-                }
-                // Simulator flag
-                if (deviceMap.containsKey('is_simulator')) {
-                    backend.put('isSimulator', deviceMap.get('is_simulator'));
-                }
-                // Processor info
-                if (deviceMap.containsKey('processor_type')) {
-                    Map<String, Object> proc = (Map<String, Object>) deviceMap.get(
-                        'processor_type'
-                    );
-                    if (proc != null) {
-                        backend.put('processorFamily', proc.get('family'));
-                        backend.put('processorRevision', proc.get('revision'));
-                    }
-                }
-                backends.add(backend);
-            }
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            List<Map<String, Object>> backends = provider.listBackends();
 
             // Ensure the IBM provider record exists
             QRNG_Provider__c ibmProvider = ensureIBMProvider();
@@ -470,13 +416,14 @@ public with sharing class QRNGSetupController {
     }
 
     /**
-     * Discover IBM Quantum instances and their CRNs.
+     * Discover provider-specific instances (e.g. IBM CRNs, IonQ projects).
      * Auto-saves CRN if only one instance found.
      */
     @AuraEnabled
     public static List<Map<String, String>> discoverInstances() {
         try {
-            List<Map<String, String>> instances = IBMQuantumAuth.discoverInstances();
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            List<Map<String, String>> instances = provider.discoverInstances();
 
             // Auto-save if single instance
             if (instances.size() == 1) {
@@ -504,7 +451,8 @@ public with sharing class QRNGSetupController {
     @AuraEnabled
     public static Map<String, Object> getBackendHealth(String backendName) {
         try {
-            Map<String, Object> props = IBMQuantumService.getBackendProperties(
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            Map<String, Object> props = provider.getBackendProperties(
                 backendName
             );
             Map<String, Object> summary = new Map<String, Object>();
@@ -706,7 +654,8 @@ public with sharing class QRNGSetupController {
             List<QRNG_Backend__c> toUpdate = new List<QRNG_Backend__c>();
             for (QRNG_Backend__c backend : backends) {
                 try {
-                    Map<String, Object> props = IBMQuantumService.getBackendProperties(
+                    QuantumProvider prov = QuantumProviderFactory.getActiveProvider();
+                    Map<String, Object> props = prov.getBackendProperties(
                         backend.Name
                     );
                     updateBackendFromProperties(backend, props);
@@ -978,64 +927,17 @@ public with sharing class QRNGSetupController {
     }
 
     /**
-     * Submit a CHSH verification job for a backend using Estimator V2.
-     * Builds 4 Bell state circuits with optimal measurement basis rotations
-     * (Ry(-2θ) trick) and submits each with a ZZ observable. The Estimator
-     * returns E(a,b) for each setting directly. Uses resilience_level=0
-     * (no mitigation) so the raw result is an honest proof of quantumness.
+     * Submit a CHSH verification job for a backend.
+     * Delegates to the active provider's verification implementation.
+     * For IBM: uses Estimator V2 with optimal CHSH measurement angles.
      *
-     * Governor limits: 3-4 callouts (readout errors, gate errors, coupling map, submit)
+     * Governor limits: 3-4 callouts (provider-dependent)
      */
     @AuraEnabled
     public static Id verifyBackendQuantum(String backendName) {
         try {
-            // Fetch calibration data for best pair selection
-            List<List<Integer>> couplingMap = IBMQuantumService.getCouplingMap(
-                backendName
-            );
-            Map<Integer, Double> readoutErrors;
-            try {
-                readoutErrors = IBMQuantumService.getReadoutErrors(backendName);
-            } catch (Exception ex) {
-                readoutErrors = null;
-            }
-            Map<String, Double> gateErrors;
-            try {
-                gateErrors = IBMQuantumService.getGateErrors(backendName);
-            } catch (Exception ex) {
-                gateErrors = null;
-            }
-
-            // Select the single best qubit pair
-            QRNGCircuitBuilder.CoupledPair bestPair = QRNGCircuitBuilder.selectBestPair(
-                couplingMap,
-                readoutErrors,
-                gateErrors
-            );
-
-            // Build 4 circuits with optimal CHSH measurement angles
-            List<String> circuits = QRNGCircuitBuilder.buildCHSHVerificationCircuits(
-                bestPair.q0,
-                bestPair.q1
-            );
-
-            // Observable: ZZ on the active qubit pair
-            Integer numCircuitQubits = Math.max(bestPair.q0, bestPair.q1) + 1;
-            String zzObservable = buildPauliString(
-                numCircuitQubits,
-                bestPair.q0,
-                bestPair.q1,
-                'Z',
-                'Z'
-            );
-
-            return IBMQuantumService.submitCHSHEstimatorJob(
-                circuits,
-                zzObservable,
-                backendName,
-                4096,
-                'CHSH backend verification'
-            );
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            return provider.submitVerificationJob(backendName, 4096);
         } catch (Exception e) {
             throw new AuraHandledException(
                 'Backend verification failed: ' + e.getMessage()
@@ -1044,34 +946,8 @@ public with sharing class QRNGSetupController {
     }
 
     /**
-     * Build an N-qubit Pauli string with operators on two specific qubits.
-     * Pauli strings use reverse qubit order (rightmost = qubit 0).
-     * All other positions are filled with 'I' (identity).
-     */
-    @TestVisible
-    private static String buildPauliString(
-        Integer numQubits,
-        Integer qubitA,
-        Integer qubitB,
-        String opA,
-        String opB
-    ) {
-        List<String> chars = new List<String>();
-        for (Integer i = 0; i < numQubits; i++) {
-            chars.add('I');
-        }
-        chars.set(qubitA, opA);
-        chars.set(qubitB, opB);
-        // Reverse so rightmost = qubit 0 (Pauli string convention)
-        List<String> reversed = new List<String>();
-        for (Integer i = numQubits - 1; i >= 0; i--) {
-            reversed.add(chars.get(i));
-        }
-        return String.join(reversed, '');
-    }
-
-    /**
-     * Submit a QRNG job from LWC
+     * Submit a QRNG job from LWC.
+     * Uses the active provider's circuit building and job submission.
      */
     @AuraEnabled
     public static Id submitQRNGJob(
@@ -1082,17 +958,19 @@ public with sharing class QRNGSetupController {
         Boolean useBellTest
     ) {
         try {
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
             QRNG_Settings__c settings = QRNG_Settings__c.getInstance();
+
             String backendName;
             if (String.isNotBlank(backend)) {
                 backendName = backend;
             } else if (settings != null && settings.Use_Least_Busy__c == true) {
-                // Always call live API for real-time queue data
-                backendName = IBMQuantumService.getLeastBusyBackend();
+                backendName = provider.getLeastBusyBackend();
             }
             if (String.isBlank(backendName) && settings != null) {
                 backendName = settings.Default_Backend__c;
             }
+
             Integer numQ = numQubits != null ? numQubits : 8;
             Integer numShots = shots != null
                 ? shots
@@ -1102,32 +980,10 @@ public with sharing class QRNGSetupController {
                       : 1024);
             Boolean bell = useBellTest != null ? useBellTest : false;
 
-            // Fetch backend topology and calibration for qubit selection
-            Map<Integer, Double> readoutErrors;
-            try {
-                readoutErrors = IBMQuantumService.getReadoutErrors(backendName);
-            } catch (Exception ex) {
-                readoutErrors = null;
-            }
+            // Build circuit via provider (handles qubit selection, topology)
+            String qasm = provider.buildCircuit(numQ, backendName, bell);
 
-            String qasm;
-            if (bell) {
-                List<List<Integer>> couplingMap = IBMQuantumService.getCouplingMap(
-                    backendName
-                );
-                qasm = QRNGCircuitBuilder.buildBellTestCircuit(
-                    numQ / 2,
-                    couplingMap,
-                    readoutErrors
-                );
-            } else {
-                qasm = QRNGCircuitBuilder.buildStandardCircuit(
-                    numQ,
-                    readoutErrors
-                );
-            }
-
-            return IBMQuantumService.submitJob(
+            return provider.submitTrackedJob(
                 qasm,
                 backendName,
                 numShots,
@@ -1378,7 +1234,8 @@ public with sharing class QRNGSetupController {
                 );
             }
 
-            Map<String, Object> ibmStatus = IBMQuantumService.getJobStatus(
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            Map<String, Object> ibmStatus = provider.getJobStatus(
                 job.External_Job_ID__c
             );
 
@@ -1444,11 +1301,10 @@ public with sharing class QRNGSetupController {
                 throw new QRNGException('No external job ID on this record.');
             }
 
-            // Fetch results and status from IBM
-            String resultsJson = IBMQuantumService.getJobResults(
-                job.External_Job_ID__c
-            );
-            Map<String, Object> ibmStatus = IBMQuantumService.getJobStatus(
+            // Fetch results and status via provider
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+            String resultsJson = provider.getJobResults(job.External_Job_ID__c);
+            Map<String, Object> ibmStatus = provider.getJobStatus(
                 job.External_Job_ID__c
             );
 

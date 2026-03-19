@@ -1,6 +1,9 @@
 /**
- * Queueable chain for polling IBM Quantum job status.
+ * Queueable chain for polling quantum job status.
  * Implements exponential backoff: 5s, 10s, 20s, 40s, capped at 60s.
+ *
+ * Uses the QuantumProvider abstraction so the same poller works for
+ * any registered provider (IBM, IonQ, Quantinuum, etc.).
  *
  * On completion: delegates to QRNGJobProcessor for result parsing,
  * validation, certificate creation, and event publishing.
@@ -10,14 +13,18 @@
  */
 public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
     private Id jobRecordId;
-    private String ibmJobId;
+    private String externalJobId;
     private Integer pollCount;
     private static final Integer MAX_POLLS = 100;
     private static final Integer MAX_DELAY_SECONDS = 60;
 
-    public QRNGJobPoller(Id jobRecordId, String ibmJobId, Integer pollCount) {
+    public QRNGJobPoller(
+        Id jobRecordId,
+        String externalJobId,
+        Integer pollCount
+    ) {
         this.jobRecordId = jobRecordId;
-        this.ibmJobId = ibmJobId;
+        this.externalJobId = externalJobId;
         this.pollCount = pollCount;
     }
 
@@ -31,9 +38,12 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
                 return;
             }
 
-            // Get job status from IBM
-            Map<String, Object> statusResponse = IBMQuantumService.getJobStatus(
-                ibmJobId
+            // Resolve provider from the job record
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+
+            // Get job status via provider
+            Map<String, Object> statusResponse = provider.getJobStatus(
+                externalJobId
             );
 
             // Extract and normalize status via shared utility
@@ -59,7 +69,7 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
             job.Poll_Count__c = pollCount + 1;
 
             if (normalized == 'Completed') {
-                handleCompletion(job, statusResponse);
+                handleCompletion(job, statusResponse, provider);
             } else if (normalized == 'Failed') {
                 String errorMsg = IBMResponseParser.buildErrorMessage(
                     rawStatus,
@@ -80,7 +90,7 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
                 if (!Test.isRunningTest()) {
                     QRNGJobPollScheduler.scheduleNextPoll(
                         jobRecordId,
-                        ibmJobId,
+                        externalJobId,
                         pollCount + 1
                     );
                 }
@@ -92,9 +102,10 @@ public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
 
     private void handleCompletion(
         Quantum_Job__c job,
-        Map<String, Object> statusResponse
+        Map<String, Object> statusResponse,
+        QuantumProvider provider
     ) {
-        String resultsJson = IBMQuantumService.getJobResults(ibmJobId);
+        String resultsJson = provider.getJobResults(externalJobId);
 
         if (job.Program_Id__c == 'estimator') {
             QRNGJobProcessor.processEstimatorCompletion(

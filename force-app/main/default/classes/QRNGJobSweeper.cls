@@ -118,13 +118,16 @@ public class QRNGJobSweeper implements Schedulable {
                 return;
             }
 
+            // Resolve provider once for the batch
+            QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
+
             List<Quantum_Job__c> jobsToUpdate = new List<Quantum_Job__c>();
             List<Quantum_Job__c> completedJobs = new List<Quantum_Job__c>();
             List<Map<String, Object>> completedResponses = new List<Map<String, Object>>();
 
             for (Quantum_Job__c job : pendingJobs) {
                 try {
-                    Map<String, Object> statusResponse = IBMQuantumService.getJobStatus(
+                    Map<String, Object> statusResponse = provider.getJobStatus(
                         job.External_Job_ID__c
                     );
                     String rawStatus = IBMResponseParser.extractStatus(
@@ -166,7 +169,7 @@ public class QRNGJobSweeper implements Schedulable {
             for (Integer i = 0; i < completedJobs.size(); i++) {
                 Quantum_Job__c job = completedJobs[i];
                 try {
-                    String resultsJson = IBMQuantumService.getJobResults(
+                    String resultsJson = provider.getJobResults(
                         job.External_Job_ID__c
                     );
                     if (job.Program_Id__c == 'estimator') {

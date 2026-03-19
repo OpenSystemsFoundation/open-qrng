@@ -182,4 +182,54 @@ private class IBMQuantumProvider_Test {
         System.assertNotEquals(null, props, 'Properties should not be null');
         System.assert(props.containsKey('qubits'), 'Should contain qubits key');
     }
+
+    @IsTest
+    static void testTestConnection() {
+        Test.setMock(HttpCalloutMock.class, new MockIBMCallouts());
+        QRNG_Settings__c s = new QRNG_Settings__c(
+            SetupOwnerId = UserInfo.getOrganizationId(),
+            IBM_API_Key__c = 'test-api-key',
+            Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
+        );
+        upsert s;
+
+        IBMQuantumProvider provider = new IBMQuantumProvider();
+
+        Test.startTest();
+        Boolean connected = provider.testConnection();
+        Test.stopTest();
+
+        System.assertEquals(true, connected, 'Should connect successfully');
+    }
+
+    @IsTest
+    static void testDiscoverInstances() {
+        Test.setMock(HttpCalloutMock.class, new MockIBMCallouts());
+        QRNG_Settings__c s = new QRNG_Settings__c(
+            SetupOwnerId = UserInfo.getOrganizationId(),
+            IBM_API_Key__c = 'test-api-key',
+            Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
+        );
+        upsert s;
+
+        IBMQuantumProvider provider = new IBMQuantumProvider();
+
+        Test.startTest();
+        List<Map<String, String>> instances = provider.discoverInstances();
+        Test.stopTest();
+
+        System.assertNotEquals(null, instances, 'Instances should not be null');
+    }
+
+    @IsTest
+    static void testBuildPauliString() {
+        // 4-qubit system, ZZ on qubits 1 and 3
+        String zz = IBMQuantumProvider.buildPauliString(4, 1, 3);
+        System.assertEquals(4, zz.length());
+        // qubit 3 is at position 0 (reversed), qubit 1 is at position 2
+        System.assertEquals('Z', zz.substring(0, 1));
+        System.assertEquals('Z', zz.substring(2, 3));
+        System.assertEquals('I', zz.substring(1, 2));
+        System.assertEquals('I', zz.substring(3, 4));
+    }
 }
