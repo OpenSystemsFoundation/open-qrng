@@ -1,268 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>66.0</apiVersion>
-    <description>Distribute new inbound leads fairly across sales reps using quantum-certified randomization. Triggers when a Lead is created in an unassigned queue, collects available reps, and calls QuantumFair for provably fair Uniform assignment. Results arrive via QRNG_Complete__e Platform Event. Pair with QRNG_Apply_Lead_Assignment to auto-update Lead owners.</description>
-    <interviewLabel>QRNG Lead Round-Robin {!$Flow.CurrentDateTime}</interviewLabel>
-    <isTemplate>true</isTemplate>
-    <label>QRNG Lead Round-Robin Assignment</label>
-    <processMetadataValues>
-        <name>BuilderType</name>
-        <value>
-            <stringValue>LightningFlowBuilder</stringValue>
-        </value>
-    </processMetadataValues>
-    <processType>AutoLaunchedFlow</processType>
-    <status>Draft</status>
-
-    <!-- ============================================================
-         VARIABLES
-         ============================================================ -->
-    <variables>
-        <name>varLeadIds</name>
-        <dataType>String</dataType>
-        <isCollection>true</isCollection>
-        <isInput>false</isInput>
-        <isOutput>false</isOutput>
-    </variables>
-    <variables>
-        <name>varRepIds</name>
-        <dataType>String</dataType>
-        <isCollection>true</isCollection>
-        <isInput>false</isInput>
-        <isOutput>false</isOutput>
-    </variables>
-    <variables>
-        <name>varJobId</name>
-        <dataType>String</dataType>
-        <isCollection>false</isCollection>
-        <isInput>false</isInput>
-        <isOutput>true</isOutput>
-    </variables>
-    <variables>
-        <name>varCurrentLeadId</name>
-        <dataType>String</dataType>
-        <isCollection>false</isCollection>
-        <isInput>false</isInput>
-        <isOutput>false</isOutput>
-    </variables>
-    <variables>
-        <name>varCurrentMemberId</name>
-        <dataType>String</dataType>
-        <isCollection>false</isCollection>
-        <isInput>false</isInput>
-        <isOutput>false</isOutput>
-    </variables>
-    <!-- TODO: Replace this with your unassigned Lead queue ID -->
-    <variables>
-        <name>varQueueId</name>
-        <dataType>String</dataType>
-        <isCollection>false</isCollection>
-        <isInput>false</isInput>
-        <isOutput>false</isOutput>
-        <value>
-            <stringValue>00G000000000000</stringValue>
-        </value>
-    </variables>
-    <!-- TODO: Replace this with your Sales Rep group/queue ID -->
-    <variables>
-        <name>varRepGroupId</name>
-        <dataType>String</dataType>
-        <isCollection>false</isCollection>
-        <isInput>false</isInput>
-        <isOutput>false</isOutput>
-        <value>
-            <stringValue>00G000000000000</stringValue>
-        </value>
-    </variables>
-
-    <!-- ============================================================
-         START — Record-Triggered on Lead creation
-         ============================================================ -->
-    <start>
-        <locationX>50</locationX>
-        <locationY>0</locationY>
-        <connector>
-            <targetReference>Get_Unassigned_Leads</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>OwnerId</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>varQueueId</elementReference>
-            </value>
-        </filters>
-        <filters>
-            <field>Status</field>
-            <operator>EqualTo</operator>
-            <value>
-                <stringValue>New</stringValue>
-            </value>
-        </filters>
-        <object>Lead</object>
-        <recordTriggerType>Create</recordTriggerType>
-        <triggerType>RecordAfterSave</triggerType>
-    </start>
-
-    <!-- ============================================================
-         STEP 1 — Get all unassigned Leads in the queue
-         ============================================================ -->
-    <recordLookups>
-        <name>Get_Unassigned_Leads</name>
-        <label>Get Unassigned Leads</label>
-        <locationX>176</locationX>
-        <locationY>134</locationY>
-        <connector>
-            <targetReference>Get_Sales_Reps</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>OwnerId</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>varQueueId</elementReference>
-            </value>
-        </filters>
-        <filters>
-            <field>Status</field>
-            <operator>EqualTo</operator>
-            <value>
-                <stringValue>New</stringValue>
-            </value>
-        </filters>
-        <getFirstRecordOnly>false</getFirstRecordOnly>
-        <object>Lead</object>
-        <storeOutputAutomatically>true</storeOutputAutomatically>
-    </recordLookups>
-
-    <!-- ============================================================
-         STEP 2 — Get Sales Rep group members
-         ============================================================ -->
-    <recordLookups>
-        <name>Get_Sales_Reps</name>
-        <label>Get Sales Reps</label>
-        <locationX>176</locationX>
-        <locationY>242</locationY>
-        <connector>
-            <targetReference>Loop_Leads</targetReference>
-        </connector>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>GroupId</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>varRepGroupId</elementReference>
-            </value>
-        </filters>
-        <getFirstRecordOnly>false</getFirstRecordOnly>
-        <object>GroupMember</object>
-        <storeOutputAutomatically>true</storeOutputAutomatically>
-    </recordLookups>
-
-    <!-- ============================================================
-         STEP 3 — Extract Lead IDs into collection
-         ============================================================ -->
-    <loops>
-        <name>Loop_Leads</name>
-        <label>Loop Leads</label>
-        <locationX>176</locationX>
-        <locationY>350</locationY>
-        <collectionReference>Get_Unassigned_Leads</collectionReference>
-        <iterationOrder>Asc</iterationOrder>
-        <nextValueConnector>
-            <targetReference>Add_Lead_Id</targetReference>
-        </nextValueConnector>
-        <noMoreValuesConnector>
-            <targetReference>Loop_Reps</targetReference>
-        </noMoreValuesConnector>
-    </loops>
-    <assignments>
-        <name>Add_Lead_Id</name>
-        <label>Add Lead Id</label>
-        <locationX>308</locationX>
-        <locationY>350</locationY>
-        <assignmentItems>
-            <assignToReference>varLeadIds</assignToReference>
-            <operator>Add</operator>
-            <value>
-                <elementReference>Loop_Leads.Id</elementReference>
-            </value>
-        </assignmentItems>
-        <connector>
-            <targetReference>Loop_Leads</targetReference>
-        </connector>
-    </assignments>
-
-    <!-- ============================================================
-         STEP 4 — Extract Rep IDs into collection
-         ============================================================ -->
-    <loops>
-        <name>Loop_Reps</name>
-        <label>Loop Reps</label>
-        <locationX>176</locationX>
-        <locationY>458</locationY>
-        <collectionReference>Get_Sales_Reps</collectionReference>
-        <iterationOrder>Asc</iterationOrder>
-        <nextValueConnector>
-            <targetReference>Add_Rep_Id</targetReference>
-        </nextValueConnector>
-        <noMoreValuesConnector>
-            <targetReference>Check_Has_Records</targetReference>
-        </noMoreValuesConnector>
-    </loops>
-    <assignments>
-        <name>Add_Rep_Id</name>
-        <label>Add Rep Id</label>
-        <locationX>308</locationX>
-        <locationY>458</locationY>
-        <assignmentItems>
-            <assignToReference>varRepIds</assignToReference>
-            <operator>Add</operator>
-            <value>
-                <elementReference>Loop_Reps.UserOrGroupId</elementReference>
-            </value>
-        </assignmentItems>
-        <connector>
-            <targetReference>Loop_Reps</targetReference>
-        </connector>
-    </assignments>
-
-    <!-- ============================================================
-         STEP 5 — Guard: only call QRNG if we have leads AND reps
-         ============================================================ -->
-    <decisions>
-        <name>Check_Has_Records</name>
-        <label>Has Leads and Reps?</label>
-        <locationX>176</locationX>
-        <locationY>566</locationY>
-        <defaultConnectorLabel>No Records</defaultConnectorLabel>
-        <rules>
-            <name>Has_Records</name>
-            <conditionLogic>and</conditionLogic>
-            <conditions>
-                <leftValueReference>varLeadIds</leftValueReference>
-                <operator>IsNull</operator>
-                <rightValue>
-                    <booleanValue>false</booleanValue>
-                </rightValue>
-            </conditions>
-            <conditions>
-                <leftValueReference>varRepIds</leftValueReference>
-                <operator>IsNull</operator>
-                <rightValue>
-                    <booleanValue>false</booleanValue>
-                </rightValue>
-            </conditions>
-            <connector>
-                <targetReference>Quantum_Assign_Leads</targetReference>
-            </connector>
-            <label>Has Records</label>
-        </rules>
-    </decisions>
-
-    <!-- ============================================================
-         STEP 6 — Invoke QuantumFair Assignment
-         ============================================================ -->
     <actionCalls>
         <name>Quantum_Assign_Leads</name>
         <label>Quantum Assign Leads</label>
@@ -305,4 +42,221 @@
             <name>jobId</name>
         </outputParameters>
     </actionCalls>
+    <apiVersion>66.0</apiVersion>
+    <assignments>
+        <name>Add_Lead_Id</name>
+        <label>Add Lead Id</label>
+        <locationX>308</locationX>
+        <locationY>350</locationY>
+        <assignmentItems>
+            <assignToReference>varLeadIds</assignToReference>
+            <operator>Add</operator>
+            <value>
+                <elementReference>Loop_Leads.Id</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Loop_Leads</targetReference>
+        </connector>
+    </assignments>
+    <assignments>
+        <name>Add_Rep_Id</name>
+        <label>Add Rep Id</label>
+        <locationX>308</locationX>
+        <locationY>458</locationY>
+        <assignmentItems>
+            <assignToReference>varRepIds</assignToReference>
+            <operator>Add</operator>
+            <value>
+                <elementReference>Loop_Reps.UserOrGroupId</elementReference>
+            </value>
+        </assignmentItems>
+        <connector>
+            <targetReference>Loop_Reps</targetReference>
+        </connector>
+    </assignments>
+    <decisions>
+        <name>Check_Has_Records</name>
+        <label>Has Leads and Reps?</label>
+        <locationX>176</locationX>
+        <locationY>566</locationY>
+        <defaultConnectorLabel>No Records</defaultConnectorLabel>
+        <rules>
+            <name>Has_Records</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>varLeadIds</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <conditions>
+                <leftValueReference>varRepIds</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Quantum_Assign_Leads</targetReference>
+            </connector>
+            <label>Has Records</label>
+        </rules>
+    </decisions>
+    <description>Distribute new inbound leads fairly across sales reps using quantum-certified randomization. Triggers when a Lead is created in an unassigned queue, collects available reps, and calls QuantumFair for provably fair Uniform assignment. Results arrive via QRNG_Complete__e Platform Event. Pair with QRNG_Apply_Lead_Assignment to auto-update Lead owners.</description>
+    <interviewLabel>QRNG Lead Round-Robin {!$Flow.CurrentDateTime}</interviewLabel>
+    <isTemplate>true</isTemplate>
+    <label>QRNG Lead Round-Robin Assignment</label>
+    <loops>
+        <name>Loop_Leads</name>
+        <label>Loop Leads</label>
+        <locationX>176</locationX>
+        <locationY>350</locationY>
+        <collectionReference>Get_Unassigned_Leads</collectionReference>
+        <iterationOrder>Asc</iterationOrder>
+        <nextValueConnector>
+            <targetReference>Add_Lead_Id</targetReference>
+        </nextValueConnector>
+        <noMoreValuesConnector>
+            <targetReference>Loop_Reps</targetReference>
+        </noMoreValuesConnector>
+    </loops>
+    <loops>
+        <name>Loop_Reps</name>
+        <label>Loop Reps</label>
+        <locationX>176</locationX>
+        <locationY>458</locationY>
+        <collectionReference>Get_Sales_Reps</collectionReference>
+        <iterationOrder>Asc</iterationOrder>
+        <nextValueConnector>
+            <targetReference>Add_Rep_Id</targetReference>
+        </nextValueConnector>
+        <noMoreValuesConnector>
+            <targetReference>Check_Has_Records</targetReference>
+        </noMoreValuesConnector>
+    </loops>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordLookups>
+        <name>Get_Unassigned_Leads</name>
+        <label>Get Unassigned Leads</label>
+        <locationX>176</locationX>
+        <locationY>134</locationY>
+        <connector>
+            <targetReference>Get_Sales_Reps</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>OwnerId</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>varQueueId</elementReference>
+            </value>
+        </filters>
+        <filters>
+            <field>Status</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>New</stringValue>
+            </value>
+        </filters>
+        <getFirstRecordOnly>false</getFirstRecordOnly>
+        <object>Lead</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <recordLookups>
+        <name>Get_Sales_Reps</name>
+        <label>Get Sales Reps</label>
+        <locationX>176</locationX>
+        <locationY>242</locationY>
+        <connector>
+            <targetReference>Loop_Leads</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>GroupId</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>varRepGroupId</elementReference>
+            </value>
+        </filters>
+        <getFirstRecordOnly>false</getFirstRecordOnly>
+        <object>GroupMember</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordLookups>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Get_Unassigned_Leads</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>OwnerId</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>varQueueId</elementReference>
+            </value>
+        </filters>
+        <filters>
+            <field>Status</field>
+            <operator>EqualTo</operator>
+            <value>
+                <stringValue>New</stringValue>
+            </value>
+        </filters>
+        <object>Lead</object>
+        <recordTriggerType>Create</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Draft</status>
+    <!-- TODO: Replace varQueueId with your unassigned Lead queue ID -->
+    <!-- TODO: Replace varRepGroupId with your Sales Rep group/queue ID -->
+    <variables>
+        <name>varLeadIds</name>
+        <dataType>String</dataType>
+        <isCollection>true</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>varRepIds</name>
+        <dataType>String</dataType>
+        <isCollection>true</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+    </variables>
+    <variables>
+        <name>varJobId</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>true</isOutput>
+    </variables>
+    <variables>
+        <name>varQueueId</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <value>
+            <stringValue>00G000000000000</stringValue>
+        </value>
+    </variables>
+    <variables>
+        <name>varRepGroupId</name>
+        <dataType>String</dataType>
+        <isCollection>false</isCollection>
+        <isInput>false</isInput>
+        <isOutput>false</isOutput>
+        <value>
+            <stringValue>00G000000000000</stringValue>
+        </value>
+    </variables>
 </Flow>
