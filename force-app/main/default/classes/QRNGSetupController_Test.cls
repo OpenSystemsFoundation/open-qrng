@@ -81,7 +81,8 @@ private class QRNGSetupController_Test {
             2048,
             true,
             true,
-            10
+            10,
+            null
         );
 
         QRNG_Settings__c settings = QRNG_Settings__c.getOrgDefaults();
@@ -105,7 +106,7 @@ private class QRNGSetupController_Test {
 
     @IsTest
     static void testGetRecentJobs() {
-        List<Quantum_Job__c> jobs = QRNGSetupController.getRecentJobs();
+        List<QRNGSetupController.JobSummaryDTO> jobs = QRNGSetupController.getRecentJobs();
         System.assertNotEquals(null, jobs);
     }
 
@@ -182,7 +183,8 @@ private class QRNGSetupController_Test {
             4096,
             false,
             true,
-            10
+            10,
+            'compliance@test.com'
         );
 
         Map<String, Object> settings = QRNGSetupController.getSettings();
@@ -982,7 +984,10 @@ private class QRNGSetupController_Test {
         Map<String, Object> results = QRNGSetupController.getValidationResults(
             job.Id
         );
-        System.assertEquals(0, results.size());
+        // Map always contains jobType and circuitQasm even when no validation data
+        System.assert(results.containsKey('jobType'));
+        System.assert(results.containsKey('circuitQasm'));
+        System.assert(!results.containsKey('monobit'));
     }
 
     // ── verifyCertificate ───────────────────────────────────────────
@@ -1104,7 +1109,8 @@ private class QRNGSetupController_Test {
             1024,
             false,
             false,
-            5
+            5,
+            null
         );
 
         // Partial update — only change backend
@@ -1112,6 +1118,7 @@ private class QRNGSetupController_Test {
             null,
             null,
             'backend2',
+            null,
             null,
             null,
             null,

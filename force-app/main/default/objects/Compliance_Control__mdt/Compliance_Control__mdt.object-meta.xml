@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Compliance Control</label>
+    <pluralLabel>Compliance Controls</pluralLabel>
+    <visibility>Protected</visibility>
+    <description
+    >Maps internal QuantumFair controls to compliance framework references (ISO 27001, SOC 2, NIST 800-90B, GDPR, eIDAS).</description>
+</CustomObject>

@@ -1,4 +1,4 @@
-import { createElement } from 'lwc';
+import { createElement } from '@lwc/engine-dom';
 import QrngFairnessCertificate from 'c/qrngFairnessCertificate';
 
 jest.mock(

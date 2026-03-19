@@ -164,4 +164,45 @@ public with sharing class IBMResponseParser {
             return null;
         }
     }
+
+    /**
+     * Extract QPU time in seconds from IBM status/results response.
+     * IBM returns: { usage: { quantum_seconds: 1.234 } } or
+     *              { usage: { seconds: 1.234 } }
+     */
+    public static Decimal extractQpuTimeSeconds(Map<String, Object> response) {
+        if (response == null || !response.containsKey('usage')) {
+            return null;
+        }
+        Object usageObj = response.get('usage');
+        if (!(usageObj instanceof Map<String, Object>)) {
+            return null;
+        }
+        Map<String, Object> usage = (Map<String, Object>) usageObj;
+
+        // Try quantum_seconds first (newer API), then seconds (legacy)
+        if (usage.containsKey('quantum_seconds')) {
+            return toDecimal(usage.get('quantum_seconds'));
+        }
+        if (usage.containsKey('seconds')) {
+            return toDecimal(usage.get('seconds'));
+        }
+        return null;
+    }
+
+    private static Decimal toDecimal(Object val) {
+        if (val == null)
+            return null;
+        if (val instanceof Decimal)
+            return (Decimal) val;
+        if (val instanceof Double)
+            return Decimal.valueOf((Double) val);
+        if (val instanceof Integer)
+            return Decimal.valueOf((Integer) val);
+        try {
+            return Decimal.valueOf(String.valueOf(val));
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }

@@ -1,4 +1,4 @@
-import { createElement } from 'lwc';
+import { createElement } from '@lwc/engine-dom';
 import QrngResultsVisualizer from 'c/qrngResultsVisualizer';
 
 function flushPromises() {

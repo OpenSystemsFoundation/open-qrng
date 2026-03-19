@@ -1,4 +1,4 @@
-import { createElement } from 'lwc';
+import { createElement } from '@lwc/engine-dom';
 import QuantumFairApp from 'c/quantumFairApp';
 
 // Mock Apex wire adapters used by child components
@@ -86,6 +86,61 @@ jest.mock(
     () => ({ refreshApex: jest.fn().mockResolvedValue(undefined) }),
     { virtual: true }
 );
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.discoverInstances',
+    () => ({ default: jest.fn() }),
+    { virtual: true }
+);
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.getAllBackendHealth',
+    () => ({ default: jest.fn().mockResolvedValue([]) }),
+    { virtual: true }
+);
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.getRecentJobs',
+    () => {
+        const {
+            createApexTestWireAdapter
+        } = require('@salesforce/sfdx-lwc-jest');
+        return { default: createApexTestWireAdapter(jest.fn()) };
+    },
+    { virtual: true }
+);
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.refreshAllBackendHealth',
+    () => ({ default: jest.fn().mockResolvedValue([]) }),
+    { virtual: true }
+);
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.verifyBackendQuantum',
+    () => ({ default: jest.fn() }),
+    { virtual: true }
+);
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.startSweeper',
+    () => ({ default: jest.fn() }),
+    { virtual: true }
+);
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.stopSweeper',
+    () => ({ default: jest.fn() }),
+    { virtual: true }
+);
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.startIntegrityCheck',
+    () => ({ default: jest.fn() }),
+    { virtual: true }
+);
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.stopIntegrityCheck',
+    () => ({ default: jest.fn() }),
+    { virtual: true }
+);
+jest.mock(
+    '@salesforce/apex/QRNGSetupController.exportComplianceEvidence',
+    () => ({ default: jest.fn() }),
+    { virtual: true }
+);
 
 // Mock ResizeObserver (used by c-qrng-circuit-visualizer)
 class MockResizeObserver {
@@ -152,18 +207,20 @@ describe('c-quantum-fair-app', () => {
         return element;
     }
 
-    it('renders lightning-tabset with 3 tabs', () => {
+    it('renders lightning-tabset with 5 tabs', () => {
         const element = createComponent();
 
         const tabset = element.shadowRoot.querySelector('lightning-tabset');
         expect(tabset).not.toBeNull();
 
         const tabs = element.shadowRoot.querySelectorAll('lightning-tab');
-        expect(tabs).toHaveLength(3);
+        expect(tabs).toHaveLength(5);
 
         expect(tabs[0].label).toBe('Dashboard');
-        expect(tabs[1].label).toBe('Setup');
-        expect(tabs[2].label).toBe('Audit Trail');
+        expect(tabs[1].label).toBe('Jobs');
+        expect(tabs[2].label).toBe('Setup');
+        expect(tabs[3].label).toBe('Operations');
+        expect(tabs[4].label).toBe('Compliance');
     });
 
     it('renders qrng-request-form in Dashboard tab', () => {
@@ -175,12 +232,12 @@ describe('c-quantum-fair-app', () => {
         expect(requestForm).not.toBeNull();
     });
 
-    it('does not show qrng-job-monitor when no activeJobId', () => {
+    it('does not show qrng-job-monitor when no jobs submitted', () => {
         const element = createComponent();
 
-        const jobMonitor =
-            element.shadowRoot.querySelector('c-qrng-job-monitor');
-        expect(jobMonitor).toBeNull();
+        const jobMonitors =
+            element.shadowRoot.querySelectorAll('c-qrng-job-monitor');
+        expect(jobMonitors).toHaveLength(0);
     });
 
     it('shows qrng-job-monitor after jobsubmitted event', async () => {
@@ -197,9 +254,59 @@ describe('c-quantum-fair-app', () => {
 
         await flushPromises();
 
-        const jobMonitor =
-            element.shadowRoot.querySelector('c-qrng-job-monitor');
-        expect(jobMonitor).not.toBeNull();
-        expect(jobMonitor.jobId).toBe('001xx000003DGb1');
+        const jobMonitors =
+            element.shadowRoot.querySelectorAll('c-qrng-job-monitor');
+        expect(jobMonitors).toHaveLength(1);
+        expect(jobMonitors[0].jobId).toBe('001xx000003DGb1');
+    });
+
+    it('tracks multiple jobs simultaneously', async () => {
+        const element = createComponent();
+
+        const requestForm = element.shadowRoot.querySelector(
+            'c-qrng-request-form'
+        );
+        requestForm.dispatchEvent(
+            new CustomEvent('jobsubmitted', {
+                detail: { jobId: 'job-001' }
+            })
+        );
+        requestForm.dispatchEvent(
+            new CustomEvent('jobsubmitted', {
+                detail: { jobId: 'job-002' }
+            })
+        );
+
+        await flushPromises();
+
+        const jobMonitors =
+            element.shadowRoot.querySelectorAll('c-qrng-job-monitor');
+        expect(jobMonitors).toHaveLength(2);
+        expect(jobMonitors[0].jobId).toBe('job-001');
+        expect(jobMonitors[1].jobId).toBe('job-002');
+    });
+
+    it('does not add duplicate job monitors', async () => {
+        const element = createComponent();
+
+        const requestForm = element.shadowRoot.querySelector(
+            'c-qrng-request-form'
+        );
+        requestForm.dispatchEvent(
+            new CustomEvent('jobsubmitted', {
+                detail: { jobId: 'job-001' }
+            })
+        );
+        requestForm.dispatchEvent(
+            new CustomEvent('jobsubmitted', {
+                detail: { jobId: 'job-001' }
+            })
+        );
+
+        await flushPromises();
+
+        const jobMonitors =
+            element.shadowRoot.querySelectorAll('c-qrng-job-monitor');
+        expect(jobMonitors).toHaveLength(1);
     });
 });

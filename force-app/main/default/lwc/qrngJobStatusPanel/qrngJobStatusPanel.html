@@ -101,16 +101,11 @@
                         >{shots}</span
                     >
                     <span class="detail-label"
-                        >Bell Test</span
+                        >Job Type</span
                     >
-                    <span class="detail-value">
-                        <template if:true={useBellTest}
-                            >Yes</template
-                        >
-                        <template if:false={useBellTest}
-                            >No</template
-                        >
-                    </span>
+                    <span class="detail-value"
+                        >{jobTypeLabel}</span
+                    >
                     <span class="detail-label"
                         >Queue Time</span
                     >
@@ -207,17 +202,6 @@
                         <c-qrng-fairness-certificate
                             certificate-id={certificateId}
                         ></c-qrng-fairness-certificate>
-                    </div>
-                </template>
-
-                <!-- Measurement Distribution -->
-                <template if:true={hasResults}>
-                    <div class="slds-m-top_medium">
-                        <c-qrng-results-visualizer
-                            raw-results={rawResults}
-                            debiased-results={debiasedResults}
-                            num-qubits={numQubits}
-                        ></c-qrng-results-visualizer>
                     </div>
                 </template>
 

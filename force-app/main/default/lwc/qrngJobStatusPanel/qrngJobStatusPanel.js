@@ -137,6 +137,15 @@ export default class QrngJobStatusPanel extends LightningElement {
     get useBellTest() {
         return this._dto?.useBellTest || false;
     }
+    get jobType() {
+        return this._dto?.jobType || 'QRNG';
+    }
+    get isVerifyJob() {
+        return this.jobType === 'CHSH Verification' || this.useBellTest;
+    }
+    get jobTypeLabel() {
+        return this.isVerifyJob ? 'Quantum Verification' : 'QRNG';
+    }
     get assignmentType() {
         return this._dto?.assignmentType || '—';
     }
@@ -174,7 +183,7 @@ export default class QrngJobStatusPanel extends LightningElement {
     }
 
     get hasResults() {
-        return this.isCompleted && this._dto?.rawResults;
+        return this.isCompleted && this._dto?.rawResults && !this.isVerifyJob;
     }
 
     get hasCertificate() {

@@ -353,6 +353,31 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
+        <field>QRNG_Backend__c.Noise_Source_Type__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>QRNG_Backend__c.Conditioning_Component__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>QRNG_Backend__c.Health_Test_Parameters__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>QRNG_Backend__c.Last_Health_Test_At__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>QRNG_Backend__c.Health_Test_Passed__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
         <field>QRNG_Assignment__c.Certificate__c</field>
         <readable>true</readable>
     </fieldPermissions>

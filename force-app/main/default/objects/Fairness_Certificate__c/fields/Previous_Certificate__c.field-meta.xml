@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Previous_Certificate__c</fullName>
+    <label>Previous Certificate</label>
+    <type>Lookup</type>
+    <referenceTo>Fairness_Certificate__c</referenceTo>
+    <relationshipLabel>Next Certificates</relationshipLabel>
+    <relationshipName>Next_Certificates</relationshipName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description
+    >Link to the previous certificate in the sequential chain for tamper-evident ordering.</description>
+</CustomField>

@@ -1,0 +1,194 @@
+<template>
+    <lightning-card
+        title="Quantum Jobs"
+        icon-name="standard:process"
+    >
+        <div slot="actions">
+            <lightning-button
+                label="Refresh"
+                icon-name="utility:refresh"
+                variant="neutral"
+                onclick={handleRefresh}
+            ></lightning-button>
+        </div>
+
+        <div class="slds-p-around_medium">
+            <!-- Summary counters -->
+            <div
+                class="slds-grid slds-gutters slds-m-bottom_medium"
+            >
+                <div
+                    class="slds-col slds-size_1-of-4 slds-p-around_x-small"
+                >
+                    <div class="stat-card">
+                        <p class="stat-value">{jobCount}</p>
+                        <p class="stat-label">Showing</p>
+                    </div>
+                </div>
+                <div
+                    class="slds-col slds-size_1-of-4 slds-p-around_x-small"
+                >
+                    <div class="stat-card stat-active">
+                        <p class="stat-value">
+                            {activeCount}
+                        </p>
+                        <p class="stat-label">Active</p>
+                    </div>
+                </div>
+                <div
+                    class="slds-col slds-size_1-of-4 slds-p-around_x-small"
+                >
+                    <div class="stat-card stat-completed">
+                        <p class="stat-value">
+                            {completedCount}
+                        </p>
+                        <p class="stat-label">Completed</p>
+                    </div>
+                </div>
+                <div
+                    class="slds-col slds-size_1-of-4 slds-p-around_x-small"
+                >
+                    <div class="stat-card stat-failed">
+                        <p class="stat-value">
+                            {failedCount}
+                        </p>
+                        <p class="stat-label">Failed</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter -->
+            <div class="slds-m-bottom_small">
+                <lightning-combobox
+                    label="Filter"
+                    value={filter}
+                    options={filterOptions}
+                    onchange={handleFilterChange}
+                    variant="label-hidden"
+                ></lightning-combobox>
+            </div>
+
+            <!-- Job table -->
+            <template if:true={hasJobs}>
+                <div class="slds-scrollable_x">
+                    <table
+                        class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_fixed-layout"
+                    >
+                        <thead>
+                            <tr>
+                                <th style="width: 7rem">
+                                    Job
+                                </th>
+                                <th style="width: 6rem">
+                                    Status
+                                </th>
+                                <th style="width: 5rem">
+                                    Type
+                                </th>
+                                <th style="width: 8rem">
+                                    Backend
+                                </th>
+                                <th style="width: 5rem">
+                                    Shots
+                                </th>
+                                <th style="width: 9rem">
+                                    Submitted
+                                </th>
+                                <th style="width: 5rem">
+                                    Duration
+                                </th>
+                                <th style="width: 5rem">
+                                    QPU Time
+                                </th>
+                                <th style="width: 7rem">
+                                    Requested By
+                                </th>
+                                <th>Purpose</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template
+                                for:each={filteredJobs}
+                                for:item="job"
+                            >
+                                <tr key={job.id}>
+                                    <td>
+                                        <a
+                                            data-jobid={job.id}
+                                            onclick={handleNavigateToJob}
+                                            class="slds-text-link"
+                                            >{job.name}</a
+                                        >
+                                    </td>
+                                    <td>
+                                        <span
+                                            class={job.statusClass}
+                                        >
+                                            <lightning-icon
+                                                icon-name={job.statusIcon}
+                                                size="xx-small"
+                                                class="slds-m-right_xx-small"
+                                            ></lightning-icon>
+                                            {job.status}
+                                        </span>
+                                    </td>
+                                    <td>{job.jobType}</td>
+                                    <td>{job.backend}</td>
+                                    <td>{job.shots}</td>
+                                    <td>
+                                        <template
+                                            if:true={job.submittedAt}
+                                        >
+                                            <lightning-formatted-date-time
+                                                value={job.submittedAt}
+                                                month="short"
+                                                day="2-digit"
+                                                hour="2-digit"
+                                                minute="2-digit"
+                                            ></lightning-formatted-date-time>
+                                        </template>
+                                    </td>
+                                    <td>
+                                        {job.executionTime}
+                                    </td>
+                                    <td>{job.qpuTime}</td>
+                                    <td>
+                                        {job.requestedBy}
+                                    </td>
+                                    <td>
+                                        <span
+                                            class="slds-truncate"
+                                            title={job.purpose}
+                                            >{job.purpose}</span
+                                        >
+                                        <template
+                                            if:true={job.hasError}
+                                        >
+                                            <p
+                                                class="slds-text-color_error slds-text-body_small slds-truncate"
+                                                title={job.errorMessage}
+                                            >
+                                                {job.errorMessage}
+                                            </p>
+                                        </template>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
+
+            <template if:false={hasJobs}>
+                <div
+                    class="slds-text-align_center slds-p-around_medium"
+                >
+                    <p class="slds-text-color_weak">
+                        No jobs found matching the selected
+                        filter.
+                    </p>
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+</template>

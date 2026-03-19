@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Chain_Hash__c</fullName>
+    <label>Chain Hash</label>
+    <length>64</length>
+    <type>Text</type>
+    <required>false</required>
+    <description
+    >Composite SHA-256 hash linking this certificate to its predecessor. SHA-256(Raw + Debiased + Assignment + PreviousHash).</description>
+</CustomField>

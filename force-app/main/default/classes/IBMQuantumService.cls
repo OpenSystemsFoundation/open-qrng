@@ -684,8 +684,8 @@ public with sharing class IBMQuantumService {
         submissionMeta.put('observableCoeffs', chshCoeffs);
         submissionMeta.put('observable', observable);
 
-        // Store all 4 circuits in Circuit_QASM__c separated by delimiter
-        String allCircuits = String.join(circuits, '\n--- CIRCUIT ---\n');
+        // Store all 4 circuits as JSON array in Circuit_QASM__c
+        String allCircuits = JSON.serialize(circuits);
 
         Quantum_Job__c job = new Quantum_Job__c(
             External_Job_ID__c = ibmJobId,

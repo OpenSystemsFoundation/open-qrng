@@ -1,4 +1,4 @@
-import { createElement } from 'lwc';
+import { createElement } from '@lwc/engine-dom';
 import QrngCircuitVisualizer from 'c/qrngCircuitVisualizer';
 
 function flushPromises() {
