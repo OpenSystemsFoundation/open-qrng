@@ -1,4 +1,4 @@
-import { createElement } from 'lwc';
+import { createElement } from '@lwc/engine-dom';
 import QrngJobMonitor from 'c/qrngJobMonitor';
 import getJobStatusDTO from '@salesforce/apex/QRNGSetupController.getJobStatusDTO';
 import getCertificateByJobId from '@salesforce/apex/QRNGSetupController.getCertificateByJobId';
@@ -412,6 +412,7 @@ describe('c-qrng-job-monitor', () => {
 
     // ── loadCertificate error handling (lines 135-143) ──────────
     it('handles loadCertificate error gracefully', async () => {
+        jest.spyOn(console, 'error').mockImplementation(() => {});
         getCertificateByJobId.mockRejectedValue(new Error('Cert error'));
 
         const element = createComponent({ jobId: '001xx000003DGb1' });
@@ -475,6 +476,7 @@ describe('c-qrng-job-monitor', () => {
     });
 
     it('subscribe error is handled gracefully', async () => {
+        jest.spyOn(console, 'error').mockImplementation(() => {});
         // Override subscribe to reject
         subscribe.mockRejectedValueOnce(new Error('subscribe error'));
         subscribe.mockRejectedValueOnce(new Error('subscribe error'));

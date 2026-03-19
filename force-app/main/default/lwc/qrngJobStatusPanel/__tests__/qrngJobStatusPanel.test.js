@@ -1,4 +1,4 @@
-import { createElement } from 'lwc';
+import { createElement } from '@lwc/engine-dom';
 import QrngJobStatusPanel from 'c/qrngJobStatusPanel';
 import getJobStatusDTO from '@salesforce/apex/QRNGSetupController.getJobStatusDTO';
 import getCertificateByJobId from '@salesforce/apex/QRNGSetupController.getCertificateByJobId';

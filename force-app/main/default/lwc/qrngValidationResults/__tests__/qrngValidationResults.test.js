@@ -1,4 +1,4 @@
-import { createElement } from 'lwc';
+import { createElement } from '@lwc/engine-dom';
 import QrngValidationResults from 'c/qrngValidationResults';
 import getValidationResults from '@salesforce/apex/QRNGSetupController.getValidationResults';
 import runValidationTests from '@salesforce/apex/QRNGSetupController.runValidationTests';

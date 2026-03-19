@@ -1,4 +1,4 @@
-import { createElement } from 'lwc';
+import { createElement } from '@lwc/engine-dom';
 import QuantumFairApp from 'c/quantumFairApp';
 
 // Mock Apex wire adapters used by child components

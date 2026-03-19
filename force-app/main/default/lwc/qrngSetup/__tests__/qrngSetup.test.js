@@ -1,4 +1,4 @@
-import { createElement } from 'lwc';
+import { createElement } from '@lwc/engine-dom';
 import QrngSetup from 'c/qrngSetup';
 import getSettings from '@salesforce/apex/QRNGSetupController.getSettings';
 import saveSettings from '@salesforce/apex/QRNGSetupController.saveSettings';
@@ -432,6 +432,7 @@ describe('c-qrng-setup', () => {
     });
 
     it('handles getAvailableBackends failure gracefully', async () => {
+        jest.spyOn(console, 'warn').mockImplementation(() => {});
         const element = createComponent();
         await flushPromises();
 

@@ -1,4 +1,4 @@
-import { createElement } from 'lwc';
+import { createElement } from '@lwc/engine-dom';
 import QrngRequestForm from 'c/qrngRequestForm';
 import submitQRNGJob from '@salesforce/apex/QRNGSetupController.submitQRNGJob';
 
