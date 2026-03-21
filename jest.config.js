@@ -3,6 +3,7 @@ const { jestConfig } = require('@salesforce/sfdx-lwc-jest/config');
 module.exports = {
     ...jestConfig,
     modulePathIgnorePatterns: ['<rootDir>/.localdevserver'],
+    testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/'],
     moduleNameMapper: {
         ...jestConfig.moduleNameMapper,
         '^lightning/empApi$':
