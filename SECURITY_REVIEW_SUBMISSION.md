@@ -68,6 +68,7 @@
 **File:** `ARCHITECTURE.md` (already exists)
 
 Must include:
+
 - System architecture diagram showing all components
 - Data flow diagram showing what data enters and leaves the org
 - External endpoint inventory (IBM Quantum REST API)
@@ -77,6 +78,7 @@ Must include:
 ### Document 2: Salesforce Code Analyzer Report
 
 **How to generate:**
+
 ```bash
 # Install the scanner plugin
 sf plugins install @salesforce/sfdx-scanner
@@ -93,6 +95,7 @@ sf scanner run --target force-app --category Security --format html --outfile re
 **File:** `FALSE_POSITIVES.md`
 
 Document any Code Analyzer findings that are false positives with:
+
 - The specific rule/violation
 - The affected class and line number
 - Why it's a false positive
@@ -100,11 +103,11 @@ Document any Code Analyzer findings that are false positives with:
 
 ### Document 4: External Endpoint Inventory
 
-| Endpoint | Purpose | Auth Method | Data Sent |
-|----------|---------|-------------|-----------|
-| `https://iam.cloud.ibm.com/identity/token` | IAM token exchange | API key (POST body, URL-encoded) | API key only |
-| `https://api.quantum-computing.ibm.com/v2/` | Quantum job management | Bearer token (IAM) | OpenQASM circuits, shot count |
-| `https://resource-controller.cloud.ibm.com/v2/` | Instance discovery | Bearer token (IAM) | None (GET only) |
+| Endpoint                                        | Purpose                | Auth Method                      | Data Sent                     |
+| ----------------------------------------------- | ---------------------- | -------------------------------- | ----------------------------- |
+| `https://iam.cloud.ibm.com/identity/token`      | IAM token exchange     | API key (POST body, URL-encoded) | API key only                  |
+| `https://api.quantum-computing.ibm.com/v2/`     | Quantum job management | Bearer token (IAM)               | OpenQASM circuits, shot count |
+| `https://resource-controller.cloud.ibm.com/v2/` | Instance discovery     | Bearer token (IAM)               | None (GET only)               |
 
 **Note:** All endpoints use HTTPS (TLS 1.2+). No customer data is sent — only quantum circuit definitions (mathematical gate sequences) and job management parameters.
 
@@ -116,28 +119,28 @@ Document any Code Analyzer findings that are false positives with:
 2. **Assign** `QuantumFair_Admin` permission set to your user
 3. **Navigate** to the QuantumFair app (App Launcher > QuantumFair)
 4. **Configure** IBM Quantum connection:
-   - Go to QuantumFair Setup tab
-   - Enter the provided IBM Quantum API key
-   - Click "Test Connection"
-   - Select a backend (e.g., `ibm_brisbane`)
+    - Go to QuantumFair Setup tab
+    - Enter the provided IBM Quantum API key
+    - Click "Test Connection"
+    - Select a backend (e.g., `ibm_brisbane`)
 5. **Submit a test job:**
-   - Click "New QRNG Job"
-   - Set qubits = 8, shots = 1024
-   - Click "Submit"
-   - Observe real-time status updates via Platform Events
+    - Click "New QRNG Job"
+    - Set qubits = 8, shots = 1024
+    - Click "Submit"
+    - Observe real-time status updates via Platform Events
 6. **View results:**
-   - Circuit visualization (Canvas 2D)
-   - Measurement distribution chart
-   - Fairness Certificate with SHA-256 hashes
-   - Statistical validation results
+    - Circuit visualization (Canvas 2D)
+    - Measurement distribution chart
+    - Fairness Certificate with SHA-256 hashes
+    - Statistical validation results
 
 ### Document 6: Permission Set Documentation
 
-| Permission Set | Purpose | Object Access | Who Gets It |
-|---------------|---------|---------------|-------------|
-| `QuantumFair_Admin` | Full administration | Full CRUD on all objects, ViewAllRecords | Org admins who configure IBM connection |
-| `QuantumFair_User` | Standard usage | Create jobs, Read all objects | Users who request random assignments |
-| `QuantumFair_Auditor` | Read-only audit | Read-only on all objects | Compliance officers reviewing certificates |
+| Permission Set        | Purpose             | Object Access                            | Who Gets It                                |
+| --------------------- | ------------------- | ---------------------------------------- | ------------------------------------------ |
+| `QuantumFair_Admin`   | Full administration | Full CRUD on all objects, ViewAllRecords | Org admins who configure IBM connection    |
+| `QuantumFair_User`    | Standard usage      | Create jobs, Read all objects            | Users who request random assignments       |
+| `QuantumFair_Auditor` | Read-only audit     | Read-only on all objects                 | Compliance officers reviewing certificates |
 
 ---
 
@@ -162,14 +165,14 @@ These are IBM Cloud production endpoints and should consistently score A or A+ o
 
 ## Submission Timeline
 
-| Step | Action | ETA |
-|------|--------|-----|
-| 1 | Complete Phase 1 critical fixes (CRUD/FLS, sharing) | 1-2 days |
-| 2 | Run Salesforce Code Analyzer and address findings | 1 day |
-| 3 | Prepare test org with IBM Quantum connection | 1 day |
-| 4 | Compile all submission documents | 1 day |
-| 5 | Submit via Partner Publishing Console | Day 5 |
-| 6 | Review period (typical) | 4-5 weeks |
+| Step | Action                                              | ETA       |
+| ---- | --------------------------------------------------- | --------- |
+| 1    | Complete Phase 1 critical fixes (CRUD/FLS, sharing) | 1-2 days  |
+| 2    | Run Salesforce Code Analyzer and address findings   | 1 day     |
+| 3    | Prepare test org with IBM Quantum connection        | 1 day     |
+| 4    | Compile all submission documents                    | 1 day     |
+| 5    | Submit via Partner Publishing Console               | Day 5     |
+| 6    | Review period (typical)                             | 4-5 weeks |
 
 ---
 

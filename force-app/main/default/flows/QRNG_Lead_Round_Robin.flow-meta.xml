@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
         <name>Quantum_Assign_Leads</name>
@@ -104,8 +104,10 @@
             <label>Has Records</label>
         </rules>
     </decisions>
-    <description>Distribute new inbound leads fairly across sales reps using quantum-certified randomization. Triggers when a Lead is created in an unassigned queue, collects available reps, and calls QuantumFair for provably fair Uniform assignment. Results arrive via QRNG_Complete__e Platform Event. Pair with QRNG_Apply_Lead_Assignment to auto-update Lead owners.</description>
-    <interviewLabel>QRNG Lead Round-Robin {!$Flow.CurrentDateTime}</interviewLabel>
+    <description
+    >Distribute new inbound leads fairly across sales reps using quantum-certified randomization. Triggers when a Lead is created in an unassigned queue, collects available reps, and calls QuantumFair for provably fair Uniform assignment. Results arrive via QRNG_Complete__e Platform Event. Pair with QRNG_Apply_Lead_Assignment to auto-update Lead owners.</description>
+    <interviewLabel
+    >QRNG Lead Round-Robin {!$Flow.CurrentDateTime}</interviewLabel>
     <isTemplate>true</isTemplate>
     <label>QRNG Lead Round-Robin Assignment</label>
     <loops>
