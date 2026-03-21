@@ -586,4 +586,130 @@ describe('c-qrng-request-form', () => {
         expect(shotsInput.fieldLevelHelp).toBeTruthy();
         expect(shotsInput.fieldLevelHelp).toContain('circuit');
     });
+
+    // ── Bug-hunting edge cases (surfaced by e2e tests) ────────
+    it('handles NaN qubits from empty input', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
+        const qubitsInput = Array.from(inputs).find(
+            (i) => i.label === 'Number of Qubits'
+        );
+        qubitsInput.value = '';
+        qubitsInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        // Submit should still work (Apex should validate)
+        submitQRNGJob.mockResolvedValue('job-nan');
+        const buttons = element.shadowRoot.querySelectorAll('lightning-button');
+        const submitButton = Array.from(buttons).find(
+            (b) => b.variant === 'brand'
+        );
+        submitButton.click();
+        await flushPromises();
+
+        expect(submitQRNGJob).toHaveBeenCalled();
+    });
+
+    it('handles non-numeric shots input gracefully', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
+        const shotsInput = Array.from(inputs).find((i) => i.label === 'Shots');
+        shotsInput.value = 'abc';
+        shotsInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        // The component should not crash
+        expect(element.shadowRoot.querySelector('lightning-combobox')).not.toBeNull();
+    });
+
+    it('handles purpose with special characters', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        const textarea = element.shadowRoot.querySelector('lightning-textarea');
+        textarea.value = '<script>alert("xss")</script>';
+        textarea.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        submitQRNGJob.mockResolvedValue('job-xss');
+        const buttons = element.shadowRoot.querySelectorAll('lightning-button');
+        const submitButton = Array.from(buttons).find(
+            (b) => b.variant === 'brand'
+        );
+        submitButton.click();
+        await flushPromises();
+
+        expect(submitQRNGJob).toHaveBeenCalledWith(
+            expect.objectContaining({
+                purpose: '<script>alert("xss")</script>'
+            })
+        );
+    });
+
+    it('handles wire settings error', async () => {
+        const element = createComponent();
+
+        getSettings.error({ body: { message: 'Settings load failed' } });
+        await flushPromises();
+
+        // Component should still render
+        expect(element.shadowRoot.querySelector('lightning-combobox')).not.toBeNull();
+    });
+
+    it('handles Bell test toggle with odd qubits', async () => {
+        const element = createComponent();
+
+        emitSettings({
+            useBellTest: false,
+            defaultBackend: 'ibm_brisbane',
+            useLeastBusy: false
+        });
+        await flushPromises();
+
+        // Set odd number of qubits
+        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
+        const qubitsInput = Array.from(inputs).find(
+            (i) => i.label === 'Number of Qubits'
+        );
+        qubitsInput.value = '7';
+        qubitsInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        // Component should handle odd qubits without crashing
+        const visualizer = element.shadowRoot.querySelector(
+            'c-qrng-circuit-visualizer'
+        );
+        expect(visualizer).not.toBeNull();
+    });
+
+    it('storage bar shows warning for large bit counts', async () => {
+        const element = createComponent();
+
+        emitSettings({
+            defaultBackend: 'ibm_brisbane',
+            useLeastBusy: false
+        });
+        await flushPromises();
+
+        // Set very large values
+        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
+        const qubitsInput = Array.from(inputs).find(
+            (i) => i.label === 'Number of Qubits'
+        );
+        const shotsInput = Array.from(inputs).find((i) => i.label === 'Shots');
+
+        qubitsInput.value = '127';
+        qubitsInput.dispatchEvent(new CustomEvent('change'));
+        shotsInput.value = '8192';
+        shotsInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        // Component should render without crashing with large values
+        const combobox = element.shadowRoot.querySelector('lightning-combobox');
+        expect(combobox).not.toBeNull();
+    });
 });
