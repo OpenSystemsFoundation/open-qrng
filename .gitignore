@@ -45,6 +45,9 @@ $RECYCLE.BIN/
 # Claude Code local settings
 .claude/settings.local.json
 
+# Playwright screenshots
+scripts/playwright/*.png
+
 # Python Salesforce Functions
 **/__pycache__/
 **/.venv/

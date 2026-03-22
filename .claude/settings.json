@@ -22,5 +22,8 @@
                 ]
             }
         ]
+    },
+    "env": {
+        "SFDX_DISABLE_DNS_CHECK": "true"
     }
 }

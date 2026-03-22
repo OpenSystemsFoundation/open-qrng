@@ -16,6 +16,7 @@
         "test:e2e:report": "npx playwright show-report",
         "prettier": "prettier --write \"**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}\"",
         "prettier:verify": "prettier --check \"**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}\"",
+        "scratch:login": "node scripts/playwright/scratch-org-login.mjs",
         "prepare": "husky || true",
         "precommit": "lint-staged"
     },
@@ -32,6 +33,7 @@
         "eslint-plugin-jest": "^28.14.0",
         "husky": "^9.1.7",
         "lint-staged": "^16.1.2",
+        "playwright": "^1.56.1",
         "prettier": "^3.5.3",
         "prettier-plugin-apex": "^2.2.6"
     },
