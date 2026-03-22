@@ -36,11 +36,7 @@ private class QRNGException_Test {
             ex.getMessage(),
             'Exception message should match'
         );
-        System.assertNotEquals(
-            null,
-            ex.getCause(),
-            'Cause should be set'
-        );
+        System.assertNotEquals(null, ex.getCause(), 'Cause should be set');
     }
 
     @IsTest
@@ -79,11 +75,7 @@ private class QRNGException_Test {
     static void testEmptyMessage() {
         QRNGException ex = new QRNGException('');
 
-        System.assertEquals(
-            '',
-            ex.getMessage(),
-            'Should handle empty message'
-        );
+        System.assertEquals('', ex.getMessage(), 'Should handle empty message');
     }
 
     @IsTest

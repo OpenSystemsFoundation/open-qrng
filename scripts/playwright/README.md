@@ -57,13 +57,13 @@ node scripts/playwright/scratch-org-login.mjs --headed
 
 ## Environment Variables
 
-| Variable                 | Description                                        |
-| ------------------------ | -------------------------------------------------- |
-| `SFDX_AUTH_URL`          | SFDX auth URL (`force://...`) — preferred method   |
-| `SFDX_DISABLE_DNS_CHECK` | Set to `true` for sandboxed environments (auto-set)|
-| `SF_DEVHUB_USERNAME`     | Dev Hub username for JWT auth                      |
-| `SF_CLIENT_ID`           | Connected App consumer key                         |
-| `SF_JWT_KEY_FILE`        | Path to JWT private key file                       |
+| Variable                 | Description                                         |
+| ------------------------ | --------------------------------------------------- |
+| `SFDX_AUTH_URL`          | SFDX auth URL (`force://...`) — preferred method    |
+| `SFDX_DISABLE_DNS_CHECK` | Set to `true` for sandboxed environments (auto-set) |
+| `SF_DEVHUB_USERNAME`     | Dev Hub username for JWT auth                       |
+| `SF_CLIENT_ID`           | Connected App consumer key                          |
+| `SF_JWT_KEY_FILE`        | Path to JWT private key file                        |
 
 ## Output
 

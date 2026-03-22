@@ -363,15 +363,14 @@ describe('c-quantum-fair-app', () => {
         const errorCallback = onError.mock.calls[0][0];
         errorCallback({ message: 'test error' });
 
-        expect(spy).toHaveBeenCalledWith(
-            'empApi error in quantumFairApp:',
-            { message: 'test error' }
-        );
+        expect(spy).toHaveBeenCalledWith('empApi error in quantumFairApp:', {
+            message: 'test error'
+        });
         spy.mockRestore();
     });
 
     it('wiredSettings triggers _initOperationsTab via setTimeout', async () => {
-        const element = createComponent();
+        createComponent();
         await flushPromises();
 
         const settingsData = { someKey: 'someValue' };
@@ -382,9 +381,13 @@ describe('c-quantum-fair-app', () => {
 
         // The function was called; we just verify no error occurred
         // and that a second emit does not re-initialize
+        // Record how many times subscribe has been called after first init
+        const callCountAfterFirstInit = subscribe.mock.calls.length;
+
         getSettings.emit(settingsData);
         await flushPromises();
-        // _settingsInitialized prevents double init - no error expected
+        // _settingsInitialized prevents double init - subscribe count stays the same
+        expect(subscribe.mock.calls.length).toBe(callCountAfterFirstInit);
     });
 
     it('Platform Event callback calls _refreshHealthMonitor', async () => {
@@ -398,7 +401,8 @@ describe('c-quantum-fair-app', () => {
         subscribeCallback({});
         await flushPromises();
 
-        // No errors thrown means _refreshHealthMonitor ran (healthMon may be null in test DOM)
+        // Callback was invoked without throwing; subscribe was set up correctly
+        expect(subscribe).toHaveBeenCalled();
     });
 
     it('handleJobComplete marks job as completed', async () => {
@@ -429,8 +433,7 @@ describe('c-quantum-fair-app', () => {
         await flushPromises();
 
         // Job monitor should still be rendered (just marked completed)
-        jobMonitors =
-            element.shadowRoot.querySelectorAll('c-qrng-job-monitor');
+        jobMonitors = element.shadowRoot.querySelectorAll('c-qrng-job-monitor');
         expect(jobMonitors).toHaveLength(1);
     });
 

@@ -3,7 +3,6 @@
  * Handles connection testing, backend listing, settings management, and job submission.
  */
 public with sharing class QRNGSetupController {
-
     /**
      * Security: All @AuraEnabled methods in this class enforce CRUD/FLS via:
      * 1. 'with sharing' keyword (row-level sharing enforced)

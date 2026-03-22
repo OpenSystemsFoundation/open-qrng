@@ -27,10 +27,14 @@ jest.mock(
     'lightning/navigation',
     () => {
         const Navigate = Symbol('Navigate');
-        const NavigationMixin = (Base) =>
-            class extends Base {
-                static [Navigate] = Navigate;
-            };
+        const NavigationMixin = (Base) => {
+            class Mixin extends Base {
+                [Navigate](pageRef) {
+                    this._pageRef = pageRef;
+                }
+            }
+            return Mixin;
+        };
         NavigationMixin.Navigate = Navigate;
         return { NavigationMixin };
     },

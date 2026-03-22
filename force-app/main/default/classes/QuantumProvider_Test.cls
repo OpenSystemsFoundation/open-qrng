@@ -199,11 +199,7 @@ private class QuantumProvider_Test {
         );
         Test.stopTest();
 
-        System.assertEquals(
-            null,
-            jobId,
-            'Mock returns null for tracked job'
-        );
+        System.assertEquals(null, jobId, 'Mock returns null for tracked job');
     }
 
     @IsTest

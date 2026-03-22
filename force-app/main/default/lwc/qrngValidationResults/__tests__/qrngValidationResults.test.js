@@ -261,9 +261,9 @@ describe('c-qrng-validation-results', () => {
         const headerTexts = Array.from(sectionHeaders).map(
             (h) => h.textContent
         );
-        expect(
-            headerTexts.some((t) => t.includes('Critical Gate Tests'))
-        ).toBe(false);
+        expect(headerTexts.some((t) => t.includes('Critical Gate Tests'))).toBe(
+            false
+        );
     });
 
     it('showCriticalTests and showExtendedTests are false for verify jobs', async () => {
@@ -277,9 +277,8 @@ describe('c-qrng-validation-results', () => {
         await flushPromises();
 
         // Critical and extended test badges should not appear
-        const criticalBadges = element.shadowRoot.querySelectorAll(
-            '.test-result-badge'
-        );
+        const criticalBadges =
+            element.shadowRoot.querySelectorAll('.test-result-badge');
         // Only bell test badge should be present (1 badge)
         expect(criticalBadges.length).toBe(1);
     });
@@ -469,8 +468,7 @@ describe('c-qrng-validation-results', () => {
         await flushPromises();
 
         // All extended tests should show as passed
-        const passedBadges =
-            element.shadowRoot.querySelectorAll('.test-pass');
+        const passedBadges = element.shadowRoot.querySelectorAll('.test-pass');
         expect(passedBadges.length).toBeGreaterThan(0);
     });
 

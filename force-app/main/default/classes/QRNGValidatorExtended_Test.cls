@@ -363,7 +363,10 @@ private class QRNGValidatorExtended_Test {
 
     @IsTest
     static void testRepetitionCountSingleBit() {
-        System.assertEquals(false, QRNGValidator.repetitionCountTest('1', (Double) 1.0));
+        System.assertEquals(
+            false,
+            QRNGValidator.repetitionCountTest('1', (Double) 1.0)
+        );
     }
 
     @IsTest

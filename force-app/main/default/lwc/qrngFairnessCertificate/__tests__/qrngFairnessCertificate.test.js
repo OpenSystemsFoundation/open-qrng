@@ -197,9 +197,7 @@ describe('c-qrng-fairness-certificate', () => {
         await flushPromises();
 
         // Tampered alert should appear
-        const alert = element.shadowRoot.querySelector(
-            '.slds-notify_alert'
-        );
+        const alert = element.shadowRoot.querySelector('.slds-notify_alert');
         expect(alert).not.toBeNull();
         expect(alert.textContent).toContain('Integrity check failed');
     });
@@ -210,9 +208,7 @@ describe('c-qrng-fairness-certificate', () => {
         getCertificateDTO.emit(MOCK_CERTIFICATE);
         await flushPromises();
 
-        const alert = element.shadowRoot.querySelector(
-            '.slds-notify_alert'
-        );
+        const alert = element.shadowRoot.querySelector('.slds-notify_alert');
         expect(alert).toBeNull();
     });
 
@@ -265,7 +261,7 @@ describe('c-qrng-fairness-certificate', () => {
     });
 
     it('drawVisualHash does nothing when no rawBitstringHash', async () => {
-        const element = createComponent({ certificateId: 'a01xx000001234' });
+        createComponent({ certificateId: 'a01xx000001234' });
         mockContext.clearRect.mockClear();
 
         getCertificateDTO.emit({
@@ -465,9 +461,7 @@ describe('c-qrng-fairness-certificate', () => {
         element.shadowRoot.querySelector('lightning-button').click();
         await flushPromises();
 
-        const msg = element.shadowRoot.querySelector(
-            '.slds-text-color_error'
-        );
+        const msg = element.shadowRoot.querySelector('.slds-text-color_error');
         expect(msg).not.toBeNull();
     });
 });

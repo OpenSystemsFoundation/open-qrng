@@ -399,20 +399,18 @@ describe('c-qrng-qasm-viewer', () => {
             function () {
                 return this.currentCircuitIndex >= this.totalCircuits - 1;
             };
-        expect(
-            getter.call({ currentCircuitIndex: 2, totalCircuits: 3 })
-        ).toBe(true);
-        expect(
-            getter.call({ currentCircuitIndex: 0, totalCircuits: 3 })
-        ).toBe(false);
+        expect(getter.call({ currentCircuitIndex: 2, totalCircuits: 3 })).toBe(
+            true
+        );
+        expect(getter.call({ currentCircuitIndex: 0, totalCircuits: 3 })).toBe(
+            false
+        );
     });
 
     it('hasQasm getter (prototype)', () => {
         const getter =
-            Object.getOwnPropertyDescriptor(
-                QrngQasmViewer.prototype,
-                'hasQasm'
-            )?.get ||
+            Object.getOwnPropertyDescriptor(QrngQasmViewer.prototype, 'hasQasm')
+                ?.get ||
             function () {
                 return !!this._qasm;
             };

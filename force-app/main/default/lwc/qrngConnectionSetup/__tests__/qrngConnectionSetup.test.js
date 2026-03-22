@@ -411,14 +411,13 @@ describe('c-qrng-connection-setup', () => {
 
         const crnInput = Array.from(
             el.shadowRoot.querySelectorAll('lightning-input')
-        ).find((i) => i.type === 'text');
-        if (crnInput) {
-            crnInput.value = 'crn:v1:bluemix:test';
-            crnInput.dispatchEvent(new CustomEvent('change'));
-            await flushPromises();
+        ).find((i) => i.label === 'Instance CRN');
+        expect(crnInput).toBeDefined();
+        crnInput.value = 'crn:v1:bluemix:test';
+        crnInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
 
-            expect(crnHandler).toHaveBeenCalled();
-        }
+        expect(crnHandler).toHaveBeenCalled();
     });
 
     // ── markApiKeyConfigured ──

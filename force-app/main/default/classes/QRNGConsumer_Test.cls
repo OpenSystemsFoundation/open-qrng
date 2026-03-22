@@ -182,10 +182,7 @@ private class QRNGConsumer_Test {
         Id fakeJobId = '001000000000008AAA';
 
         Test.startTest();
-        consumer.onRandomnessReady(
-            fakeCertId,
-            new List<String>{ '11110000' }
-        );
+        consumer.onRandomnessReady(fakeCertId, new List<String>{ '11110000' });
         consumer.onRandomnessFailed(fakeJobId, 'Timeout');
         Test.stopTest();
 
