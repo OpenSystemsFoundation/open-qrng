@@ -1,10 +1,12 @@
 name: E2E Debug Tests
 
+# Runs on feature branch pushes only (not PRs to master).
+# Use this to iterate on E2E tests during development.
+# The full test suite runs on PR via the Test workflow.
 on:
     push:
-        branches: ['**']
-    pull_request:
-        branches: [master]
+        branches-ignore:
+            - master
 
 permissions:
     contents: read
@@ -116,39 +118,8 @@ jobs:
                     echo '\n```\n' >> e2e-comment.md
                   fi
 
-            - name: Comment on PR with E2E results
-              if: always() && github.event_name == 'pull_request'
-              uses: actions/github-script@v7
-              with:
-                  script: |
-                      const fs = require('fs');
-                      const body = fs.readFileSync('e2e-comment.md', 'utf8');
-                      const { data: comments } = await github.rest.issues.listComments({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        issue_number: context.issue.number
-                      });
-                      const botComment = comments.find(c =>
-                        c.user.type === 'Bot' && c.body.includes('E2E Test Results')
-                      );
-                      if (botComment) {
-                        await github.rest.issues.updateComment({
-                          owner: context.repo.owner,
-                          repo: context.repo.repo,
-                          comment_id: botComment.id,
-                          body
-                        });
-                      } else {
-                        await github.rest.issues.createComment({
-                          owner: context.repo.owner,
-                          repo: context.repo.repo,
-                          issue_number: context.issue.number,
-                          body
-                        });
-                      }
-
-            - name: Comment on commit for push events
-              if: always() && github.event_name == 'push'
+            - name: Comment on commit with E2E results
+              if: always()
               uses: actions/github-script@v7
               with:
                   script: |

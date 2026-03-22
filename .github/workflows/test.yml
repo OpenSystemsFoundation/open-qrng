@@ -191,3 +191,155 @@ jobs:
                     echo "::error::One or more checks failed. See PR comment for details."
                     exit 1
                   fi
+
+    # E2E tests run in parallel on PRs to master only
+    e2e-tests:
+        name: Playwright E2E Tests
+        if: github.event_name == 'pull_request'
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Install Playwright browsers
+              run: npx playwright install --with-deps chromium firefox
+
+            - name: Install serve for mock fixture
+              run: npm install -g serve
+
+            - name: Run Playwright E2E tests
+              id: e2e
+              run: |
+                  npx playwright test --reporter=json,github,html 2>&1 | tee e2e-output.txt
+                  echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+              continue-on-error: true
+
+            - name: Parse E2E results
+              id: parse
+              if: always()
+              run: |
+                  if [ -f playwright-report/results.json ]; then
+                    node -e "
+                      const fs = require('fs');
+                      const results = JSON.parse(fs.readFileSync('playwright-report/results.json', 'utf8'));
+                      const suites = results.suites || [];
+                      let passed = 0, failed = 0, skipped = 0, flaky = 0;
+                      const failures = [];
+
+                      function processSuite(suite, prefix) {
+                        const name = prefix ? prefix + ' > ' + suite.title : suite.title;
+                        for (const spec of (suite.specs || [])) {
+                          for (const test of (spec.tests || [])) {
+                            const status = test.status || test.expectedStatus;
+                            if (status === 'expected') passed++;
+                            else if (status === 'unexpected') {
+                              failed++;
+                              const lastResult = (test.results || []).slice(-1)[0] || {};
+                              failures.push({
+                                name: name + ' > ' + spec.title,
+                                error: (lastResult.error || {}).message || 'Unknown error',
+                                file: spec.file || '',
+                                line: spec.line || 0
+                              });
+                            }
+                            else if (status === 'skipped') skipped++;
+                            else if (status === 'flaky') flaky++;
+                          }
+                        }
+                        for (const child of (suite.suites || [])) {
+                          processSuite(child, name);
+                        }
+                      }
+
+                      for (const suite of suites) {
+                        processSuite(suite, '');
+                      }
+
+                      const total = passed + failed + skipped + flaky;
+                      const icon = failed > 0 ? '❌' : '✅';
+
+                      let body = '## ' + icon + ' E2E Test Results\n\n';
+                      body += '| Metric | Count |\n|--------|-------|\n';
+                      body += '| ✅ Passed | ' + passed + ' |\n';
+                      body += '| ❌ Failed | ' + failed + ' |\n';
+                      body += '| ⏭️ Skipped | ' + skipped + ' |\n';
+                      body += '| 🔄 Flaky | ' + flaky + ' |\n';
+                      body += '| **Total** | **' + total + '** |\n\n';
+
+                      if (failures.length > 0) {
+                        body += '### Failed Tests\n\n';
+                        for (const f of failures) {
+                          body += '<details>\n<summary>' + f.name + '</summary>\n\n';
+                          body += '**File:** \`' + f.file + ':' + f.line + '\`\n\n';
+                          body += '\`\`\`\n' + f.error.substring(0, 1000) + '\n\`\`\`\n';
+                          body += '</details>\n\n';
+                        }
+                      }
+
+                      body += '---\n*Playwright E2E • ' + new Date().toISOString() + '*\n';
+
+                      fs.writeFileSync('e2e-comment.md', body);
+                      console.log('Parsed ' + total + ' tests: ' + passed + ' passed, ' + failed + ' failed');
+                    "
+                  else
+                    echo '## ⚠️ E2E Test Results\n\nNo test results found. Tests may have failed to start.\n\n```\n' > e2e-comment.md
+                    head -100 e2e-output.txt >> e2e-comment.md
+                    echo '\n```\n' >> e2e-comment.md
+                  fi
+
+            - name: Comment on PR with E2E results
+              if: always()
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const fs = require('fs');
+                      const body = fs.readFileSync('e2e-comment.md', 'utf8');
+                      const { data: comments } = await github.rest.issues.listComments({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: context.issue.number
+                      });
+                      const botComment = comments.find(c =>
+                        c.user.type === 'Bot' && c.body.includes('E2E Test Results')
+                      );
+                      if (botComment) {
+                        await github.rest.issues.updateComment({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          comment_id: botComment.id,
+                          body
+                        });
+                      } else {
+                        await github.rest.issues.createComment({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          issue_number: context.issue.number,
+                          body
+                        });
+                      }
+
+            - name: Upload Playwright report
+              uses: actions/upload-artifact@v4
+              if: always()
+              with:
+                  name: playwright-report
+                  path: |
+                      playwright-report/
+                      e2e-output.txt
+                  retention-days: 14
+
+            - name: Fail if tests failed
+              if: steps.e2e.outputs.exit_code != '0'
+              run: |
+                  echo "::error::E2E tests failed. Check the Playwright report for details."
+                  exit 1
