@@ -175,7 +175,7 @@ sf apex run test --code-coverage --result-format human --wait 10
 
 ## Agent: ci-cd
 
-**Role:** Manages GitHub Actions workflows, scratch org lifecycle, and package versioning.
+**Role:** Manages GitHub Actions workflows, scratch org lifecycle, package versioning, and the Claude Code on the web development loop.
 
 ### Conventions
 
@@ -186,6 +186,48 @@ sf apex run test --code-coverage --result-format human --wait 10
 - Never store secrets in workflow files — use GitHub Secrets for IBM API key, SF auth URL
 - Scratch org TTL: 7 days for CI, 30 days for development
 - Package version naming: `MAJOR.MINOR.PATCH-beta.BUILD` during development
+
+### Claude Code Web Session Setup
+
+Every Claude Code web session automatically provisions a scratch org via `scripts/session-setup.sh` (triggered by `.claude/settings.json` SessionStart hook). The hook:
+
+1. Authenticates DevHub from `SFDX_AUTH_URL` (set as environment variable in web settings)
+2. Creates or reuses scratch org (`SF_SCRATCH_ALIAS`, default: `qrng-dev`)
+3. Deploys all metadata with `sf project deploy start`
+4. Assigns `QuantumFair_Admin` + `QuantumFair_User` permission sets
+5. Persists `SF_INSTANCE_URL` and `SF_ACCESS_TOKEN` to `CLAUDE_ENV_FILE` for the session
+
+### CI Feedback Loop Workflows
+
+| Workflow        | Trigger                    | Posts Results To                               |
+| --------------- | -------------------------- | ---------------------------------------------- |
+| `test.yml`      | All pushes + PRs to master | PR comment (LWC Test Results) + commit comment |
+| `e2e-debug.yml` | All pushes + PRs to master | PR comment (E2E Test Results) + commit comment |
+| `apex-test.yml` | Push/PR to master          | PR comment (Apex Test Results)                 |
+
+All workflows use `actions/github-script` to create or update a single bot comment per result type (avoids comment spam). Results include collapsible failure details.
+
+### Developing Features from the Web
+
+```bash
+# 1. Session starts → hook auto-provisions scratch org
+# 2. Create feature branch
+git checkout -b feature/my-feature
+
+# 3. Develop (write code, deploy to scratch org, run tests)
+sf project deploy start --target-org qrng-dev
+sf apex run test --code-coverage --result-format human --wait 10
+npm run test:unit
+
+# 4. Push and read CI feedback
+git push -u origin feature/my-feature
+# CI runs → results appear as commit comments
+gh api repos/OWNER/REPO/commits/$(git rev-parse HEAD)/comments
+
+# 5. Iterate: fix failures, push again
+# 6. Create PR when ready
+gh pr create --title "feat: my feature" --body "..."
+```
 
 ---
 
@@ -209,17 +251,44 @@ sf apex run test --code-coverage --result-format human --wait 10
 
 ## Scratch Org & App Navigation
 
-The current scratch org alias is `opendev`. To open the QuantumFair app in the browser:
+The scratch org alias is set by the session hook (default: `qrng-dev`, configurable via `SF_SCRATCH_ALIAS`). On Claude Code web sessions, the org is provisioned automatically.
 
 ```bash
 # Get the front door login URL
-sf org open -o opendev --url-only
+sf org open -o qrng-dev --url-only
 
 # QuantumFair app tab URL (append to scratch org lightning domain)
 # https://<scratch-org-domain>.scratch.lightning.force.com/lightning/n/OpenSF__QuantumFair
+
+# Deploy changes during development
+sf project deploy start --target-org qrng-dev --ignore-conflicts
+
+# Run Apex tests against the scratch org
+sf apex run test --target-org qrng-dev --code-coverage --result-format human --wait 10
+
+# Assign permission sets (done automatically by session hook)
+sf org assign permset --name QuantumFair_Admin --target-org qrng-dev
+sf org assign permset --name QuantumFair_User --target-org qrng-dev
 ```
 
 The QuantumFair tab uses the `OpenSF__` namespace prefix. Always use `/lightning/n/OpenSF__QuantumFair` to navigate to the main app page.
+
+### Manual Scratch Org Setup (local CLI without session hook)
+
+If developing locally without the session hook, or if `SFDX_AUTH_URL` is not set:
+
+```bash
+# Authenticate your DevHub
+sf org login web --alias devhub --set-default-dev-hub
+
+# Create scratch org
+sf org create scratch -f config/project-scratch-def.json -a qrng-dev -d 7
+
+# Deploy and assign permsets
+sf project deploy start --target-org qrng-dev
+sf org assign permset -n QuantumFair_Admin --target-org qrng-dev
+sf org assign permset -n QuantumFair_User --target-org qrng-dev
+```
 
 ---
 

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
         <name>Quantum_Route_Cases</name>
@@ -104,7 +104,8 @@
             <label>Has Data</label>
         </rules>
     </decisions>
-    <description>Route new support cases to agents using quantum-certified random assignment. Triggers when a Case is created in a support queue, gathers available agents, and uses QuantumFair Uniform assignment for provably fair distribution. Results arrive via QRNG_Complete__e Platform Event. Pair with QRNG_Apply_Case_Assignment to auto-update Case owners.</description>
+    <description
+    >Route new support cases to agents using quantum-certified random assignment. Triggers when a Case is created in a support queue, gathers available agents, and uses QuantumFair Uniform assignment for provably fair distribution. Results arrive via QRNG_Complete__e Platform Event. Pair with QRNG_Apply_Case_Assignment to auto-update Case owners.</description>
     <interviewLabel>QRNG Case Routing {!$Flow.CurrentDateTime}</interviewLabel>
     <isTemplate>true</isTemplate>
     <label>QRNG Case Routing</label>
