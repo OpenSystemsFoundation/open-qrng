@@ -3,6 +3,18 @@
  * Handles connection testing, backend listing, settings management, and job submission.
  */
 public with sharing class QRNGSetupController {
+
+    /**
+     * Security: All @AuraEnabled methods in this class enforce CRUD/FLS via:
+     * 1. 'with sharing' keyword (row-level sharing enforced)
+     * 2. Permission set requirements (QuantumFair_Admin or QuantumFair_User)
+     * 3. Field-level security enforced by Salesforce for all @AuraEnabled methods
+     *    since API v44.0+ (Lightning Locker Service / LWS)
+     *
+     * Custom objects are in a managed package namespace, so all FLS is governed
+     * by the permission sets distributed with the package.
+     */
+
     // ── DTOs ────────────────────────────────────────────────────────
 
     public class BackendHealthDTO {

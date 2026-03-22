@@ -363,14 +363,14 @@ private class QRNGValidatorExtended_Test {
 
     @IsTest
     static void testRepetitionCountSingleBit() {
-        System.assertEquals(false, QRNGValidator.repetitionCountTest('1', 1.0));
+        System.assertEquals(false, QRNGValidator.repetitionCountTest('1', (Double) 1.0));
     }
 
     @IsTest
     static void testRepetitionCountZeroEntropy() {
         System.assertEquals(
             false,
-            QRNGValidator.repetitionCountTest('0101', 0.0)
+            QRNGValidator.repetitionCountTest('0101', (Double) 0.0)
         );
     }
 

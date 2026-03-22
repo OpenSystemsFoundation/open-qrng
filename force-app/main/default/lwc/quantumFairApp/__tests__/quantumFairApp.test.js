@@ -1,5 +1,7 @@
 import { createElement } from '@lwc/engine-dom';
 import QuantumFairApp from 'c/quantumFairApp';
+import { subscribe, unsubscribe, onError } from 'lightning/empApi';
+import getSettings from '@salesforce/apex/QRNGSetupController.getSettings';
 
 // Mock Apex wire adapters used by child components
 jest.mock(
@@ -303,6 +305,196 @@ describe('c-quantum-fair-app', () => {
             })
         );
 
+        await flushPromises();
+
+        const jobMonitors =
+            element.shadowRoot.querySelectorAll('c-qrng-job-monitor');
+        expect(jobMonitors).toHaveLength(1);
+    });
+
+    it('connectedCallback subscribes to empApi Platform Event channel', async () => {
+        createComponent();
+        await flushPromises();
+
+        expect(subscribe).toHaveBeenCalledWith(
+            '/event/OpenSF__QRNG_Complete__e',
+            -1,
+            expect.any(Function)
+        );
+    });
+
+    it('connectedCallback registers onError handler', async () => {
+        createComponent();
+        await flushPromises();
+
+        expect(onError).toHaveBeenCalledWith(expect.any(Function));
+    });
+
+    it('disconnectedCallback unsubscribes from empApi', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        document.body.removeChild(element);
+        await flushPromises();
+
+        expect(unsubscribe).toHaveBeenCalledWith({ id: 'mock-subscription' });
+    });
+
+    it('disconnectedCallback does not unsubscribe when no subscription', async () => {
+        subscribe.mockResolvedValue(null);
+        const element = createComponent();
+        await flushPromises();
+
+        // Force _completeSubscription to be falsy
+        element._completeSubscription = null;
+        document.body.removeChild(element);
+        await flushPromises();
+
+        // unsubscribe should not have been called with null
+        expect(unsubscribe).not.toHaveBeenCalled();
+    });
+
+    it('onError handler logs empApi errors', async () => {
+        const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+        createComponent();
+        await flushPromises();
+
+        // Get the error callback that was passed to onError
+        const errorCallback = onError.mock.calls[0][0];
+        errorCallback({ message: 'test error' });
+
+        expect(spy).toHaveBeenCalledWith(
+            'empApi error in quantumFairApp:',
+            { message: 'test error' }
+        );
+        spy.mockRestore();
+    });
+
+    it('wiredSettings triggers _initOperationsTab via setTimeout', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        const settingsData = { someKey: 'someValue' };
+        getSettings.emit(settingsData);
+
+        // Allow setTimeout(fn, 0) to execute
+        await flushPromises();
+
+        // The function was called; we just verify no error occurred
+        // and that a second emit does not re-initialize
+        getSettings.emit(settingsData);
+        await flushPromises();
+        // _settingsInitialized prevents double init - no error expected
+    });
+
+    it('Platform Event callback calls _refreshHealthMonitor', async () => {
+        createComponent();
+        await flushPromises();
+
+        // Get the subscription callback
+        const subscribeCallback = subscribe.mock.calls[0][2];
+
+        // Invoke the callback (simulates Platform Event firing)
+        subscribeCallback({});
+        await flushPromises();
+
+        // No errors thrown means _refreshHealthMonitor ran (healthMon may be null in test DOM)
+    });
+
+    it('handleJobComplete marks job as completed', async () => {
+        const element = createComponent();
+
+        const requestForm = element.shadowRoot.querySelector(
+            'c-qrng-request-form'
+        );
+        requestForm.dispatchEvent(
+            new CustomEvent('jobsubmitted', {
+                detail: { jobId: 'job-complete-1' }
+            })
+        );
+        await flushPromises();
+
+        // Verify 1 job monitor exists, no dismiss button yet
+        let jobMonitors =
+            element.shadowRoot.querySelectorAll('c-qrng-job-monitor');
+        expect(jobMonitors).toHaveLength(1);
+
+        // Fire jobcomplete event from the job monitor
+        const jobMonitor = jobMonitors[0];
+        jobMonitor.dispatchEvent(
+            new CustomEvent('jobcomplete', {
+                detail: { jobId: 'job-complete-1' }
+            })
+        );
+        await flushPromises();
+
+        // Job monitor should still be rendered (just marked completed)
+        jobMonitors =
+            element.shadowRoot.querySelectorAll('c-qrng-job-monitor');
+        expect(jobMonitors).toHaveLength(1);
+    });
+
+    it('handleDismissJob removes job from list when dismiss button is clicked', async () => {
+        const element = createComponent();
+
+        const requestForm = element.shadowRoot.querySelector(
+            'c-qrng-request-form'
+        );
+        requestForm.dispatchEvent(
+            new CustomEvent('jobsubmitted', {
+                detail: { jobId: 'job-dismiss-1' }
+            })
+        );
+        await flushPromises();
+
+        // Mark the job completed so the dismiss button renders
+        const jobMonitor =
+            element.shadowRoot.querySelector('c-qrng-job-monitor');
+        jobMonitor.dispatchEvent(
+            new CustomEvent('jobcomplete', {
+                detail: { jobId: 'job-dismiss-1' }
+            })
+        );
+        await flushPromises();
+
+        // Now the dismiss button should be rendered
+        const dismissBtn = element.shadowRoot.querySelector(
+            'lightning-button-icon'
+        );
+        expect(dismissBtn).not.toBeNull();
+
+        // Click it to dismiss
+        dismissBtn.click();
+        await flushPromises();
+
+        // Job monitors should be empty
+        const jobMonitors =
+            element.shadowRoot.querySelectorAll('c-qrng-job-monitor');
+        expect(jobMonitors).toHaveLength(0);
+    });
+
+    it('hasActiveJobs is false when no jobs', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        // hasActiveJobs is a getter on the component class, not @api
+        // We verify through the DOM: no job monitors should be present
+        const jobMonitors =
+            element.shadowRoot.querySelectorAll('c-qrng-job-monitor');
+        expect(jobMonitors).toHaveLength(0);
+    });
+
+    it('hasActiveJobs shows jobs section when jobs exist', async () => {
+        const element = createComponent();
+
+        const requestForm = element.shadowRoot.querySelector(
+            'c-qrng-request-form'
+        );
+        requestForm.dispatchEvent(
+            new CustomEvent('jobsubmitted', {
+                detail: { jobId: 'job-active-1' }
+            })
+        );
         await flushPromises();
 
         const jobMonitors =

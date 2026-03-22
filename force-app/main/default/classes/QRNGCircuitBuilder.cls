@@ -275,6 +275,11 @@ public with sharing class QRNGCircuitBuilder {
      * Backward-compatible overload for tests without coupling map.
      */
     public static String buildBellTestCircuit(Integer numPairs) {
+        if (numPairs == null || numPairs < 1 || numPairs > 63) {
+            throw new QRNGException(
+                'Number of Bell test pairs must be between 1 and 63, got: ' + numPairs
+            );
+        }
         // Default coupling: consecutive pairs (0,1), (2,3), ...
         List<List<Integer>> defaultMap = new List<List<Integer>>();
         for (Integer i = 0; i < numPairs * 2; i += 2) {

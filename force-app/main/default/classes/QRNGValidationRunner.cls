@@ -6,7 +6,7 @@
  * Tests run: Approximate Entropy, Serial, Cumulative Sums, Longest Run of Ones.
  * Governor limits: 0 callouts, ~5 SOQL, 2 DML
  */
-public class QRNGValidationRunner implements Queueable {
+public with sharing class QRNGValidationRunner implements Queueable {
     private Id jobId;
 
     public QRNGValidationRunner(Id jobId) {

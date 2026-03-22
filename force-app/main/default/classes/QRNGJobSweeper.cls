@@ -8,7 +8,7 @@
  * Governor limits per execution: up to 10 callouts (auth + status per job),
  * batched to stay within the 100-callout limit.
  */
-public class QRNGJobSweeper implements Schedulable {
+public with sharing class QRNGJobSweeper implements Schedulable {
     private static final Integer MAX_JOBS_PER_RUN = 10;
     public static final String JOB_NAME = 'QRNG_Job_Sweeper';
 
@@ -90,7 +90,7 @@ public class QRNGJobSweeper implements Schedulable {
      * Queueable worker that does the actual callouts.
      * Schedulable cannot make callouts directly.
      */
-    public class QRNGJobSweeperWorker implements Queueable, Database.AllowsCallouts {
+    public with sharing class QRNGJobSweeperWorker implements Queueable, Database.AllowsCallouts {
         public void execute(QueueableContext context) {
             List<Quantum_Job__c> pendingJobs = [
                 SELECT

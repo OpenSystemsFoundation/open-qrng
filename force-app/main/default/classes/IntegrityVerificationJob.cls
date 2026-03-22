@@ -9,7 +9,7 @@
  *
  * Governor limits per worker execution: ~5 SOQL, 1-2 DML, 0 callouts
  */
-public class IntegrityVerificationJob implements Schedulable {
+public with sharing class IntegrityVerificationJob implements Schedulable {
     public static final String JOB_NAME = 'QRNG_Integrity_Verification';
     @TestVisible
     private static final Integer BATCH_SIZE = 50;
@@ -65,7 +65,7 @@ public class IntegrityVerificationJob implements Schedulable {
      * cursor-based pagination (WHERE Id > lastProcessedId).
      * Verifies both hash integrity and chain continuity.
      */
-    public class IntegrityVerificationWorker implements Queueable {
+    public with sharing class IntegrityVerificationWorker implements Queueable {
         private Id lastProcessedId;
 
         public IntegrityVerificationWorker(Id lastProcessedId) {
