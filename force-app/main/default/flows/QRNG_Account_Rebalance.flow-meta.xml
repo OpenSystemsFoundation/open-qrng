@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
         <name>Quantum_Rebalance</name>
@@ -77,7 +77,8 @@
             <assignToReference>varRepIds</assignToReference>
             <operator>Add</operator>
             <value>
-                <elementReference>Loop_Rep_Members.UserOrGroupId</elementReference>
+                <elementReference
+                >Loop_Rep_Members.UserOrGroupId</elementReference>
             </value>
         </assignmentItems>
         <connector>
@@ -166,8 +167,10 @@
             <label>Has Records</label>
         </rules>
     </decisions>
-    <description>Admin-driven Screen Flow to reassign Accounts during territory changes using quantum-certified randomization. The admin selects a territory or account filter, chooses target reps, picks Uniform or Weighted assignment, and submits to QuantumFair. Includes Bell Test option for high-stakes rebalances. A Fairness Certificate proves no favoritism.</description>
-    <interviewLabel>QRNG Account Rebalance {!$Flow.CurrentDateTime}</interviewLabel>
+    <description
+    >Admin-driven Screen Flow to reassign Accounts during territory changes using quantum-certified randomization. The admin selects a territory or account filter, chooses target reps, picks Uniform or Weighted assignment, and submits to QuantumFair. Includes Bell Test option for high-stakes rebalances. A Fairness Certificate proves no favoritism.</description>
+    <interviewLabel
+    >QRNG Account Rebalance {!$Flow.CurrentDateTime}</interviewLabel>
     <isTemplate>true</isTemplate>
     <label>QRNG Account Territory Rebalance</label>
     <loops>
@@ -259,7 +262,8 @@
         </connector>
         <fields>
             <name>screenHeader</name>
-            <fieldText>&lt;p&gt;&lt;b&gt;Quantum Account Rebalance&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Reassign accounts across reps using quantum-certified randomization. A Fairness Certificate will be generated to prove the assignment was unbiased.&lt;/p&gt;</fieldText>
+            <fieldText
+            >&lt;p&gt;&lt;b&gt;Quantum Account Rebalance&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Reassign accounts across reps using quantum-certified randomization. A Fairness Certificate will be generated to prove the assignment was unbiased.&lt;/p&gt;</fieldText>
             <fieldType>DisplayText</fieldType>
         </fields>
         <fields>
@@ -279,7 +283,8 @@
             <dataType>String</dataType>
             <fieldText>Weights (comma-separated, e.g. 40,35,25)</fieldText>
             <fieldType>InputField</fieldType>
-            <helpText>Only used if Assignment Type is Weighted. One weight per rep, proportional — they do not need to sum to 100.</helpText>
+            <helpText
+            >Only used if Assignment Type is Weighted. One weight per rep, proportional — they do not need to sum to 100.</helpText>
             <isRequired>false</isRequired>
         </fields>
         <fields>
@@ -298,7 +303,8 @@
             <defaultValue>
                 <booleanValue>true</booleanValue>
             </defaultValue>
-            <fieldText>Enable Bell Test (proves quantum origin via CHSH inequality)</fieldText>
+            <fieldText
+            >Enable Bell Test (proves quantum origin via CHSH inequality)</fieldText>
             <fieldType>InputField</fieldType>
         </fields>
         <showFooter>true</showFooter>
@@ -314,7 +320,8 @@
         <allowPause>false</allowPause>
         <fields>
             <name>confirmationMessage</name>
-            <fieldText>&lt;p&gt;&lt;b&gt;Quantum assignment submitted successfully!&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Job ID: {!varJobId}&lt;/p&gt;&lt;p&gt;The assignment is running on IBM Quantum hardware. You will receive a Platform Event (QRNG_Complete__e) when results are ready.&lt;/p&gt;&lt;p&gt;A Fairness Certificate will be created automatically to prove the assignment was unbiased.&lt;/p&gt;</fieldText>
+            <fieldText
+            >&lt;p&gt;&lt;b&gt;Quantum assignment submitted successfully!&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Job ID: {!varJobId}&lt;/p&gt;&lt;p&gt;The assignment is running on IBM Quantum hardware. You will receive a Platform Event (QRNG_Complete__e) when results are ready.&lt;/p&gt;&lt;p&gt;A Fairness Certificate will be created automatically to prove the assignment was unbiased.&lt;/p&gt;</fieldText>
             <fieldType>DisplayText</fieldType>
         </fields>
         <showFooter>true</showFooter>

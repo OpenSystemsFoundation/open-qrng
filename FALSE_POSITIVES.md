@@ -11,13 +11,13 @@ This document explains expected security scanner findings that are intentional d
 
 ### Affected Classes
 
-| Class | Type | Purpose |
-|-------|------|---------|
-| `QRNGJobPoller` | Queueable | Polls IBM Quantum for job status updates |
-| `QRNGJobPollScheduler` | Schedulable | Schedules next poll iteration |
-| `QRNGJobSweeper` | Schedulable + inner Queueable | Sweeps all pending jobs for missed polls |
+| Class                      | Type                          | Purpose                                             |
+| -------------------------- | ----------------------------- | --------------------------------------------------- |
+| `QRNGJobPoller`            | Queueable                     | Polls IBM Quantum for job status updates            |
+| `QRNGJobPollScheduler`     | Schedulable                   | Schedules next poll iteration                       |
+| `QRNGJobSweeper`           | Schedulable + inner Queueable | Sweeps all pending jobs for missed polls            |
 | `IntegrityVerificationJob` | Schedulable + inner Queueable | Nightly SHA-256 integrity check of all certificates |
-| `QRNGValidationRunner` | Queueable | Runs extended randomness validation tests |
+| `QRNGValidationRunner`     | Queueable                     | Runs extended randomness validation tests           |
 
 ### Why `without sharing` Is Required
 
@@ -43,6 +43,7 @@ These classes are **internal system jobs** that must operate on ALL records rega
 ### Affected Classes
 
 Same classes as Section 1, plus:
+
 - `FairnessCertificateService` — Creates/updates `Fairness_Certificate__c`
 - `QRNGJobProcessor` — Updates `Quantum_Job__c` after result processing
 - `ComplianceEventLogger` — Inserts `Compliance_Event__c` audit records
@@ -53,6 +54,7 @@ Same classes as Section 1, plus:
 These classes perform DML operations on **package-owned custom objects and fields only**. The package defines these objects and controls their schema entirely. CRUD/FLS enforcement would prevent the package from functioning correctly if an admin accidentally removes field permissions from the package's permission sets.
 
 The Salesforce documentation states:
+
 > "Classes that only modify custom fields owned by the submitter and are not entry points may use `without sharing` if the submitter prefers to enforce their own security controls."
 
 ### What Is Protected
@@ -80,6 +82,7 @@ The Salesforce documentation states:
 ### Future Improvement
 
 Migration to External Credentials is documented in the roadmap. This will provide:
+
 - Encryption at rest (Salesforce-managed)
 - Permission Set Mapping for access control
 - No raw key visible in Setup UI
@@ -120,14 +123,14 @@ The package makes HTTP callouts to three IBM Cloud endpoints:
 - All endpoints are **IBM Cloud production services** with A/A+ SSL Labs ratings
 - These endpoints are registered in the package's **Remote Site Settings**
 - **No customer data is sent** — only:
-  - OpenQASM circuit definitions (mathematical gate sequences like `rz(pi/2); sx; measure`)
-  - Job management parameters (shot count, backend name)
-  - API key (only to IAM endpoint, via URL-encoded POST body)
+    - OpenQASM circuit definitions (mathematical gate sequences like `rz(pi/2); sx; measure`)
+    - Job management parameters (shot count, backend name)
+    - API key (only to IAM endpoint, via URL-encoded POST body)
 - **Data returned** is limited to:
-  - IAM bearer tokens (cached, 50-min TTL)
-  - Quantum measurement bitstrings (random 0s and 1s)
-  - Job metadata (status, timing)
-  - Backend catalog (public information)
+    - IAM bearer tokens (cached, 50-min TTL)
+    - Quantum measurement bitstrings (random 0s and 1s)
+    - Job metadata (status, timing)
+    - Backend catalog (public information)
 
 ---
 
@@ -145,11 +148,11 @@ Inner classes in Apex **inherit the sharing model** of their outer class. Since 
 
 ## Summary
 
-| # | Finding | Classification | Rationale |
-|---|---------|---------------|-----------|
-| 1 | `without sharing` on system jobs | False Positive | Package-internal, operates on package-owned objects only |
-| 2 | No CRUD/FLS on system job DML | False Positive | Package-owned objects, not user-facing entry points |
-| 3 | API key in Custom Setting | Known Limitation | Org-level, admin-controlled, migration planned |
-| 4 | System.debug statements | False Positive | No sensitive data logged |
-| 5 | External HTTP callouts | By Design | All HTTPS, no customer data sent, IBM Cloud endpoints |
-| 6 | Inner classes without sharing | False Positive | Inherit outer class sharing model (standard Apex pattern) |
+| #   | Finding                          | Classification   | Rationale                                                 |
+| --- | -------------------------------- | ---------------- | --------------------------------------------------------- |
+| 1   | `without sharing` on system jobs | False Positive   | Package-internal, operates on package-owned objects only  |
+| 2   | No CRUD/FLS on system job DML    | False Positive   | Package-owned objects, not user-facing entry points       |
+| 3   | API key in Custom Setting        | Known Limitation | Org-level, admin-controlled, migration planned            |
+| 4   | System.debug statements          | False Positive   | No sensitive data logged                                  |
+| 5   | External HTTP callouts           | By Design        | All HTTPS, no customer data sent, IBM Cloud endpoints     |
+| 6   | Inner classes without sharing    | False Positive   | Inherit outer class sharing model (standard Apex pattern) |

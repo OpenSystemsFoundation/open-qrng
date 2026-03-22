@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
         <name>Quantum_Select_Deals</name>
@@ -81,8 +81,10 @@
             <label>Has Deals</label>
         </rules>
     </decisions>
-    <description>Select a random subset of open Opportunities for pipeline review using quantum-certified randomization. Runs on a weekly schedule, queries eligible deals above a configurable amount threshold, and uses QuantumFair Subset assignment to select a fair, unbiased sample. A Fairness Certificate proves no cherry-picking occurred.</description>
-    <interviewLabel>QRNG Opportunity Review {!$Flow.CurrentDateTime}</interviewLabel>
+    <description
+    >Select a random subset of open Opportunities for pipeline review using quantum-certified randomization. Runs on a weekly schedule, queries eligible deals above a configurable amount threshold, and uses QuantumFair Subset assignment to select a fair, unbiased sample. A Fairness Certificate proves no cherry-picking occurred.</description>
+    <interviewLabel
+    >QRNG Opportunity Review {!$Flow.CurrentDateTime}</interviewLabel>
     <isTemplate>true</isTemplate>
     <label>QRNG Opportunity Review Selection</label>
     <loops>

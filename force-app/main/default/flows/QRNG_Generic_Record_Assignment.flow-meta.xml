@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
         <name>Quantum_Assign_Uniform</name>
@@ -172,7 +172,8 @@
     </choices>
     <choices>
         <name>choiceSubset</name>
-        <choiceText>Subset — select a random sample (no assignees needed)</choiceText>
+        <choiceText
+        >Subset — select a random sample (no assignees needed)</choiceText>
         <dataType>String</dataType>
         <value>
             <stringValue>Subset</stringValue>
@@ -218,8 +219,10 @@
             <label>Subset</label>
         </rules>
     </decisions>
-    <description>Generic Screen Flow template for quantum-certified random assignment. Works with ANY object — accepts record IDs and assignee IDs as text input, supports all three assignment modes (Uniform, Weighted, Subset), and includes Bell Test toggle. Copy this template and adapt it: replace the text inputs with Get Records elements for your specific object, or use it as-is for ad-hoc assignments by pasting IDs directly.</description>
-    <interviewLabel>QRNG Generic Assignment {!$Flow.CurrentDateTime}</interviewLabel>
+    <description
+    >Generic Screen Flow template for quantum-certified random assignment. Works with ANY object — accepts record IDs and assignee IDs as text input, supports all three assignment modes (Uniform, Weighted, Subset), and includes Bell Test toggle. Copy this template and adapt it: replace the text inputs with Get Records elements for your specific object, or use it as-is for ad-hoc assignments by pasting IDs directly.</description>
+    <interviewLabel
+    >QRNG Generic Assignment {!$Flow.CurrentDateTime}</interviewLabel>
     <isTemplate>true</isTemplate>
     <label>QRNG Generic Record Assignment</label>
     <processMetadataValues>
@@ -242,7 +245,8 @@
         </connector>
         <fields>
             <name>headerText</name>
-            <fieldText>&lt;p&gt;&lt;b style="font-size: 16px;"&gt;QuantumFair — Generic Record Assignment&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Assign any records to any assignees using quantum-certified randomization. Paste comma-separated IDs below, or replace these text inputs with Get Records elements for your specific object.&lt;/p&gt;</fieldText>
+            <fieldText
+            >&lt;p&gt;&lt;b style="font-size: 16px;"&gt;QuantumFair — Generic Record Assignment&lt;/b&gt;&lt;/p&gt;&lt;p&gt;Assign any records to any assignees using quantum-certified randomization. Paste comma-separated IDs below, or replace these text inputs with Get Records elements for your specific object.&lt;/p&gt;</fieldText>
             <fieldType>DisplayText</fieldType>
         </fields>
         <fields>
@@ -250,7 +254,8 @@
             <dataType>String</dataType>
             <fieldText>Record IDs (comma-separated)</fieldText>
             <fieldType>LargeTextArea</fieldType>
-            <helpText>Paste the 15- or 18-character Salesforce IDs of the records to assign or sample. Example: 001xx000003DGb1,001xx000003DGb2,001xx000003DGb3</helpText>
+            <helpText
+            >Paste the 15- or 18-character Salesforce IDs of the records to assign or sample. Example: 001xx000003DGb1,001xx000003DGb2,001xx000003DGb3</helpText>
             <isRequired>true</isRequired>
         </fields>
         <fields>
@@ -269,9 +274,11 @@
         <fields>
             <name>inputAssigneeIds</name>
             <dataType>String</dataType>
-            <fieldText>Assignee IDs (comma-separated, leave blank for Subset)</fieldText>
+            <fieldText
+            >Assignee IDs (comma-separated, leave blank for Subset)</fieldText>
             <fieldType>LargeTextArea</fieldType>
-            <helpText>User or Queue IDs that will receive assignments. Not needed for Subset mode. Example: 005xx000001Svs1,005xx000001Svs2</helpText>
+            <helpText
+            >User or Queue IDs that will receive assignments. Not needed for Subset mode. Example: 005xx000001Svs1,005xx000001Svs2</helpText>
             <isRequired>false</isRequired>
         </fields>
         <fields>
@@ -279,7 +286,8 @@
             <dataType>String</dataType>
             <fieldText>Weights (comma-separated, Weighted mode only)</fieldText>
             <fieldType>InputField</fieldType>
-            <helpText>One weight per assignee. Proportional — they don't need to sum to 100. Example: 40,35,25</helpText>
+            <helpText
+            >One weight per assignee. Proportional — they don't need to sum to 100. Example: 40,35,25</helpText>
             <isRequired>false</isRequired>
         </fields>
         <fields>
@@ -302,7 +310,8 @@
             </defaultValue>
             <fieldText>Purpose</fieldText>
             <fieldType>InputField</fieldType>
-            <helpText>Description for the Fairness Certificate. Be specific — this is your audit trail.</helpText>
+            <helpText
+            >Description for the Fairness Certificate. Be specific — this is your audit trail.</helpText>
             <isRequired>true</isRequired>
         </fields>
         <fields>
@@ -311,7 +320,8 @@
             <defaultValue>
                 <booleanValue>false</booleanValue>
             </defaultValue>
-            <fieldText>Enable Bell Test (proves quantum origin via CHSH inequality violation)</fieldText>
+            <fieldText
+            >Enable Bell Test (proves quantum origin via CHSH inequality violation)</fieldText>
             <fieldType>InputField</fieldType>
         </fields>
         <showFooter>true</showFooter>
@@ -327,7 +337,8 @@
         <allowPause>false</allowPause>
         <fields>
             <name>resultText</name>
-            <fieldText>&lt;p&gt;&lt;b style="font-size: 16px;"&gt;Quantum Assignment Submitted&lt;/b&gt;&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;&lt;b&gt;Job ID:&lt;/b&gt; {!varJobId}&lt;/p&gt;&lt;p&gt;&lt;b&gt;Status:&lt;/b&gt; Running on IBM Quantum hardware&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;The assignment is processing asynchronously. When complete:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;A &lt;b&gt;QRNG_Complete__e&lt;/b&gt; Platform Event will fire&lt;/li&gt;&lt;li&gt;The &lt;b&gt;Quantum Job&lt;/b&gt; record will update to Completed&lt;/li&gt;&lt;li&gt;A &lt;b&gt;Fairness Certificate&lt;/b&gt; will be generated with cryptographic proof&lt;/li&gt;&lt;li&gt;Individual &lt;b&gt;QRNG Assignment&lt;/b&gt; records will link each record to its assignee&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;&lt;i&gt;To auto-apply assignments, create a Platform Event-Triggered Flow on QRNG_Complete__e that updates record owners based on QRNG_Assignment__c records.&lt;/i&gt;&lt;/p&gt;</fieldText>
+            <fieldText
+            >&lt;p&gt;&lt;b style="font-size: 16px;"&gt;Quantum Assignment Submitted&lt;/b&gt;&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;&lt;b&gt;Job ID:&lt;/b&gt; {!varJobId}&lt;/p&gt;&lt;p&gt;&lt;b&gt;Status:&lt;/b&gt; Running on IBM Quantum hardware&lt;/p&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;The assignment is processing asynchronously. When complete:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;A &lt;b&gt;QRNG_Complete__e&lt;/b&gt; Platform Event will fire&lt;/li&gt;&lt;li&gt;The &lt;b&gt;Quantum Job&lt;/b&gt; record will update to Completed&lt;/li&gt;&lt;li&gt;A &lt;b&gt;Fairness Certificate&lt;/b&gt; will be generated with cryptographic proof&lt;/li&gt;&lt;li&gt;Individual &lt;b&gt;QRNG Assignment&lt;/b&gt; records will link each record to its assignee&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;br&gt;&lt;/p&gt;&lt;p&gt;&lt;i&gt;To auto-apply assignments, create a Platform Event-Triggered Flow on QRNG_Complete__e that updates record owners based on QRNG_Assignment__c records.&lt;/i&gt;&lt;/p&gt;</fieldText>
             <fieldType>DisplayText</fieldType>
         </fields>
         <showFooter>true</showFooter>

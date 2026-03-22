@@ -10,6 +10,10 @@
         "test:unit:watch": "sfdx-lwc-jest --watch",
         "test:unit:debug": "sfdx-lwc-jest --debug",
         "test:unit:coverage": "sfdx-lwc-jest --coverage",
+        "test:e2e": "npx playwright test",
+        "test:e2e:headed": "npx playwright test --headed",
+        "test:e2e:debug": "npx playwright test --debug",
+        "test:e2e:report": "npx playwright show-report",
         "prettier": "prettier --write \"**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}\"",
         "prettier:verify": "prettier --check \"**/*.{cls,cmp,component,css,html,js,json,md,page,trigger,xml,yaml,yml}\"",
         "scratch:login": "node scripts/playwright/scratch-org-login.mjs",
@@ -17,6 +21,7 @@
         "precommit": "lint-staged"
     },
     "devDependencies": {
+        "@playwright/test": "^1.49.0",
         "@lwc/eslint-plugin-lwc": "^3.1.0",
         "@prettier/plugin-xml": "^3.4.1",
         "@salesforce/eslint-config-lwc": "^4.0.0",
