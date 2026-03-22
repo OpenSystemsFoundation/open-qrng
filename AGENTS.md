@@ -209,17 +209,78 @@ sf apex run test --code-coverage --result-format human --wait 10
 
 ## Scratch Org & App Navigation
 
-The current scratch org alias is `opendev`. To open the QuantumFair app in the browser:
+The current scratch org alias is `qrng-dev`. To open the QuantumFair app in the browser:
 
 ```bash
 # Get the front door login URL
-sf org open -o opendev --url-only
+SFDX_DISABLE_DNS_CHECK=true sf org open -o qrng-dev --url-only
 
 # QuantumFair app tab URL (append to scratch org lightning domain)
 # https://<scratch-org-domain>.scratch.lightning.force.com/lightning/n/OpenSF__QuantumFair
 ```
 
 The QuantumFair tab uses the `OpenSF__` namespace prefix. Always use `/lightning/n/OpenSF__QuantumFair` to navigate to the main app page.
+
+---
+
+## Environment Setup (Claude Code Web)
+
+### SessionStart Hook
+
+The project includes a SessionStart hook (`scripts/session-start.sh`) that automatically:
+
+1. Installs Salesforce CLI (`sf`)
+2. Installs GitHub CLI (`gh`)
+3. Installs Playwright + Chromium (headless browser)
+4. Sets `SFDX_DISABLE_DNS_CHECK=true` (required in sandboxed environments where DNS is restricted)
+5. Authenticates the Dev Hub via `SFDX_AUTH_URL` environment variable
+6. Runs `npm install`
+
+### Required Environment Variables
+
+| Variable                 | Purpose                                    | Required |
+| ------------------------ | ------------------------------------------ | -------- |
+| `SFDX_AUTH_URL`          | SFDX auth URL (`force://...`) for Dev Hub  | Yes      |
+| `SFDX_DISABLE_DNS_CHECK` | Skip DNS validation in sandboxed envs     | Auto-set |
+
+### Headless Scratch Org Login (Playwright)
+
+Use Playwright to headlessly log into scratch orgs and interact with the Salesforce UI:
+
+```bash
+# Full setup: authenticate, create scratch org, login, deploy, assign permsets
+node scripts/playwright/scratch-org-login.mjs
+
+# Reuse existing scratch org
+node scripts/playwright/scratch-org-login.mjs --skip-create --alias qrng-dev
+
+# Skip deploy (just auth + login)
+node scripts/playwright/scratch-org-login.mjs --skip-create --skip-deploy
+```
+
+### Playwright Version Pinning
+
+The project pins `playwright@1.56.1` in `package.json` to match the Chromium binary installed by the SessionStart hook. If the global Playwright version changes, update the local pin to match:
+
+```bash
+# Check installed global version
+cat /opt/node22/lib/node_modules/playwright/package.json | grep version
+
+# Pin local to match
+npm install --save-dev playwright@<version>
+```
+
+### Headless UI Debugging
+
+Playwright enables UI debugging without a visible browser:
+
+- **Screenshots:** `page.screenshot()` — capture visual state
+- **DOM inspection:** `page.content()` — get full HTML
+- **JS evaluation:** `page.evaluate(() => ...)` — run code in page context
+- **Accessibility tree:** `page.accessibility.snapshot()` — structured page description
+- **Console capture:** `page.on('console', msg => ...)` — see JS console output
+- **Network interception:** `page.route()` — mock or inspect API calls
+- **Element text:** `page.locator('.selector').textContent()` — read specific values
 
 ---
 

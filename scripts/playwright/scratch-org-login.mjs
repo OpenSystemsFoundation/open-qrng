@@ -3,13 +3,13 @@
  * Headless Salesforce scratch org login via Playwright.
  *
  * Flow:
- *   1. Authenticate the SF CLI to a Dev Hub (if not already authenticated)
+ *   1. Authenticate the SF CLI to a Dev Hub (SFDX_AUTH_URL, JWT, or OAuth)
  *   2. Create a scratch org
- *   3. Generate a login URL for the scratch org
+ *   3. Generate a front-door login URL for the scratch org
  *   4. Open the scratch org in a headless browser and capture the session
  *
  * Usage:
- *   # Interactive Dev Hub login (opens browser for OAuth):
+ *   # Auto-detect from SFDX_AUTH_URL env var (Claude Code web default):
  *   node scripts/playwright/scratch-org-login.mjs
  *
  *   # With existing Dev Hub alias:
@@ -24,10 +24,12 @@
  *     --jwt-key-file /path/to/server.key \
  *     --devhub-username admin@devhub.org
  *
- * Environment variables (alternative to flags):
- *   SF_DEVHUB_USERNAME  — Dev Hub username for JWT auth
- *   SF_CLIENT_ID        — Connected App consumer key
- *   SF_JWT_KEY_FILE     — Path to JWT private key
+ * Environment variables:
+ *   SFDX_AUTH_URL           — SFDX auth URL (force://...) — preferred method
+ *   SFDX_DISABLE_DNS_CHECK  — Set to "true" to skip DNS validation (required in sandboxed envs)
+ *   SF_DEVHUB_USERNAME      — Dev Hub username for JWT auth
+ *   SF_CLIENT_ID            — Connected App consumer key
+ *   SF_JWT_KEY_FILE         — Path to JWT private key
  */
 
 import { chromium } from "playwright";
@@ -35,6 +37,11 @@ import { execSync, spawn } from "node:child_process";
 import { parseArgs } from "node:util";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+
+// ---------------------------------------------------------------------------
+// Always disable DNS check in sandboxed environments
+// ---------------------------------------------------------------------------
+process.env.SFDX_DISABLE_DNS_CHECK = "true";
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -60,6 +67,7 @@ const { values: args } = parseArgs({
       default: "config/project-scratch-def.json",
     },
     "skip-create": { type: "boolean", default: false },
+    "skip-deploy": { type: "boolean", default: false },
     headless: { type: "boolean", default: true },
     headed: { type: "boolean", default: false },
     help: { type: "boolean", default: false },
@@ -78,8 +86,16 @@ Options:
   --jwt-key-file <path>   Path to JWT private key file
   --scratch-def <path>    Scratch org definition file
   --skip-create           Skip scratch org creation; reuse --alias
+  --skip-deploy           Skip source deploy and permset assignment
   --headed                Show the browser (default: headless)
   --help                  Show this help message
+
+Environment variables:
+  SFDX_AUTH_URL           SFDX auth URL (force://...) — auto-detected
+  SFDX_DISABLE_DNS_CHECK  Set to "true" for sandboxed environments
+  SF_DEVHUB_USERNAME      Dev Hub username for JWT auth
+  SF_CLIENT_ID            Connected App consumer key
+  SF_JWT_KEY_FILE         Path to JWT private key
 `);
   process.exit(0);
 }
@@ -96,6 +112,7 @@ function sf(cmd, opts = {}) {
   return execSync(full, {
     encoding: "utf-8",
     stdio: opts.silent ? "pipe" : ["inherit", "pipe", "pipe"],
+    env: { ...process.env, SFDX_DISABLE_DNS_CHECK: "true" },
     ...opts,
   }).trim();
 }
@@ -118,7 +135,7 @@ function hasOrg(alias) {
 // Step 1 — Authenticate Dev Hub
 // ---------------------------------------------------------------------------
 async function authenticateDevHub() {
-  console.log("\n🔑 Step 1: Authenticating Dev Hub...\n");
+  console.log("\n--- Step 1: Authenticating Dev Hub ---\n");
 
   // If a Dev Hub alias was provided and it's already authenticated, use it
   if (args.devhub) {
@@ -127,8 +144,28 @@ async function authenticateDevHub() {
       console.log(`  Dev Hub "${args.devhub}" is already authenticated.`);
       return args.devhub;
     } catch {
-      console.log(`  Dev Hub "${args.devhub}" not found, will authenticate...`);
+      console.log(
+        `  Dev Hub "${args.devhub}" not found, will authenticate...`
+      );
     }
+  }
+
+  // SFDX Auth URL flow (preferred — works in Claude Code web and CI)
+  const sfdxAuthUrl = process.env.SFDX_AUTH_URL;
+  if (sfdxAuthUrl) {
+    console.log("  Found SFDX_AUTH_URL in environment, authenticating...");
+    execSync(
+      `echo "${sfdxAuthUrl}" | sf org login sfdx-url --sfdx-url-stdin --set-default --set-default-dev-hub --alias DevHub`,
+      {
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+        env: { ...process.env, SFDX_DISABLE_DNS_CHECK: "true" },
+      }
+    );
+    const result = sfJson("org display -o DevHub");
+    console.log(`  Authenticated as: ${result.result.username}`);
+    console.log(`  Org ID: ${result.result.id}`);
+    return "DevHub";
   }
 
   // JWT flow (fully headless, ideal for CI)
@@ -148,13 +185,12 @@ async function authenticateDevHub() {
     return "DevHub";
   }
 
-  // Playwright-assisted OAuth login (headless browser automation)
+  // Playwright-assisted OAuth login (interactive fallback)
   console.log("  Using Playwright to automate Dev Hub OAuth login...");
   console.log(
     "  NOTE: You will need to provide credentials interactively.\n"
   );
 
-  // Start the SF CLI login flow and capture the auth URL
   const authUrl = await new Promise((resolveUrl, reject) => {
     const child = spawn("sf", ["org", "login", "web", "--json"], {
       stdio: ["pipe", "pipe", "pipe"],
@@ -167,7 +203,6 @@ async function authenticateDevHub() {
     });
     child.stderr.on("data", (data) => {
       stderr += data.toString();
-      // SF CLI prints the login URL to stderr
       const match = stderr.match(
         /(https:\/\/login\.salesforce\.com\/[^\s]+)/
       );
@@ -182,24 +217,22 @@ async function authenticateDevHub() {
       }
     });
 
-    // Timeout after 30s if we don't get a URL
-    setTimeout(() => reject(new Error("Timed out waiting for login URL")), 30000);
+    setTimeout(
+      () => reject(new Error("Timed out waiting for login URL")),
+      30000
+    );
   });
 
   console.log(`  Auth URL obtained: ${authUrl.slice(0, 60)}...`);
 
-  // Use Playwright to navigate and complete OAuth
   const browser = await chromium.launch({ headless: HEADLESS });
   const context = await browser.newContext();
   const page = await context.newPage();
 
   try {
     await page.goto(authUrl, { waitUntil: "networkidle" });
-
-    // Wait for the Salesforce login form
     await page.waitForSelector("#username", { timeout: 15000 });
 
-    // Prompt for credentials via stdin
     const username = await promptInput("  Dev Hub username: ");
     const password = await promptInput("  Dev Hub password: ");
 
@@ -207,17 +240,15 @@ async function authenticateDevHub() {
     await page.fill("#password", password);
     await page.click("#Login");
 
-    // Handle possible MFA / approval screens
     try {
-      // Wait for either the OAuth approval page or the redirect
       await page.waitForURL(
         (url) =>
-          url.pathname.includes("/setup/secur/RemoteAccessAuthorizationPage") ||
-          url.href.includes("localhost"),
+          url.pathname.includes(
+            "/setup/secur/RemoteAccessAuthorizationPage"
+          ) || url.href.includes("localhost"),
         { timeout: 30000 }
       );
 
-      // If it's the approval page, click Allow
       if (
         page
           .url()
@@ -227,10 +258,9 @@ async function authenticateDevHub() {
         await page.click("#oaapprove");
       }
     } catch {
-      // May have redirected directly — that's fine
+      // May have redirected directly
     }
 
-    // Wait for the CLI to pick up the callback
     await page.waitForURL((url) => url.href.includes("localhost"), {
       timeout: 30000,
     });
@@ -240,7 +270,6 @@ async function authenticateDevHub() {
     await browser.close();
   }
 
-  // Set as default Dev Hub
   try {
     sf("config set target-dev-hub=DevHub", { silent: true });
   } catch {
@@ -254,13 +283,11 @@ async function authenticateDevHub() {
 // Step 2 — Create Scratch Org
 // ---------------------------------------------------------------------------
 function createScratchOrg(devhubAlias) {
-  console.log("\n📦 Step 2: Creating scratch org...\n");
+  console.log("\n--- Step 2: Creating scratch org ---\n");
 
   if (args["skip-create"]) {
     if (hasOrg(SCRATCH_ALIAS)) {
-      console.log(
-        `  Reusing existing scratch org "${SCRATCH_ALIAS}".`
-      );
+      console.log(`  Reusing existing scratch org "${SCRATCH_ALIAS}".`);
       return;
     }
     console.log(
@@ -288,9 +315,8 @@ function createScratchOrg(devhubAlias) {
 // Step 3 — Headless Login to Scratch Org
 // ---------------------------------------------------------------------------
 async function loginToScratchOrg() {
-  console.log("\n🌐 Step 3: Logging in to scratch org via Playwright...\n");
+  console.log("\n--- Step 3: Logging in to scratch org via Playwright ---\n");
 
-  // Get the front-door login URL
   const result = sfJson(`org open -o ${SCRATCH_ALIAS} --url-only`);
   const loginUrl = result.result.url;
   console.log(`  Front-door URL: ${loginUrl.slice(0, 80)}...`);
@@ -299,19 +325,30 @@ async function loginToScratchOrg() {
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  try {
-    // Navigate to the front-door URL (auto-authenticates)
-    await page.goto(loginUrl, { waitUntil: "networkidle" });
+  // Capture console messages from the page
+  page.on("console", (msg) => {
+    if (msg.type() === "error") {
+      console.log(`  [page console.error] ${msg.text()}`);
+    }
+  });
 
-    // Verify we landed on a Salesforce page
-    await page.waitForSelector(
-      'body[class*="sfdcBody"], div.slds-global-header, #oneHeader',
-      { timeout: 30000 }
-    );
+  try {
+    await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
+
+    // Wait for Salesforce to process the front-door redirect
+    try {
+      await page.waitForURL(
+        (url) => !url.href.includes("frontdoor.jsp"),
+        { timeout: 30000 }
+      );
+    } catch {
+      // May still be on frontdoor if redirect is slow
+    }
 
     const currentUrl = page.url();
-    console.log(`  Logged in successfully.`);
+    const title = await page.title();
     console.log(`  Current URL: ${currentUrl}`);
+    console.log(`  Page title: ${title}`);
 
     // Extract session info from cookies
     const cookies = await context.cookies();
@@ -321,13 +358,27 @@ async function loginToScratchOrg() {
       console.log(`  Session ID captured (sid cookie present).`);
     }
 
-    // Take a screenshot as proof
+    // Take a screenshot
     const screenshotPath = resolve("scripts/playwright/login-screenshot.png");
-    await page.screenshot({ path: screenshotPath, fullPage: true });
-    console.log(`  Screenshot saved: ${screenshotPath}`);
+    try {
+      await page.screenshot({ path: screenshotPath, timeout: 10000 });
+      console.log(`  Screenshot saved: ${screenshotPath}`);
+    } catch {
+      console.log("  Screenshot skipped (font/resource loading timeout).");
+    }
+
+    // Get an accessibility snapshot for headless debugging
+    const a11y = await page.accessibility.snapshot();
+    if (a11y) {
+      console.log(`  Page root role: ${a11y.role}, name: "${a11y.name || ""}"`);
+      if (a11y.children) {
+        console.log(`  Top-level elements: ${a11y.children.length}`);
+      }
+    }
 
     return {
       url: currentUrl,
+      title,
       cookies,
       sessionId: sidCookie?.value,
     };
@@ -340,13 +391,16 @@ async function loginToScratchOrg() {
 // Step 4 — Deploy and Configure
 // ---------------------------------------------------------------------------
 function deployAndConfigure() {
-  console.log("\n🚀 Step 4: Deploying source and assigning permissions...\n");
+  console.log("\n--- Step 4: Deploying source and assigning permissions ---\n");
 
   try {
     sf(`project deploy start -o ${SCRATCH_ALIAS}`);
     console.log("  Source deployed.");
   } catch (e) {
-    console.warn("  Deploy failed (may be OK if nothing to deploy):", e.message);
+    console.warn(
+      "  Deploy failed (may be OK if nothing to deploy):",
+      e.message?.split("\n")[0]
+    );
   }
 
   try {
@@ -354,7 +408,10 @@ function deployAndConfigure() {
     sf(`org assign permset -n QuantumFair_User -o ${SCRATCH_ALIAS}`);
     console.log("  Permission sets assigned.");
   } catch (e) {
-    console.warn("  Permission set assignment failed:", e.message);
+    console.warn(
+      "  Permission set assignment failed:",
+      e.message?.split("\n")[0]
+    );
   }
 }
 
@@ -377,24 +434,28 @@ function promptInput(question) {
 // Main
 // ---------------------------------------------------------------------------
 async function main() {
-  console.log("╔══════════════════════════════════════════════════════╗");
-  console.log("║  QuantumFair — Scratch Org Setup (Playwright)       ║");
-  console.log("╚══════════════════════════════════════════════════════╝");
+  console.log("============================================");
+  console.log("  QuantumFair — Scratch Org Setup (Playwright)");
+  console.log("============================================");
 
   try {
     const devhub = await authenticateDevHub();
     createScratchOrg(devhub);
     const session = await loginToScratchOrg();
-    deployAndConfigure();
 
-    console.log("\n✅ Done! Scratch org is ready.\n");
+    if (!args["skip-deploy"]) {
+      deployAndConfigure();
+    }
+
+    console.log("\nDone! Scratch org is ready.\n");
     console.log(`  Alias:      ${SCRATCH_ALIAS}`);
     console.log(`  Org URL:    ${session.url}`);
+    console.log(`  Title:      ${session.title}`);
     console.log(`  Session:    ${session.sessionId ? "Active" : "N/A"}`);
     console.log(`\n  Open in browser:  sf org open -o ${SCRATCH_ALIAS}`);
     console.log("");
   } catch (err) {
-    console.error(`\n❌ Error: ${err.message}\n`);
+    console.error(`\nError: ${err.message}\n`);
     process.exit(1);
   }
 }

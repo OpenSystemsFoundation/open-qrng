@@ -4,14 +4,17 @@ Headless Salesforce scratch org creation and login using Playwright.
 
 ## Prerequisites
 
+The SessionStart hook (`scripts/session-start.sh`) handles all setup automatically.
+For manual setup:
+
 ```bash
 npm install
-npx playwright install chromium
+npx playwright install --with-deps chromium
 ```
 
 ## Usage
 
-### Interactive (Dev Hub OAuth via browser automation)
+### Auto-detect from SFDX_AUTH_URL (default in Claude Code web)
 
 ```bash
 node scripts/playwright/scratch-org-login.mjs
@@ -23,7 +26,7 @@ node scripts/playwright/scratch-org-login.mjs
 node scripts/playwright/scratch-org-login.mjs --devhub MyDevHub
 ```
 
-### Fully headless (JWT — ideal for CI)
+### Fully headless JWT (CI)
 
 ```bash
 node scripts/playwright/scratch-org-login.mjs \
@@ -46,7 +49,7 @@ node scripts/playwright/scratch-org-login.mjs --headed
 
 ## What it does
 
-1. **Authenticates Dev Hub** — via JWT (headless) or Playwright-assisted OAuth
+1. **Authenticates Dev Hub** — via `SFDX_AUTH_URL` (preferred), JWT, or Playwright-assisted OAuth
 2. **Creates scratch org** — using `config/project-scratch-def.json`
 3. **Logs in headlessly** — uses `sf org open --url-only` to get a front-door URL, then Playwright navigates to it and captures the session
 4. **Deploys source** — runs `sf project deploy start`
@@ -54,13 +57,16 @@ node scripts/playwright/scratch-org-login.mjs --headed
 
 ## Environment Variables
 
-| Variable             | Description                     |
-| -------------------- | ------------------------------- |
-| `SF_DEVHUB_USERNAME` | Dev Hub username for JWT auth   |
-| `SF_CLIENT_ID`       | Connected App consumer key      |
-| `SF_JWT_KEY_FILE`    | Path to JWT private key file    |
+| Variable                 | Description                                        |
+| ------------------------ | -------------------------------------------------- |
+| `SFDX_AUTH_URL`          | SFDX auth URL (`force://...`) — preferred method   |
+| `SFDX_DISABLE_DNS_CHECK` | Set to `true` for sandboxed environments (auto-set)|
+| `SF_DEVHUB_USERNAME`     | Dev Hub username for JWT auth                      |
+| `SF_CLIENT_ID`           | Connected App consumer key                         |
+| `SF_JWT_KEY_FILE`        | Path to JWT private key file                       |
 
 ## Output
 
 - Login screenshot saved to `scripts/playwright/login-screenshot.png`
 - Session cookies captured for downstream automation
+- Accessibility snapshot printed for headless debugging
