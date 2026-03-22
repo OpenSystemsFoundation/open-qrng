@@ -1,0 +1,26 @@
+{
+    "hooks": {
+        "SessionStart": [
+            {
+                "matcher": "startup",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/session-setup.sh",
+                        "statusMessage": "Setting up QuantumFair development environment..."
+                    }
+                ]
+            },
+            {
+                "matcher": "resume",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/session-setup.sh",
+                        "statusMessage": "Resuming QuantumFair session..."
+                    }
+                ]
+            }
+        ]
+    }
+}

@@ -623,7 +623,9 @@ describe('c-qrng-request-form', () => {
         await flushPromises();
 
         // The component should not crash
-        expect(element.shadowRoot.querySelector('lightning-combobox')).not.toBeNull();
+        expect(
+            element.shadowRoot.querySelector('lightning-combobox')
+        ).not.toBeNull();
     });
 
     it('handles purpose with special characters', async () => {
@@ -657,7 +659,9 @@ describe('c-qrng-request-form', () => {
         await flushPromises();
 
         // Component should still render
-        expect(element.shadowRoot.querySelector('lightning-combobox')).not.toBeNull();
+        expect(
+            element.shadowRoot.querySelector('lightning-combobox')
+        ).not.toBeNull();
     });
 
     it('handles Bell test toggle with odd qubits', async () => {
