@@ -112,12 +112,13 @@ private class QRNGValidatorExtended_Test {
 
     @IsTest
     static void testRunsTestAlternating() {
-        // Alternating bits have max runs — should pass
+        // Alternating bits have max runs (499 for n=500) — z-score ≈22,
+        // far exceeding threshold of 2.0, so this correctly fails as non-random
         String bits = '';
         for (Integer i = 0; i < 500; i++) {
             bits += Math.mod(i, 2) == 0 ? '0' : '1';
         }
-        System.assertEquals(true, QRNGValidator.runsTest(bits));
+        System.assertEquals(false, QRNGValidator.runsTest(bits));
     }
 
     @IsTest
