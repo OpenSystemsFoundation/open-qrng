@@ -4,6 +4,10 @@ on:
     pull_request:
         branches: [master]
 
+permissions:
+    contents: read
+    pull-requests: write
+
 jobs:
     code-analyzer:
         name: Salesforce Code Analyzer
@@ -19,12 +23,14 @@ jobs:
               run: sf plugins install @salesforce/plugin-code-analyzer
 
             - name: Run Code Analyzer
+              id: scan
               run: |
                   mkdir -p scan-results
                   sf code-analyzer run \
                     --workspace "force-app" \
                     --output-file scan-results/code-analyzer-results.json \
-                    --severity-threshold 2 || true
+                    --severity-threshold 2 2>&1 | tee scan-output.txt
+              continue-on-error: true
 
             - name: Upload Code Analyzer Report
               uses: actions/upload-artifact@v4
@@ -51,4 +57,59 @@ jobs:
               run: npm ci
 
             - name: Audit npm dependencies
-              run: npm audit --omit=dev || true
+              id: audit
+              run: npm audit --omit=dev 2>&1 | tee audit-output.txt
+              continue-on-error: true
+
+            - name: Build comment
+              if: always()
+              run: |
+                  AUDIT_OUTCOME="${{ steps.audit.outcome }}"
+                  if [ "$AUDIT_OUTCOME" = "success" ]; then
+                    ICON="✅"
+                  else
+                    ICON="⚠️"
+                  fi
+
+                  cat > security-comment.md << MDEOF
+                  ## ${ICON} Security Scan Results
+
+                  ### npm Audit
+                  \`\`\`
+                  $(tail -20 audit-output.txt 2>/dev/null || echo "No output")
+                  \`\`\`
+
+                  ---
+                  *Security Scan • $(date -u +%Y-%m-%dT%H:%M:%SZ)*
+                  MDEOF
+
+            - name: Comment on PR
+              if: always() && github.event_name == 'pull_request'
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const fs = require('fs');
+                      const body = fs.readFileSync('security-comment.md', 'utf8');
+                      const { data: comments } = await github.rest.issues.listComments({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        issue_number: context.issue.number
+                      });
+                      const existing = comments.find(c =>
+                        c.user.type === 'Bot' && c.body.includes('Security Scan Results')
+                      );
+                      if (existing) {
+                        await github.rest.issues.updateComment({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          comment_id: existing.id,
+                          body
+                        });
+                      } else {
+                        await github.rest.issues.createComment({
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          issue_number: context.issue.number,
+                          body
+                        });
+                      }
