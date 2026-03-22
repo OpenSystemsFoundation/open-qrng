@@ -104,6 +104,42 @@ const HEADLESS = args.headed ? false : args.headless;
 const SCRATCH_ALIAS = args.alias;
 
 // ---------------------------------------------------------------------------
+// Proxy detection (required for Claude Code web egress proxy)
+// ---------------------------------------------------------------------------
+function getProxyConfig() {
+  const raw = process.env.HTTPS_PROXY || process.env.https_proxy;
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    return {
+      server: `${u.protocol}//${u.hostname}:${u.port}`,
+      username: decodeURIComponent(u.username),
+      password: decodeURIComponent(u.password),
+    };
+  } catch {
+    return null;
+  }
+}
+
+const PROXY_CONFIG = getProxyConfig();
+
+function launchOptions() {
+  return {
+    headless: HEADLESS,
+    ...(PROXY_CONFIG ? { proxy: PROXY_CONFIG } : {}),
+    // Egress proxy does TLS interception — must ignore cert errors
+    ...(PROXY_CONFIG ? { args: ["--ignore-certificate-errors"] } : {}),
+  };
+}
+
+function contextOptions() {
+  return {
+    // Accept proxy's re-signed certificates
+    ...(PROXY_CONFIG ? { ignoreHTTPSErrors: true } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function sf(cmd, opts = {}) {
@@ -225,8 +261,8 @@ async function authenticateDevHub() {
 
   console.log(`  Auth URL obtained: ${authUrl.slice(0, 60)}...`);
 
-  const browser = await chromium.launch({ headless: HEADLESS });
-  const context = await browser.newContext();
+  const browser = await chromium.launch(launchOptions());
+  const context = await browser.newContext(contextOptions());
   const page = await context.newPage();
 
   try {
@@ -321,8 +357,8 @@ async function loginToScratchOrg() {
   const loginUrl = result.result.url;
   console.log(`  Front-door URL: ${loginUrl.slice(0, 80)}...`);
 
-  const browser = await chromium.launch({ headless: HEADLESS });
-  const context = await browser.newContext();
+  const browser = await chromium.launch(launchOptions());
+  const context = await browser.newContext(contextOptions());
   const page = await context.newPage();
 
   // Capture console messages from the page
