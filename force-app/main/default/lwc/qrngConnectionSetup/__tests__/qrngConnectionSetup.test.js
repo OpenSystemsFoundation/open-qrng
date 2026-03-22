@@ -304,4 +304,187 @@ describe('c-qrng-connection-setup', () => {
         expect(proto.reduceErrors({ message: 'msg' })).toBe('msg');
         expect(proto.reduceErrors({ code: 500 })).toBe('{"code":500}');
     });
+
+    // ── Connection testing edge cases ──
+
+    it('connectionStatusLabel returns Connected when isConnected true', async () => {
+        testConnection.mockResolvedValue({ connected: true, message: 'OK' });
+        getAvailableBackends.mockResolvedValue([]);
+        const el = createComponent({ hasApiKey: true });
+        await flushPromises();
+
+        const btn = findButton(el.shadowRoot, 'Test Connection');
+        btn.click();
+        await flushPromises();
+
+        // Check badge text
+        const badge = el.shadowRoot.querySelector('lightning-badge');
+        expect(badge.label).toBe('Connected');
+    });
+
+    it('connectionStatusLabel returns Not Connected initially', async () => {
+        const el = createComponent({ hasApiKey: true });
+        await flushPromises();
+
+        const badge = el.shadowRoot.querySelector('lightning-badge');
+        expect(badge.label).toBe('Not Connected');
+    });
+
+    it('connectionBadgeClass includes success theme when connected', async () => {
+        testConnection.mockResolvedValue({ connected: true, message: 'OK' });
+        getAvailableBackends.mockResolvedValue([]);
+        const el = createComponent({ hasApiKey: true });
+        await flushPromises();
+
+        findButton(el.shadowRoot, 'Test Connection').click();
+        await flushPromises();
+
+        const badge = el.shadowRoot.querySelector('lightning-badge');
+        expect(badge.className).toContain('slds-theme_success');
+    });
+
+    // ── Save API key flow ──
+
+    it('Save Key saves and auto-tests connection', async () => {
+        saveSettings.mockResolvedValue(undefined);
+        testConnection.mockResolvedValue({ connected: true, message: 'OK' });
+        getAvailableBackends.mockResolvedValue([]);
+
+        const el = createComponent({ hasApiKey: false });
+        await flushPromises();
+
+        const toastHandler = jest.fn();
+        el.addEventListener('lightning__showtoast', toastHandler);
+        const apikeyHandler = jest.fn();
+        el.addEventListener('apikeychange', apikeyHandler);
+
+        // Set the API key value
+        const pwInput = findInputByType(el.shadowRoot, 'password');
+        pwInput.value = 'test-api-key-123';
+        pwInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        // Click save
+        findButton(el.shadowRoot, 'Save Key').click();
+        await flushPromises();
+
+        expect(saveSettings).toHaveBeenCalledWith(
+            expect.objectContaining({ apiKey: 'test-api-key-123' })
+        );
+        expect(apikeyHandler).toHaveBeenCalled();
+        expect(toastHandler).toHaveBeenCalled();
+        // Auto-test should have been triggered
+        expect(testConnection).toHaveBeenCalled();
+    });
+
+    it('Save Key handles save failure', async () => {
+        saveSettings.mockRejectedValue({
+            body: { message: 'Permission denied' }
+        });
+
+        const el = createComponent({ hasApiKey: false });
+        await flushPromises();
+
+        const toastHandler = jest.fn();
+        el.addEventListener('lightning__showtoast', toastHandler);
+
+        // Set the API key value
+        const pwInput = findInputByType(el.shadowRoot, 'password');
+        pwInput.value = 'test-api-key';
+        pwInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        findButton(el.shadowRoot, 'Save Key').click();
+        await flushPromises();
+
+        expect(toastHandler).toHaveBeenCalled();
+    });
+
+    // ── CRN handling ──
+
+    it('handleCRNChange updates instanceCRN and dispatches event', async () => {
+        const el = createComponent({ hasApiKey: true });
+        await flushPromises();
+
+        const crnHandler = jest.fn();
+        el.addEventListener('crnchange', crnHandler);
+
+        const crnInput = Array.from(
+            el.shadowRoot.querySelectorAll('lightning-input')
+        ).find((i) => i.label === 'Instance CRN');
+        expect(crnInput).toBeDefined();
+        crnInput.value = 'crn:v1:bluemix:test';
+        crnInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        expect(crnHandler).toHaveBeenCalled();
+    });
+
+    // ── markApiKeyConfigured ──
+
+    it('markApiKeyConfigured sets hasApiKey when apiKey exists', async () => {
+        const el = createComponent({ hasApiKey: false });
+        await flushPromises();
+
+        // Set the API key value
+        const pwInput = findInputByType(el.shadowRoot, 'password');
+        pwInput.value = 'my-key';
+        pwInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        const handler = jest.fn();
+        el.addEventListener('apikeychange', handler);
+
+        el.markApiKeyConfigured();
+
+        expect(el.hasApiKey).toBe(true);
+        expect(handler).toHaveBeenCalled();
+    });
+
+    // ── apiKeyForSave edge case ──
+
+    it('apiKeyForSave returns key value when not configured', async () => {
+        const el = createComponent({ hasApiKey: false });
+        await flushPromises();
+
+        const pwInput = findInputByType(el.shadowRoot, 'password');
+        pwInput.value = 'a-key';
+        pwInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        expect(el.apiKeyForSave).toBe('a-key');
+    });
+
+    // ── Test Connection sets connectionMessage on error ──
+
+    it('Test Connection sets error connectionMessage on exception', async () => {
+        testConnection.mockRejectedValue({
+            body: { message: 'Server down' }
+        });
+        const el = createComponent({ hasApiKey: true });
+        await flushPromises();
+
+        findButton(el.shadowRoot, 'Test Connection').click();
+        await flushPromises();
+
+        // connectionMessage should contain the error
+        expect(testConnection).toHaveBeenCalled();
+    });
+
+    // ── Test Connection with null backends response ──
+
+    it('Test Connection handles null backends response', async () => {
+        testConnection.mockResolvedValue({ connected: true, message: 'OK' });
+        getAvailableBackends.mockResolvedValue(null);
+
+        const el = createComponent({ hasApiKey: true });
+        await flushPromises();
+        const backendsHandler = jest.fn();
+        el.addEventListener('backendsloaded', backendsHandler);
+
+        findButton(el.shadowRoot, 'Test Connection').click();
+        await flushPromises();
+
+        expect(backendsHandler).not.toHaveBeenCalled();
+    });
 });

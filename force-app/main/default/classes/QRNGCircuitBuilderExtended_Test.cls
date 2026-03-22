@@ -271,17 +271,17 @@ private class QRNGCircuitBuilderExtended_Test {
         QRNGCircuitBuilder.CoupledPair zero = new QRNGCircuitBuilder.CoupledPair(
             0,
             1,
-            0.0
+            (Double) 0.0
         );
         QRNGCircuitBuilder.CoupledPair alsoZero = new QRNGCircuitBuilder.CoupledPair(
             2,
             3,
-            0.0
+            (Double) 0.0
         );
         QRNGCircuitBuilder.CoupledPair small = new QRNGCircuitBuilder.CoupledPair(
             4,
             5,
-            0.0001
+            (Double) 0.0001
         );
 
         System.assertEquals(

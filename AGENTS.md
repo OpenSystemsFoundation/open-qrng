@@ -307,9 +307,9 @@ The project includes a SessionStart hook (`scripts/session-start.sh`) that autom
 
 ### Required Environment Variables
 
-| Variable                 | Purpose                                    | Required |
-| ------------------------ | ------------------------------------------ | -------- |
-| `SFDX_AUTH_URL`          | SFDX auth URL (`force://...`) for Dev Hub  | Yes      |
+| Variable                 | Purpose                                   | Required |
+| ------------------------ | ----------------------------------------- | -------- |
+| `SFDX_AUTH_URL`          | SFDX auth URL (`force://...`) for Dev Hub | Yes      |
 | `SFDX_DISABLE_DNS_CHECK` | Skip DNS validation in sandboxed envs     | Auto-set |
 
 ### Headless Scratch Org Login (Playwright)

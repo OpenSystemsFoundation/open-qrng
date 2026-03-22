@@ -6,7 +6,7 @@
  * Salesforce limits Queueable chaining to 5 in Developer Edition.
  * This scheduler runs 1 minute in the future, then enqueues the poller.
  */
-public class QRNGJobPollScheduler implements Schedulable {
+public with sharing class QRNGJobPollScheduler implements Schedulable {
     private Id jobRecordId;
     private String externalJobId;
     private Integer pollCount;

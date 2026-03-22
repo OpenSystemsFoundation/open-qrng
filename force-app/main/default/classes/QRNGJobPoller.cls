@@ -11,7 +11,7 @@
  *
  * Governor limits per execution: 2 callouts (auth + status/results), ~5 SOQL, minimal DML
  */
-public class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
+public with sharing class QRNGJobPoller implements Queueable, Database.AllowsCallouts {
     private Id jobRecordId;
     private String externalJobId;
     private Integer pollCount;
