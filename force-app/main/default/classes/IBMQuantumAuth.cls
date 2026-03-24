@@ -1,6 +1,6 @@
 /**
  * Handles IBM Quantum authentication via IAM token exchange.
- * Reads API key from QRNG_Settings__c custom setting.
+ * Reads API key from Quantum_Settings__c custom setting.
  * Caches bearer token in static variable with 50-minute TTL.
  *
  * Governor limits: 1 callout for token exchange
@@ -29,7 +29,7 @@ public with sharing class IBMQuantumAuth {
 
         String apiKey = getApiKey();
         if (String.isBlank(apiKey)) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'IBM API Key not configured. Please set it in QRNG Settings (Custom Setting).'
             );
         }
@@ -51,7 +51,7 @@ public with sharing class IBMQuantumAuth {
 
     @TestVisible
     private static String getApiKey() {
-        QRNG_Settings__c settings = QRNG_Settings__c.getInstance();
+        Quantum_Settings__c settings = Quantum_Settings__c.getInstance();
         return settings != null ? settings.IBM_API_Key__c : null;
     }
 
@@ -70,7 +70,7 @@ public with sharing class IBMQuantumAuth {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'IBM IAM token exchange failed: ' +
                     res.getStatusCode() +
                     ' ' +
@@ -110,7 +110,7 @@ public with sharing class IBMQuantumAuth {
         HttpResponse res = http.send(req);
 
         if (res.getStatusCode() != 200) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'Failed to discover IBM Quantum instances: ' +
                     res.getStatusCode() +
                     ' ' +

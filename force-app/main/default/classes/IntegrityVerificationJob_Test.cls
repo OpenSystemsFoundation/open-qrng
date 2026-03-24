@@ -72,7 +72,7 @@ private class IntegrityVerificationJob_Test {
 
     @IsTest
     static void testGetCheckHourFromSettings() {
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             Integrity_Check_Hour__c = 5
         );
@@ -338,7 +338,7 @@ private class IntegrityVerificationJob_Test {
     @IsTest
     static void testControllerStartStop() {
         Test.startTest();
-        QRNGSetupController.startIntegrityCheck();
+        SetupController.startIntegrityCheck();
         Test.stopTest();
 
         System.assertEquals(
@@ -347,7 +347,7 @@ private class IntegrityVerificationJob_Test {
             'Should be scheduled after start'
         );
 
-        QRNGSetupController.stopIntegrityCheck();
+        SetupController.stopIntegrityCheck();
         System.assertEquals(
             false,
             IntegrityVerificationJob.isScheduled(),

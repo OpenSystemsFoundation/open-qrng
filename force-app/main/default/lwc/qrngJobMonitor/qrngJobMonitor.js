@@ -1,12 +1,12 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { subscribe, unsubscribe, onError } from 'lightning/empApi';
 import { NavigationMixin } from 'lightning/navigation';
-import getJobStatusDTO from '@salesforce/apex/QRNGSetupController.getJobStatusDTO';
-import getCertificateByJobId from '@salesforce/apex/QRNGSetupController.getCertificateByJobId';
+import getJobStatusDTO from '@salesforce/apex/SetupController.getJobStatusDTO';
+import getCertificateByJobId from '@salesforce/apex/SetupController.getCertificateByJobId';
 import { refreshApex } from '@salesforce/apex';
 
-const COMPLETE_CHANNEL = '/event/OpenSF__QRNG_Complete__e';
-const FAILED_CHANNEL = '/event/OpenSF__QRNG_Failed__e';
+const COMPLETE_CHANNEL = '/event/OpenSF__Quantum_Job_Complete__e';
+const FAILED_CHANNEL = '/event/OpenSF__Quantum_Job_Failed__e';
 const POLL_INTERVAL_MS = 5000;
 
 export default class QrngJobMonitor extends NavigationMixin(LightningElement) {

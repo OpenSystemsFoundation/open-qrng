@@ -1,10 +1,10 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
 import { refreshApex } from '@salesforce/apex';
-import getRecentJobs from '@salesforce/apex/QRNGSetupController.getRecentJobs';
+import getRecentJobs from '@salesforce/apex/SetupController.getRecentJobs';
 import {
-    subscribeToQRNGEvents,
-    unsubscribeFromQRNGEvents
+    subscribeToQuantumEvents,
+    unsubscribeFromQuantumEvents
 } from 'c/qrngEventSubscription';
 
 const STATUS_CONFIG = {
@@ -54,12 +54,12 @@ export default class QrngJobDashboard extends NavigationMixin(
         { label: 'Running', value: 'ACTIVE' },
         { label: 'Completed', value: 'Completed' },
         { label: 'Failed', value: 'Failed' },
-        { label: 'QRNG', value: 'QRNG' },
+        { label: 'Quantum', value: 'Quantum' },
         { label: 'Verification', value: 'CHSH Verification' }
     ];
 
     connectedCallback() {
-        this._eventSub = subscribeToQRNGEvents(
+        this._eventSub = subscribeToQuantumEvents(
             () => {
                 refreshApex(this._wiredResult);
             },
@@ -70,7 +70,7 @@ export default class QrngJobDashboard extends NavigationMixin(
     }
 
     disconnectedCallback() {
-        unsubscribeFromQRNGEvents(this._eventSub);
+        unsubscribeFromQuantumEvents(this._eventSub);
     }
 
     @wire(getRecentJobs)
@@ -91,7 +91,7 @@ export default class QrngJobDashboard extends NavigationMixin(
                     statusIcon: cfg.icon,
                     statusVariant: cfg.variant,
                     statusClass: cfg.class,
-                    jobType: isVerify ? 'Verification' : 'QRNG',
+                    jobType: isVerify ? 'Verification' : 'Quantum',
                     jobTypeRaw: job.jobType,
                     shots: job.shots,
                     qubits: job.numQubits,
@@ -117,7 +117,7 @@ export default class QrngJobDashboard extends NavigationMixin(
         if (this.filter === 'ACTIVE') {
             return this.jobs.filter((j) => j.isActive);
         }
-        if (this.filter === 'QRNG' || this.filter === 'CHSH Verification') {
+        if (this.filter === 'Quantum' || this.filter === 'CHSH Verification') {
             return this.jobs.filter((j) => j.jobTypeRaw === this.filter);
         }
         return this.jobs.filter((j) => j.status === this.filter);

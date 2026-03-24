@@ -35,7 +35,7 @@ public interface QuantumProvider {
     // ── Job lifecycle ───────────────────────────────────────────────
 
     /**
-     * Submit a standard QRNG job.
+     * Submit a standard quantum job.
      * @param openqasm  OpenQASM 3.0 circuit string
      * @param backend   Provider-specific backend name
      * @param shots     Number of measurement shots

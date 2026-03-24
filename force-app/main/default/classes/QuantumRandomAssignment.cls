@@ -94,7 +94,7 @@ public with sharing class QuantumRandomAssignment {
 
             try {
                 // Get settings
-                QRNG_Settings__c settings = QRNG_Settings__c.getInstance();
+                Quantum_Settings__c settings = Quantum_Settings__c.getInstance();
                 String backendName = String.isNotBlank(req.backend)
                     ? req.backend
                     : (settings != null &&
@@ -126,13 +126,13 @@ public with sharing class QuantumRandomAssignment {
                     List<List<Integer>> couplingMap = IBMQuantumService.getCouplingMap(
                         backendName
                     );
-                    qasm = QRNGCircuitBuilder.buildBellTestCircuit(
+                    qasm = CircuitBuilder.buildBellTestCircuit(
                         numQubits / 2,
                         couplingMap,
                         readoutErrors
                     );
                 } else {
-                    qasm = QRNGCircuitBuilder.buildStandardCircuit(
+                    qasm = CircuitBuilder.buildStandardCircuit(
                         numQubits,
                         readoutErrors
                     );

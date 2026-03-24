@@ -171,7 +171,7 @@ Each feature branch follows this cycle, entirely from Claude Code on the web:
 Start multiple Claude Code web sessions to work on different features simultaneously:
 
 ```bash
-claude --remote "Fix the CHSH S-value rounding in QRNGValidator"
+claude --remote "Fix the CHSH S-value rounding in RandomnessValidator"
 claude --remote "Add min-entropy threshold to settings panel"
 claude --remote "Write Apex tests for ComplianceEvidenceExporter edge cases"
 ```

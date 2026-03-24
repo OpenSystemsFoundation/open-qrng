@@ -29,7 +29,7 @@ private class QuantumAssignmentEngine_Test {
         // Need ceil(log2(2)) = 1 bit per record, 3 records = 3 bits minimum
         String randomBits = '01101001110001010110';
 
-        List<QRNG_Assignment__c> assignments = QuantumAssignmentEngine.assignUniform(
+        List<Quantum_Assignment__c> assignments = QuantumAssignmentEngine.assignUniform(
             recordIds,
             assigneeIds,
             randomBits,
@@ -38,7 +38,7 @@ private class QuantumAssignmentEngine_Test {
         );
 
         System.assertEquals(3, assignments.size());
-        for (QRNG_Assignment__c a : assignments) {
+        for (Quantum_Assignment__c a : assignments) {
             System.assertNotEquals(null, a.Assigned_To_ID__c);
             System.assertNotEquals(null, a.Random_Value__c);
         }
@@ -73,7 +73,7 @@ private class QuantumAssignmentEngine_Test {
         // 10 bits per selection, 2 records = 20 bits
         String randomBits = '01101001110001010110100111000101';
 
-        List<QRNG_Assignment__c> assignments = QuantumAssignmentEngine.assignWeighted(
+        List<Quantum_Assignment__c> assignments = QuantumAssignmentEngine.assignWeighted(
             recordIds,
             assigneeIds,
             weights,
@@ -112,7 +112,7 @@ private class QuantumAssignmentEngine_Test {
         // Need ceil(log2(5)) = 3 bits per swap, 4 swaps = 12 bits minimum
         String randomBits = '011010011100010101101001110001010110';
 
-        List<QRNG_Assignment__c> assignments = QuantumAssignmentEngine.selectSubset(
+        List<Quantum_Assignment__c> assignments = QuantumAssignmentEngine.selectSubset(
             recordIds,
             2,
             randomBits,
@@ -134,7 +134,7 @@ private class QuantumAssignmentEngine_Test {
                 null
             );
             System.assert(false, 'Should throw');
-        } catch (QRNGException e) {
+        } catch (QuantumException e) {
             System.assert(
                 e.getMessage().contains('exceeds'),
                 'Should mention size exceeds'

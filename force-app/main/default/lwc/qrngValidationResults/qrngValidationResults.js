@@ -1,7 +1,7 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { refreshApex } from '@salesforce/apex';
-import getValidationResults from '@salesforce/apex/QRNGSetupController.getValidationResults';
-import runValidationTests from '@salesforce/apex/QRNGSetupController.runValidationTests';
+import getValidationResults from '@salesforce/apex/SetupController.getValidationResults';
+import runValidationTests from '@salesforce/apex/SetupController.runValidationTests';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 const CRITICAL_TESTS = [

@@ -1,5 +1,5 @@
 import { LightningElement, api, track } from 'lwc';
-import saveSettings from '@salesforce/apex/QRNGSetupController.saveSettings';
+import saveSettings from '@salesforce/apex/SetupController.saveSettings';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class QrngSettingsPanel extends LightningElement {

@@ -1,10 +1,10 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngRequestForm from 'c/qrngRequestForm';
-import submitQRNGJob from '@salesforce/apex/QRNGSetupController.submitQRNGJob';
+import submitQuantumJob from '@salesforce/apex/SetupController.submitQuantumJob';
 
 // Wire adapter for @wire-decorated property
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getSettings',
+    '@salesforce/apex/SetupController.getSettings',
     () => {
         const {
             createApexTestWireAdapter
@@ -16,7 +16,7 @@ jest.mock(
 
 // Imperative Apex mock
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.submitQRNGJob',
+    '@salesforce/apex/SetupController.submitQuantumJob',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
@@ -103,7 +103,7 @@ describe('c-qrng-request-form', () => {
 
     beforeEach(() => {
         getSettings =
-            require('@salesforce/apex/QRNGSetupController.getSettings').default;
+            require('@salesforce/apex/SetupController.getSettings').default;
     });
 
     afterEach(() => {
@@ -165,7 +165,7 @@ describe('c-qrng-request-form', () => {
     it('dispatches jobsubmitted event on successful submit', async () => {
         const element = createComponent();
 
-        submitQRNGJob.mockResolvedValue('001xx000003DGb1');
+        submitQuantumJob.mockResolvedValue('001xx000003DGb1');
 
         // Set purpose via the component's handler
         const textarea = element.shadowRoot.querySelector('lightning-textarea');
@@ -266,7 +266,7 @@ describe('c-qrng-request-form', () => {
         await flushPromises();
 
         // Submit and check that backend was sent
-        submitQRNGJob.mockResolvedValue('job-001');
+        submitQuantumJob.mockResolvedValue('job-001');
         const buttons = element.shadowRoot.querySelectorAll('lightning-button');
         const submitButton = Array.from(buttons).find(
             (b) => b.variant === 'brand'
@@ -274,7 +274,7 @@ describe('c-qrng-request-form', () => {
         submitButton.click();
         await flushPromises();
 
-        expect(submitQRNGJob).toHaveBeenCalledWith(
+        expect(submitQuantumJob).toHaveBeenCalledWith(
             expect.objectContaining({ backend: 'ibm_brisbane' })
         );
     });
@@ -292,7 +292,7 @@ describe('c-qrng-request-form', () => {
         qubitsInput.dispatchEvent(new CustomEvent('change'));
         await flushPromises();
 
-        submitQRNGJob.mockResolvedValue('job-002');
+        submitQuantumJob.mockResolvedValue('job-002');
         const buttons = element.shadowRoot.querySelectorAll('lightning-button');
         const submitButton = Array.from(buttons).find(
             (b) => b.variant === 'brand'
@@ -300,7 +300,7 @@ describe('c-qrng-request-form', () => {
         submitButton.click();
         await flushPromises();
 
-        expect(submitQRNGJob).toHaveBeenCalledWith(
+        expect(submitQuantumJob).toHaveBeenCalledWith(
             expect.objectContaining({ numQubits: 16 })
         );
     });
@@ -316,7 +316,7 @@ describe('c-qrng-request-form', () => {
         shotsInput.dispatchEvent(new CustomEvent('change'));
         await flushPromises();
 
-        submitQRNGJob.mockResolvedValue('job-003');
+        submitQuantumJob.mockResolvedValue('job-003');
         const buttons = element.shadowRoot.querySelectorAll('lightning-button');
         const submitButton = Array.from(buttons).find(
             (b) => b.variant === 'brand'
@@ -324,7 +324,7 @@ describe('c-qrng-request-form', () => {
         submitButton.click();
         await flushPromises();
 
-        expect(submitQRNGJob).toHaveBeenCalledWith(
+        expect(submitQuantumJob).toHaveBeenCalledWith(
             expect.objectContaining({ shots: 4096 })
         );
     });
@@ -334,7 +334,7 @@ describe('c-qrng-request-form', () => {
         const element = createComponent();
         await flushPromises();
 
-        submitQRNGJob.mockRejectedValue({
+        submitQuantumJob.mockRejectedValue({
             body: { message: 'Submit error' }
         });
 
@@ -359,7 +359,7 @@ describe('c-qrng-request-form', () => {
         const element = createComponent();
         await flushPromises();
 
-        submitQRNGJob.mockRejectedValue(new Error('Network fail'));
+        submitQuantumJob.mockRejectedValue(new Error('Network fail'));
 
         const toastHandler = jest.fn();
         element.addEventListener('lightning__showtoast', toastHandler);
@@ -387,7 +387,7 @@ describe('c-qrng-request-form', () => {
         });
         await flushPromises();
 
-        submitQRNGJob.mockResolvedValue('job-004');
+        submitQuantumJob.mockResolvedValue('job-004');
 
         const handler = jest.fn();
         element.addEventListener('jobsubmitted', handler);
@@ -399,7 +399,7 @@ describe('c-qrng-request-form', () => {
         submitButton.click();
         await flushPromises();
 
-        expect(submitQRNGJob).toHaveBeenCalledWith(
+        expect(submitQuantumJob).toHaveBeenCalledWith(
             expect.objectContaining({ backend: '' })
         );
     });
@@ -502,7 +502,7 @@ describe('c-qrng-request-form', () => {
         await flushPromises();
 
         // Submit and verify qubits were clamped
-        submitQRNGJob.mockResolvedValue('job-clamp');
+        submitQuantumJob.mockResolvedValue('job-clamp');
         const buttons = element.shadowRoot.querySelectorAll('lightning-button');
         const submitButton = Array.from(buttons).find(
             (b) => b.variant === 'brand'
@@ -510,7 +510,7 @@ describe('c-qrng-request-form', () => {
         submitButton.click();
         await flushPromises();
 
-        expect(submitQRNGJob).toHaveBeenCalledWith(
+        expect(submitQuantumJob).toHaveBeenCalledWith(
             expect.objectContaining({ numQubits: 32 })
         );
     });
@@ -601,7 +601,7 @@ describe('c-qrng-request-form', () => {
         await flushPromises();
 
         // Submit should still work (Apex should validate)
-        submitQRNGJob.mockResolvedValue('job-nan');
+        submitQuantumJob.mockResolvedValue('job-nan');
         const buttons = element.shadowRoot.querySelectorAll('lightning-button');
         const submitButton = Array.from(buttons).find(
             (b) => b.variant === 'brand'
@@ -609,7 +609,7 @@ describe('c-qrng-request-form', () => {
         submitButton.click();
         await flushPromises();
 
-        expect(submitQRNGJob).toHaveBeenCalled();
+        expect(submitQuantumJob).toHaveBeenCalled();
     });
 
     it('handles non-numeric shots input gracefully', async () => {
@@ -637,7 +637,7 @@ describe('c-qrng-request-form', () => {
         textarea.dispatchEvent(new CustomEvent('change'));
         await flushPromises();
 
-        submitQRNGJob.mockResolvedValue('job-xss');
+        submitQuantumJob.mockResolvedValue('job-xss');
         const buttons = element.shadowRoot.querySelectorAll('lightning-button');
         const submitButton = Array.from(buttons).find(
             (b) => b.variant === 'brand'
@@ -645,7 +645,7 @@ describe('c-qrng-request-form', () => {
         submitButton.click();
         await flushPromises();
 
-        expect(submitQRNGJob).toHaveBeenCalledWith(
+        expect(submitQuantumJob).toHaveBeenCalledWith(
             expect.objectContaining({
                 purpose: '<script>alert("xss")</script>'
             })

@@ -8,7 +8,7 @@ public with sharing class QuantumAssignmentEngine {
      * Uniform assignment: distribute records evenly across assignees.
      * For each record, consume ceil(log2(assigneeCount)) bits and mod to select.
      */
-    public static List<QRNG_Assignment__c> assignUniform(
+    public static List<Quantum_Assignment__c> assignUniform(
         List<String> recordIds,
         List<String> assigneeIds,
         String randomBits,
@@ -16,27 +16,27 @@ public with sharing class QuantumAssignmentEngine {
         Id certificateId
     ) {
         if (recordIds == null || recordIds.isEmpty()) {
-            throw new QRNGException('No records to assign');
+            throw new QuantumException('No records to assign');
         }
         if (assigneeIds == null || assigneeIds.isEmpty()) {
-            throw new QRNGException('No assignees provided');
+            throw new QuantumException('No assignees provided');
         }
 
         Integer bitsNeeded = ceilLog2(assigneeIds.size());
-        List<QRNG_Assignment__c> assignments = new List<QRNG_Assignment__c>();
+        List<Quantum_Assignment__c> assignments = new List<Quantum_Assignment__c>();
         Integer bitOffset = 0;
 
         for (Integer i = 0; i < recordIds.size(); i++) {
-            String bits = QRNGResultParser.consumeBits(
+            String bits = ResultParser.consumeBits(
                 randomBits,
                 bitOffset,
                 bitsNeeded
             );
-            Integer value = QRNGResultParser.bitsToInteger(bits);
+            Integer value = ResultParser.bitsToInteger(bits);
             Integer assigneeIndex = Math.mod(value, assigneeIds.size());
 
             assignments.add(
-                new QRNG_Assignment__c(
+                new Quantum_Assignment__c(
                     Quantum_Job__c = jobId,
                     Certificate__c = certificateId,
                     Assigned_Record_ID__c = recordIds[i],
@@ -56,7 +56,7 @@ public with sharing class QuantumAssignmentEngine {
      * Weighted assignment: distribute records according to weight proportions.
      * Uses CDF-based selection with quantum random values.
      */
-    public static List<QRNG_Assignment__c> assignWeighted(
+    public static List<Quantum_Assignment__c> assignWeighted(
         List<String> recordIds,
         List<String> assigneeIds,
         List<Double> weights,
@@ -65,7 +65,9 @@ public with sharing class QuantumAssignmentEngine {
         Id certificateId
     ) {
         if (weights == null || weights.size() != assigneeIds.size()) {
-            throw new QRNGException('Weights must match number of assignees');
+            throw new QuantumException(
+                'Weights must match number of assignees'
+            );
         }
 
         // Build CDF
@@ -83,16 +85,16 @@ public with sharing class QuantumAssignmentEngine {
 
         // Use 10 bits for resolution (1024 values)
         Integer bitsPerSelection = 10;
-        List<QRNG_Assignment__c> assignments = new List<QRNG_Assignment__c>();
+        List<Quantum_Assignment__c> assignments = new List<Quantum_Assignment__c>();
         Integer bitOffset = 0;
 
         for (Integer i = 0; i < recordIds.size(); i++) {
-            String bits = QRNGResultParser.consumeBits(
+            String bits = ResultParser.consumeBits(
                 randomBits,
                 bitOffset,
                 bitsPerSelection
             );
-            Integer value = QRNGResultParser.bitsToInteger(bits);
+            Integer value = ResultParser.bitsToInteger(bits);
             Double normalizedValue = (Double) value / 1024.0;
 
             // Find assignee via CDF
@@ -105,7 +107,7 @@ public with sharing class QuantumAssignmentEngine {
             }
 
             assignments.add(
-                new QRNG_Assignment__c(
+                new Quantum_Assignment__c(
                     Quantum_Job__c = jobId,
                     Certificate__c = certificateId,
                     Assigned_Record_ID__c = recordIds[i],
@@ -125,7 +127,7 @@ public with sharing class QuantumAssignmentEngine {
      * Subset selection: Fisher-Yates shuffle using quantum bits, take first K.
      * Used for unbiased audit sampling.
      */
-    public static List<QRNG_Assignment__c> selectSubset(
+    public static List<Quantum_Assignment__c> selectSubset(
         List<String> recordIds,
         Integer sampleSize,
         String randomBits,
@@ -133,7 +135,7 @@ public with sharing class QuantumAssignmentEngine {
         Id certificateId
     ) {
         if (sampleSize > recordIds.size()) {
-            throw new QRNGException(
+            throw new QuantumException(
                 'Sample size (' +
                     sampleSize +
                     ') exceeds population (' +
@@ -148,12 +150,12 @@ public with sharing class QuantumAssignmentEngine {
         Integer bitOffset = 0;
 
         for (Integer i = shuffled.size() - 1; i > 0; i--) {
-            String bits = QRNGResultParser.consumeBits(
+            String bits = ResultParser.consumeBits(
                 randomBits,
                 bitOffset,
                 bitsNeeded
             );
-            Integer j = Math.mod(QRNGResultParser.bitsToInteger(bits), i + 1);
+            Integer j = Math.mod(ResultParser.bitsToInteger(bits), i + 1);
 
             // Swap
             String temp = shuffled[i];
@@ -164,10 +166,10 @@ public with sharing class QuantumAssignmentEngine {
         }
 
         // Take first K
-        List<QRNG_Assignment__c> assignments = new List<QRNG_Assignment__c>();
+        List<Quantum_Assignment__c> assignments = new List<Quantum_Assignment__c>();
         for (Integer i = 0; i < sampleSize; i++) {
             assignments.add(
-                new QRNG_Assignment__c(
+                new Quantum_Assignment__c(
                     Quantum_Job__c = jobId,
                     Certificate__c = certificateId,
                     Assigned_Record_ID__c = shuffled[i],

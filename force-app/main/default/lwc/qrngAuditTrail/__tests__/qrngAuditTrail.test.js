@@ -2,7 +2,7 @@ import { createElement } from '@lwc/engine-dom';
 import QrngAuditTrail from 'c/qrngAuditTrail';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getAuditTrailDTO',
+    '@salesforce/apex/SetupController.getAuditTrailDTO',
     () => {
         const {
             createApexTestWireAdapter
@@ -12,7 +12,7 @@ jest.mock(
     { virtual: true }
 );
 
-import getAuditTrailDTO from '@salesforce/apex/QRNGSetupController.getAuditTrailDTO';
+import getAuditTrailDTO from '@salesforce/apex/SetupController.getAuditTrailDTO';
 
 function flushPromises() {
     return new Promise((resolve) => setTimeout(resolve, 0));

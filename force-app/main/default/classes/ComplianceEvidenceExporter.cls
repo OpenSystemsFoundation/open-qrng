@@ -145,7 +145,7 @@ public with sharing class ComplianceEvidenceExporter {
         }
 
         // 6. Entropy source profiles
-        List<QRNG_Backend__c> backends = [
+        List<Quantum_Backend__c> backends = [
             SELECT
                 Name,
                 Noise_Source_Type__c,
@@ -156,12 +156,12 @@ public with sharing class ComplianceEvidenceExporter {
                 CHSH_S_Value__c,
                 CHSH_Verified_At__c,
                 Quantum_Verified__c
-            FROM QRNG_Backend__c
+            FROM Quantum_Backend__c
             WHERE Quantum_Verified__c = TRUE
             ORDER BY Name
         ];
         List<Map<String, Object>> entropyProfiles = new List<Map<String, Object>>();
-        for (QRNG_Backend__c be : backends) {
+        for (Quantum_Backend__c be : backends) {
             entropyProfiles.add(
                 new Map<String, Object>{
                     'backend' => be.Name,

@@ -1,9 +1,9 @@
 import { LightningElement, wire, track } from 'lwc';
 import { refreshApex } from '@salesforce/apex';
-import getAuditTrailDTO from '@salesforce/apex/QRNGSetupController.getAuditTrailDTO';
+import getAuditTrailDTO from '@salesforce/apex/SetupController.getAuditTrailDTO';
 import {
-    subscribeToQRNGEvents,
-    unsubscribeFromQRNGEvents
+    subscribeToQuantumEvents,
+    unsubscribeFromQuantumEvents
 } from 'c/qrngEventSubscription';
 
 export default class QrngAuditTrail extends LightningElement {
@@ -14,13 +14,13 @@ export default class QrngAuditTrail extends LightningElement {
     _eventSub;
 
     connectedCallback() {
-        this._eventSub = subscribeToQRNGEvents(() => {
+        this._eventSub = subscribeToQuantumEvents(() => {
             refreshApex(this._wiredResult);
         }, null);
     }
 
     disconnectedCallback() {
-        unsubscribeFromQRNGEvents(this._eventSub);
+        unsubscribeFromQuantumEvents(this._eventSub);
     }
 
     @wire(getAuditTrailDTO)

@@ -16,7 +16,7 @@ jest.mock(
 );
 
 // Import after mocking
-let subscribeToQRNGEvents, unsubscribeFromQRNGEvents;
+let subscribeToQuantumEvents, unsubscribeFromQuantumEvents;
 
 describe('c-qrng-event-subscription', () => {
     beforeEach(() => {
@@ -24,59 +24,59 @@ describe('c-qrng-event-subscription', () => {
         // Re-import to reset module state
         jest.resetModules();
         const mod = require('c/qrngEventSubscription');
-        subscribeToQRNGEvents = mod.subscribeToQRNGEvents;
-        unsubscribeFromQRNGEvents = mod.unsubscribeFromQRNGEvents;
+        subscribeToQuantumEvents = mod.subscribeToQuantumEvents;
+        unsubscribeFromQuantumEvents = mod.unsubscribeFromQuantumEvents;
     });
 
     it('subscribes to both Complete and Failed channels', async () => {
         const onComplete = jest.fn();
         const onFailed = jest.fn();
 
-        subscribeToQRNGEvents(onComplete, onFailed);
+        subscribeToQuantumEvents(onComplete, onFailed);
 
         expect(mockSubscribe).toHaveBeenCalledTimes(2);
         expect(mockSubscribe).toHaveBeenCalledWith(
-            '/event/OpenSF__QRNG_Complete__e',
+            '/event/OpenSF__Quantum_Job_Complete__e',
             -1,
             expect.any(Function)
         );
         expect(mockSubscribe).toHaveBeenCalledWith(
-            '/event/OpenSF__QRNG_Failed__e',
+            '/event/OpenSF__Quantum_Job_Failed__e',
             -1,
             expect.any(Function)
         );
     });
 
     it('registers error handler on first call', () => {
-        subscribeToQRNGEvents(jest.fn(), jest.fn());
+        subscribeToQuantumEvents(jest.fn(), jest.fn());
         expect(mockOnError).toHaveBeenCalledTimes(1);
     });
 
     it('returns handle object', () => {
-        const handle = subscribeToQRNGEvents(jest.fn(), jest.fn());
+        const handle = subscribeToQuantumEvents(jest.fn(), jest.fn());
         expect(handle).toHaveProperty('complete');
         expect(handle).toHaveProperty('failed');
     });
 
     it('subscribes only to Complete when no onFailed provided', () => {
-        subscribeToQRNGEvents(jest.fn());
+        subscribeToQuantumEvents(jest.fn());
 
         expect(mockSubscribe).toHaveBeenCalledTimes(1);
         expect(mockSubscribe).toHaveBeenCalledWith(
-            '/event/OpenSF__QRNG_Complete__e',
+            '/event/OpenSF__Quantum_Job_Complete__e',
             -1,
             expect.any(Function)
         );
     });
 
     it('does not subscribe when both callbacks are null', () => {
-        subscribeToQRNGEvents(null, null);
+        subscribeToQuantumEvents(null, null);
         expect(mockSubscribe).not.toHaveBeenCalled();
     });
 
     it('unsubscribes from both channels', async () => {
         const handle = { complete: { id: 'sub-1' }, failed: { id: 'sub-2' } };
-        unsubscribeFromQRNGEvents(handle);
+        unsubscribeFromQuantumEvents(handle);
 
         expect(mockUnsubscribe).toHaveBeenCalledTimes(2);
         expect(mockUnsubscribe).toHaveBeenCalledWith({ id: 'sub-1' });
@@ -86,12 +86,12 @@ describe('c-qrng-event-subscription', () => {
     });
 
     it('handles null handle gracefully', () => {
-        expect(() => unsubscribeFromQRNGEvents(null)).not.toThrow();
+        expect(() => unsubscribeFromQuantumEvents(null)).not.toThrow();
     });
 
     it('handles partial handle (only complete)', () => {
         const handle = { complete: { id: 'sub-1' }, failed: null };
-        unsubscribeFromQRNGEvents(handle);
+        unsubscribeFromQuantumEvents(handle);
 
         expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
         expect(mockUnsubscribe).toHaveBeenCalledWith({ id: 'sub-1' });
@@ -99,7 +99,7 @@ describe('c-qrng-event-subscription', () => {
 
     it('calls onComplete callback when message arrives', async () => {
         const onComplete = jest.fn();
-        subscribeToQRNGEvents(onComplete, null);
+        subscribeToQuantumEvents(onComplete, null);
 
         // Get the callback passed to subscribe
         const subscribeCallback = mockSubscribe.mock.calls[0][2];
@@ -111,7 +111,7 @@ describe('c-qrng-event-subscription', () => {
 
     it('calls onFailed callback when failure message arrives', async () => {
         const onFailed = jest.fn();
-        subscribeToQRNGEvents(jest.fn(), onFailed);
+        subscribeToQuantumEvents(jest.fn(), onFailed);
 
         // Get the callback for the Failed channel (second call)
         const subscribeCallback = mockSubscribe.mock.calls[1][2];

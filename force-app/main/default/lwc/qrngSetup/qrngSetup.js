@@ -1,6 +1,6 @@
 import { LightningElement, track, wire } from 'lwc';
-import getSettings from '@salesforce/apex/QRNGSetupController.getSettings';
-import getUsageStats from '@salesforce/apex/QRNGSetupController.getUsageStats';
+import getSettings from '@salesforce/apex/SetupController.getSettings';
+import getUsageStats from '@salesforce/apex/SetupController.getUsageStats';
 
 export default class QrngSetup extends LightningElement {
     @track hasApiKey = false;

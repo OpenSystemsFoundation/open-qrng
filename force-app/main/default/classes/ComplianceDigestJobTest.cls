@@ -50,7 +50,7 @@ private class ComplianceDigestJobTest {
     @IsTest
     static void testDigestWithCertificates() {
         // Configure compliance email
-        QRNG_Settings__c settings = new QRNG_Settings__c(
+        Quantum_Settings__c settings = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             Compliance_Email__c = 'compliance@example.com'
         );

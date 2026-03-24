@@ -6,7 +6,7 @@
  */
 public with sharing class ComplianceDigestJob implements Schedulable {
     public void execute(SchedulableContext ctx) {
-        QRNG_Settings__c settings = QRNG_Settings__c.getOrgDefaults();
+        Quantum_Settings__c settings = Quantum_Settings__c.getOrgDefaults();
         String complianceEmail = settings.Compliance_Email__c;
         if (String.isBlank(complianceEmail)) {
             return; // No compliance email configured, skip

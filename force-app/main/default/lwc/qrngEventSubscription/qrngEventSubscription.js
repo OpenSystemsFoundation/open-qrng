@@ -4,32 +4,32 @@
  * duplicate logic across qrngJobMonitor and qrngJobStatusPanel.
  *
  * Usage:
- *   import { subscribeToQRNGEvents, unsubscribeFromQRNGEvents } from 'c/qrngEventSubscription';
+ *   import { subscribeToQuantumEvents, unsubscribeFromQuantumEvents } from 'c/qrngEventSubscription';
  *
  *   connectedCallback() {
- *       this._sub = subscribeToQRNGEvents(
+ *       this._sub = subscribeToQuantumEvents(
  *           (completeEvent) => this.handleComplete(completeEvent),
  *           (failedEvent) => this.handleFailed(failedEvent)
  *       );
  *   }
  *   disconnectedCallback() {
- *       unsubscribeFromQRNGEvents(this._sub);
+ *       unsubscribeFromQuantumEvents(this._sub);
  *   }
  */
 import { subscribe, unsubscribe, onError } from 'lightning/empApi';
 
-const COMPLETE_CHANNEL = '/event/OpenSF__QRNG_Complete__e';
-const FAILED_CHANNEL = '/event/OpenSF__QRNG_Failed__e';
+const COMPLETE_CHANNEL = '/event/OpenSF__Quantum_Job_Complete__e';
+const FAILED_CHANNEL = '/event/OpenSF__Quantum_Job_Failed__e';
 
 let _errorHandlerRegistered = false;
 
 /**
  * Subscribe to QRNG Platform Events (Complete and Failed).
- * @param {Function} onComplete - callback for QRNG_Complete__e events
- * @param {Function} onFailed - callback for QRNG_Failed__e events (optional)
+ * @param {Function} onComplete - callback for Quantum_Job_Complete__e events
+ * @param {Function} onFailed - callback for Quantum_Job_Failed__e events (optional)
  * @returns {Object} subscription handle with .complete and .failed properties
  */
-export function subscribeToQRNGEvents(onComplete, onFailed) {
+export function subscribeToQuantumEvents(onComplete, onFailed) {
     const handle = { complete: null, failed: null };
 
     if (!_errorHandlerRegistered) {
@@ -60,9 +60,9 @@ export function subscribeToQRNGEvents(onComplete, onFailed) {
 
 /**
  * Unsubscribe from QRNG Platform Events.
- * @param {Object} handle - subscription handle from subscribeToQRNGEvents
+ * @param {Object} handle - subscription handle from subscribeToQuantumEvents
  */
-export function unsubscribeFromQRNGEvents(handle) {
+export function unsubscribeFromQuantumEvents(handle) {
     if (handle) {
         if (handle.complete) {
             unsubscribe(handle.complete);
