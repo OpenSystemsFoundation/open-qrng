@@ -36,7 +36,7 @@ public with sharing class ComplianceSummaryJob implements Schedulable {
         ];
         Integer assignmentCount = [
             SELECT COUNT()
-            FROM QRNG_Assignment__c
+            FROM Quantum_Assignment__c
             WHERE CreatedDate >= :startDT AND CreatedDate < :endDT
         ];
         Integer tamperedCount = [

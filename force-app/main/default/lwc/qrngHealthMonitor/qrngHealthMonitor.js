@@ -1,8 +1,8 @@
 import { LightningElement, api, track } from 'lwc';
 import { NavigationMixin } from 'lightning/navigation';
-import getAllBackendHealth from '@salesforce/apex/QRNGSetupController.getAllBackendHealth';
-import refreshAllBackendHealth from '@salesforce/apex/QRNGSetupController.refreshAllBackendHealth';
-import verifyBackendQuantum from '@salesforce/apex/QRNGSetupController.verifyBackendQuantum';
+import getAllBackendHealth from '@salesforce/apex/SetupController.getAllBackendHealth';
+import refreshAllBackendHealth from '@salesforce/apex/SetupController.refreshAllBackendHealth';
+import verifyBackendQuantum from '@salesforce/apex/SetupController.verifyBackendQuantum';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class QrngHealthMonitor extends NavigationMixin(

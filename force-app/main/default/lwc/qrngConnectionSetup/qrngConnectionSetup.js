@@ -1,8 +1,8 @@
 import { LightningElement, api, track } from 'lwc';
-import testConnection from '@salesforce/apex/QRNGSetupController.testConnection';
-import getAvailableBackends from '@salesforce/apex/QRNGSetupController.getAvailableBackends';
-import discoverInstances from '@salesforce/apex/QRNGSetupController.discoverInstances';
-import saveSettings from '@salesforce/apex/QRNGSetupController.saveSettings';
+import testConnection from '@salesforce/apex/SetupController.testConnection';
+import getAvailableBackends from '@salesforce/apex/SetupController.getAvailableBackends';
+import discoverInstances from '@salesforce/apex/SetupController.discoverInstances';
+import saveSettings from '@salesforce/apex/SetupController.saveSettings';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class QrngConnectionSetup extends LightningElement {

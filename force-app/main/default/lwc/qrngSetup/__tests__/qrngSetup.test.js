@@ -1,11 +1,11 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngSetup from 'c/qrngSetup';
-import getSettings from '@salesforce/apex/QRNGSetupController.getSettings';
-import getUsageStats from '@salesforce/apex/QRNGSetupController.getUsageStats';
+import getSettings from '@salesforce/apex/SetupController.getSettings';
+import getUsageStats from '@salesforce/apex/SetupController.getUsageStats';
 
 // Wire adapters
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getSettings',
+    '@salesforce/apex/SetupController.getSettings',
     () => {
         const {
             createApexTestWireAdapter
@@ -16,7 +16,7 @@ jest.mock(
 );
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getUsageStats',
+    '@salesforce/apex/SetupController.getUsageStats',
     () => {
         const {
             createApexTestWireAdapter
@@ -28,22 +28,22 @@ jest.mock(
 
 // Imperative Apex mocks used by child components
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.saveSettings',
+    '@salesforce/apex/SetupController.saveSettings',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.testConnection',
+    '@salesforce/apex/SetupController.testConnection',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getAvailableBackends',
+    '@salesforce/apex/SetupController.getAvailableBackends',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.discoverInstances',
+    '@salesforce/apex/SetupController.discoverInstances',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );

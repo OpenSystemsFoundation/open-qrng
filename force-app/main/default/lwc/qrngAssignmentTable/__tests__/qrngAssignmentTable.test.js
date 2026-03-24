@@ -2,7 +2,7 @@ import { createElement } from '@lwc/engine-dom';
 import QrngAssignmentTable from 'c/qrngAssignmentTable';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getAssignments',
+    '@salesforce/apex/SetupController.getAssignments',
     () => {
         const {
             createApexTestWireAdapter
@@ -12,7 +12,7 @@ jest.mock(
     { virtual: true }
 );
 
-import getAssignments from '@salesforce/apex/QRNGSetupController.getAssignments';
+import getAssignments from '@salesforce/apex/SetupController.getAssignments';
 
 function flushPromises() {
     return new Promise((resolve) => setTimeout(resolve, 0));

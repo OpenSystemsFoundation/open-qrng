@@ -66,13 +66,13 @@ private class IBMQuantumService_Test {
         // Pre-set auth token and CRN
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
         );
         upsert s;
 
-        String qasm = QRNGCircuitBuilder.buildStandardCircuit(4);
+        String qasm = CircuitBuilder.buildStandardCircuit(4);
 
         Test.startTest();
         Id jobId = IBMQuantumService.submitJob(
@@ -99,13 +99,13 @@ private class IBMQuantumService_Test {
         Test.setMock(HttpCalloutMock.class, new MockSubmitSuccess());
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
         );
         upsert s;
 
-        List<String> circuits = QRNGCircuitBuilder.buildCHSHVerificationCircuits(
+        List<String> circuits = CircuitBuilder.buildCHSHVerificationCircuits(
             0,
             1
         );
@@ -193,7 +193,7 @@ private class IBMQuantumService_Test {
         Test.setMock(HttpCalloutMock.class, new MockSubmitSuccess());
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
         );
@@ -216,7 +216,7 @@ private class IBMQuantumService_Test {
         Test.setMock(HttpCalloutMock.class, new MockSubmitSuccess());
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
         );
@@ -288,7 +288,7 @@ private class IBMQuantumService_Test {
         Test.setMock(HttpCalloutMock.class, new MockCouplingMapConfig());
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
         );
@@ -314,7 +314,7 @@ private class IBMQuantumService_Test {
         Test.setMock(HttpCalloutMock.class, new MockGatesFallbackConfig());
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
         );
@@ -339,7 +339,7 @@ private class IBMQuantumService_Test {
         Test.setMock(HttpCalloutMock.class, new MockCouplingMapConfig());
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
         );
@@ -379,7 +379,7 @@ private class IBMQuantumService_Test {
         Test.setMock(HttpCalloutMock.class, new MockSubmitSuccess());
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
         );

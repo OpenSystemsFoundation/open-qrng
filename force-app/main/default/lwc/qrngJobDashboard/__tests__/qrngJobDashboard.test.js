@@ -1,13 +1,13 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngJobDashboard from 'c/qrngJobDashboard';
-import getRecentJobs from '@salesforce/apex/QRNGSetupController.getRecentJobs';
+import getRecentJobs from '@salesforce/apex/SetupController.getRecentJobs';
 import {
-    subscribeToQRNGEvents,
-    unsubscribeFromQRNGEvents
+    subscribeToQuantumEvents,
+    unsubscribeFromQuantumEvents
 } from 'c/qrngEventSubscription';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getRecentJobs',
+    '@salesforce/apex/SetupController.getRecentJobs',
     () => {
         const {
             createApexTestWireAdapter
@@ -44,10 +44,10 @@ jest.mock(
 jest.mock(
     'c/qrngEventSubscription',
     () => ({
-        subscribeToQRNGEvents: jest
+        subscribeToQuantumEvents: jest
             .fn()
             .mockReturnValue({ complete: null, failed: null }),
-        unsubscribeFromQRNGEvents: jest.fn()
+        unsubscribeFromQuantumEvents: jest.fn()
     }),
     { virtual: true }
 );
@@ -72,7 +72,7 @@ const MOCK_JOBS = [
         externalJobId: 'ext-1',
         backend: 'ibm_brisbane',
         status: 'Completed',
-        jobType: 'QRNG',
+        jobType: 'Quantum',
         useBellTest: false,
         shots: 1024,
         numQubits: 2,
@@ -90,7 +90,7 @@ const MOCK_JOBS = [
         externalJobId: null,
         backend: null,
         status: 'Running',
-        jobType: 'QRNG',
+        jobType: 'Quantum',
         useBellTest: false,
         shots: 2048,
         numQubits: 4,
@@ -126,7 +126,7 @@ const MOCK_JOBS = [
         externalJobId: 'ext-4',
         backend: 'ibm_brisbane',
         status: 'Queued',
-        jobType: 'QRNG',
+        jobType: 'Quantum',
         useBellTest: false,
         shots: 1024,
         numQubits: 2,
@@ -144,7 +144,7 @@ const MOCK_JOBS = [
         externalJobId: 'ext-5',
         backend: 'ibm_brisbane',
         status: 'Submitted',
-        jobType: 'QRNG',
+        jobType: 'Quantum',
         useBellTest: false,
         shots: 1024,
         numQubits: 2,
@@ -212,13 +212,13 @@ describe('c-qrng-job-dashboard', () => {
 
     it('subscribes to events on connect', () => {
         createComponent();
-        expect(subscribeToQRNGEvents).toHaveBeenCalled();
+        expect(subscribeToQuantumEvents).toHaveBeenCalled();
     });
 
     it('unsubscribes on disconnect', () => {
         const el = createComponent();
         document.body.removeChild(el);
-        expect(unsubscribeFromQRNGEvents).toHaveBeenCalled();
+        expect(unsubscribeFromQuantumEvents).toHaveBeenCalled();
     });
 
     it('Refresh button calls refreshApex', async () => {
@@ -268,14 +268,14 @@ describe('c-qrng-job-dashboard', () => {
         expect(element.shadowRoot.querySelectorAll('tbody tr')).toHaveLength(3);
     });
 
-    it('filter change to QRNG shows 4 jobs', async () => {
+    it('filter change to Quantum shows 4 jobs', async () => {
         const element = createComponent();
         getRecentJobs.emit(MOCK_JOBS);
         await flushPromises();
 
         const cb = element.shadowRoot.querySelector('lightning-combobox');
         cb.dispatchEvent(
-            new CustomEvent('change', { detail: { value: 'QRNG' } })
+            new CustomEvent('change', { detail: { value: 'Quantum' } })
         );
         await flushPromises();
         expect(element.shadowRoot.querySelectorAll('tbody tr')).toHaveLength(4);

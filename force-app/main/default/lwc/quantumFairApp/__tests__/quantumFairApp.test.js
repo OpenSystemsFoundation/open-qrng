@@ -1,11 +1,11 @@
 import { createElement } from '@lwc/engine-dom';
 import QuantumFairApp from 'c/quantumFairApp';
 import { subscribe, unsubscribe, onError } from 'lightning/empApi';
-import getSettings from '@salesforce/apex/QRNGSetupController.getSettings';
+import getSettings from '@salesforce/apex/SetupController.getSettings';
 
 // Mock Apex wire adapters used by child components
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getSettings',
+    '@salesforce/apex/SetupController.getSettings',
     () => {
         const {
             createApexTestWireAdapter
@@ -16,7 +16,7 @@ jest.mock(
 );
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getUsageStats',
+    '@salesforce/apex/SetupController.getUsageStats',
     () => {
         const {
             createApexTestWireAdapter
@@ -27,7 +27,7 @@ jest.mock(
 );
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getJobStatusDTO',
+    '@salesforce/apex/SetupController.getJobStatusDTO',
     () => {
         const {
             createApexTestWireAdapter
@@ -39,32 +39,32 @@ jest.mock(
 
 // Mock imperative Apex methods used by children
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.submitQRNGJob',
+    '@salesforce/apex/SetupController.submitQuantumJob',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.saveSettings',
+    '@salesforce/apex/SetupController.saveSettings',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.testConnection',
+    '@salesforce/apex/SetupController.testConnection',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getAvailableBackends',
+    '@salesforce/apex/SetupController.getAvailableBackends',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getCertificateByJobId',
+    '@salesforce/apex/SetupController.getCertificateByJobId',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getAuditTrailDTO',
+    '@salesforce/apex/SetupController.getAuditTrailDTO',
     () => {
         const {
             createApexTestWireAdapter
@@ -74,7 +74,7 @@ jest.mock(
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getCertificateDetails',
+    '@salesforce/apex/SetupController.getCertificateDetails',
     () => {
         const {
             createApexTestWireAdapter
@@ -89,17 +89,17 @@ jest.mock(
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.discoverInstances',
+    '@salesforce/apex/SetupController.discoverInstances',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getAllBackendHealth',
+    '@salesforce/apex/SetupController.getAllBackendHealth',
     () => ({ default: jest.fn().mockResolvedValue([]) }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getRecentJobs',
+    '@salesforce/apex/SetupController.getRecentJobs',
     () => {
         const {
             createApexTestWireAdapter
@@ -109,37 +109,37 @@ jest.mock(
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.refreshAllBackendHealth',
+    '@salesforce/apex/SetupController.refreshAllBackendHealth',
     () => ({ default: jest.fn().mockResolvedValue([]) }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.verifyBackendQuantum',
+    '@salesforce/apex/SetupController.verifyBackendQuantum',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.startSweeper',
+    '@salesforce/apex/SetupController.startSweeper',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.stopSweeper',
+    '@salesforce/apex/SetupController.stopSweeper',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.startIntegrityCheck',
+    '@salesforce/apex/SetupController.startIntegrityCheck',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.stopIntegrityCheck',
+    '@salesforce/apex/SetupController.stopIntegrityCheck',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.exportComplianceEvidence',
+    '@salesforce/apex/SetupController.exportComplianceEvidence',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
@@ -317,7 +317,7 @@ describe('c-quantum-fair-app', () => {
         await flushPromises();
 
         expect(subscribe).toHaveBeenCalledWith(
-            '/event/OpenSF__QRNG_Complete__e',
+            '/event/OpenSF__Quantum_Job_Complete__e',
             -1,
             expect.any(Function)
         );

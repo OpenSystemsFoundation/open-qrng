@@ -72,7 +72,7 @@ H = Rz(π/2) → SX → Rz(π/2)
 
 For QRNG, every circuit is just **H + measure on N qubits**. This is simple enough to generate the ISA-compliant OpenQASM 3.0 string directly in Apex — no transpiler needed.
 
-### Circuit Builder — `QRNGCircuitBuilder.cls`
+### Circuit Builder — `CircuitBuilder.cls`
 
 ```
 Responsibility: Generate ISA-compliant OpenQASM 3.0 for QRNG circuits
@@ -195,17 +195,17 @@ The job ID is stored in `Quantum_Job__c` and async polling begins.
                                                ▼
                                      ┌─────────────────┐
                                      │ Platform Event   │
-                                     │ QRNG_Complete__e │
+                                     │ Quantum_Job_Complete__e │
                                      │ + Process Results│
                                      └─────────────────┘
 ```
 
-**`QRNGJobPoller.cls` (implements Queueable, Database.AllowsCallouts)**
+**`JobPoller.cls` (implements Queueable, Database.AllowsCallouts)**
 
 1. `GET /v1/jobs/{job_id}` — check `state.status`
 2. If `Queued` or `Running` → re-enqueue self with delay (exponential backoff: 5s, 10s, 20s, 40s... capped at 60s)
-3. If `Completed` → `GET /v1/jobs/{job_id}/results` → parse bitstrings → publish `QRNG_Complete__e`
-4. If `Failed` → update `Quantum_Job__c` with error → publish `QRNG_Failed__e`
+3. If `Completed` → `GET /v1/jobs/{job_id}/results` → parse bitstrings → publish `Quantum_Job_Complete__e`
+4. If `Failed` → update `Quantum_Job__c` with error → publish `Quantum_Job_Failed__e`
 5. Send Custom Notification to requesting user on completion/failure
 
 **Governor limit safety:**
@@ -219,7 +219,7 @@ The job ID is stored in `Quantum_Job__c` and async polling begins.
 
 ## Layer 3 — Randomness Processing & Certification (Apex)
 
-### Result Parser — `QRNGResultParser.cls`
+### Result Parser — `ResultParser.cls`
 
 IBM Sampler returns measurement results as bitstring samples:
 
@@ -242,7 +242,7 @@ The parser:
 3. Applies **von Neumann debiasing** (pairs of bits: 01→0, 10→1, 00/11→discard) to correct for any hardware bias
 4. Stores raw + debiased bits in `Quantum_Job__c`
 
-### Statistical Validation — `QRNGValidator.cls`
+### Statistical Validation — `RandomnessValidator.cls`
 
 Runs lightweight randomness checks before certifying:
 
@@ -394,7 +394,7 @@ For large qubit counts (>6 bits = 64+ bars), switches to a **histogram binning**
 // Subscribe to Platform Events via empApi
 import { subscribe, unsubscribe } from 'lightning/empApi';
 
-// Channel: /event/QRNG_Complete__e
+// Channel: /event/Quantum_Job_Complete__e
 // On receive: update job status, trigger results fetch, animate UI
 ```
 
@@ -471,7 +471,7 @@ Lightweight, accessible, works perfectly under LWS shadow DOM with CSS custom pr
          │ 1:N
          ▼
 ┌─────────────────────────┐
-│  QRNG_Assignment__c     │
+│  Quantum_Assignment__c     │
 ├─────────────────────────┤
 │ Quantum_Job__c (Lookup) │
 │ Certificate__c (Lookup) │
@@ -482,7 +482,7 @@ Lightweight, accessible, works perfectly under LWS shadow DOM with CSS custom pr
 └─────────────────────────┘
 
 ┌─────────────────────────┐
-│ QRNG_Backend_Config__mdt│  ← Protected Custom Metadata
+│ Quantum_Backend_Config__mdt│  ← Protected Custom Metadata
 ├─────────────────────────┤
 │ Backend_Name__c         │
 │ Native_Gates__c         │
@@ -559,7 +559,7 @@ User clicks               Apex                    IBM Quantum
     │                      ├──Create Certificate__c    │
     │                      ├──Run Assignment Engine     │
     │                      ├──Create Assignment__c recs │
-    │                      ├──Publish QRNG_Complete__e  │
+    │                      ├──Publish Quantum_Job_Complete__e  │
     │                      ├──Send Custom Notification  │
     │                      │                          │
     │◀── Platform Event ───│                          │
@@ -577,26 +577,26 @@ User clicks               Apex                    IBM Quantum
 ```
 force-app/main/default/
 ├── classes/
-│   ├── QRNGCircuitBuilder.cls          — OpenQASM 3.0 generation (ISA-compliant)
-│   ├── QRNGCircuitBuilder_Test.cls
+│   ├── CircuitBuilder.cls          — OpenQASM 3.0 generation (ISA-compliant)
+│   ├── CircuitBuilder_Test.cls
 │   ├── IBMQuantumAuth.cls              — IAM token exchange + caching
 │   ├── IBMQuantumAuth_Test.cls
 │   ├── IBMQuantumService.cls           — REST API client (submit, poll, results)
 │   ├── IBMQuantumService_Test.cls
-│   ├── QRNGJobPoller.cls               — Queueable chain for async polling
-│   ├── QRNGJobPoller_Test.cls
-│   ├── QRNGResultParser.cls            — Bitstring extraction + von Neumann debiasing
-│   ├── QRNGResultParser_Test.cls
-│   ├── QRNGValidator.cls               — Statistical randomness tests
-│   ├── QRNGValidator_Test.cls
+│   ├── JobPoller.cls               — Queueable chain for async polling
+│   ├── JobPoller_Test.cls
+│   ├── ResultParser.cls            — Bitstring extraction + von Neumann debiasing
+│   ├── ResultParser_Test.cls
+│   ├── RandomnessValidator.cls               — Statistical randomness tests
+│   ├── RandomnessValidator_Test.cls
 │   ├── FairnessCertificateService.cls  — Certificate creation + hashing
 │   ├── FairnessCertificateService_Test.cls
 │   ├── QuantumAssignmentEngine.cls     — Random assignment algorithms
 │   ├── QuantumAssignmentEngine_Test.cls
 │   ├── QuantumRandomAssignment.cls     — @InvocableMethod for Flow Builder
 │   ├── QuantumRandomAssignment_Test.cls
-│   ├── QRNGSetupController.cls         — LWC controller for admin setup
-│   └── QRNGSetupController_Test.cls
+│   ├── SetupController.cls         — LWC controller for admin setup
+│   └── SetupController_Test.cls
 │
 ├── lwc/
 │   ├── quantumFairApp/                 — Main app shell
@@ -613,15 +613,15 @@ force-app/main/default/
 ├── objects/
 │   ├── Quantum_Job__c/
 │   ├── Fairness_Certificate__c/
-│   ├── QRNG_Assignment__c/
-│   └── QRNG_Backend_Config__mdt/
+│   ├── Quantum_Assignment__c/
+│   └── Quantum_Backend_Config__mdt/
 │
 ├── platformEventChannelMembers/
-│   ├── QRNG_Complete__e/
-│   └── QRNG_Failed__e/
+│   ├── Quantum_Job_Complete__e/
+│   └── Quantum_Job_Failed__e/
 │
 ├── customNotificationTypes/
-│   └── QRNG_Job_Notification.notiftype
+│   └── Quantum_Job_Notification.notiftype
 │
 ├── namedCredentials/
 │   ├── IBM_Quantum_Runtime.namedCredential-meta.xml
@@ -702,10 +702,10 @@ For orgs needing high-volume randomness without burning IBM minutes on every req
 
 ## Extensibility Points
 
-### Apex Interface — `QRNGConsumer`
+### Apex Interface — `QuantumConsumer`
 
 ```apex
-public interface QRNGConsumer {
+public interface QuantumConsumer {
     void onRandomnessReady(Id certificateId, List<String> randomBits);
     void onRandomnessFailed(Id jobId, String errorMessage);
 }
@@ -713,7 +713,7 @@ public interface QRNGConsumer {
 
 Developers in the subscriber org can implement this interface and register their class in a Custom Metadata record. The assignment engine calls all registered consumers when randomness is ready — enabling custom use cases beyond the built-in assignment types.
 
-### Platform Event — `QRNG_Complete__e`
+### Platform Event — `Quantum_Job_Complete__e`
 
 Any subscriber-org automation (Flow, Apex trigger, external system via CometD) can listen for this event and react to completed QRNG jobs. Fields:
 

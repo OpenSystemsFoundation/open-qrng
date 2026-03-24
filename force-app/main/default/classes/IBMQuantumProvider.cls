@@ -1,7 +1,7 @@
 /**
  * IBM Quantum implementation of the QuantumProvider interface.
  * Delegates to existing IBMQuantumService and IBMQuantumAuth classes
- * for all API communication, and to QRNGCircuitBuilder for circuit generation.
+ * for all API communication, and to CircuitBuilder for circuit generation.
  *
  * This is the reference provider implementation. To add a new provider
  * (e.g. IonQ, Quantinuum), create a similar class implementing QuantumProvider
@@ -146,16 +146,13 @@ public with sharing class IBMQuantumProvider implements QuantumProvider {
             List<List<Integer>> couplingMap = IBMQuantumService.getCouplingMap(
                 backendName
             );
-            return QRNGCircuitBuilder.buildBellTestCircuit(
+            return CircuitBuilder.buildBellTestCircuit(
                 numQubits / 2,
                 couplingMap,
                 readoutErrors
             );
         }
-        return QRNGCircuitBuilder.buildStandardCircuit(
-            numQubits,
-            readoutErrors
-        );
+        return CircuitBuilder.buildStandardCircuit(numQubits, readoutErrors);
     }
 
     // ── Verification ────────────────────────────────────────────────
@@ -179,14 +176,14 @@ public with sharing class IBMQuantumProvider implements QuantumProvider {
         }
 
         // Select the single best qubit pair
-        QRNGCircuitBuilder.CoupledPair bestPair = QRNGCircuitBuilder.selectBestPair(
+        CircuitBuilder.CoupledPair bestPair = CircuitBuilder.selectBestPair(
             couplingMap,
             readoutErrors,
             gateErrors
         );
 
         // Build 4 circuits with optimal CHSH measurement angles
-        List<String> circuits = QRNGCircuitBuilder.buildCHSHVerificationCircuits(
+        List<String> circuits = CircuitBuilder.buildCHSHVerificationCircuits(
             bestPair.q0,
             bestPair.q1
         );

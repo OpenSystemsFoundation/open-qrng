@@ -1,14 +1,14 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngJobStatusPanel from 'c/qrngJobStatusPanel';
-import getJobStatusDTO from '@salesforce/apex/QRNGSetupController.getJobStatusDTO';
-import getCertificateByJobId from '@salesforce/apex/QRNGSetupController.getCertificateByJobId';
-import refreshJobStatus from '@salesforce/apex/QRNGSetupController.refreshJobStatus';
-import retrieveJobResults from '@salesforce/apex/QRNGSetupController.retrieveJobResults';
+import getJobStatusDTO from '@salesforce/apex/SetupController.getJobStatusDTO';
+import getCertificateByJobId from '@salesforce/apex/SetupController.getCertificateByJobId';
+import refreshJobStatus from '@salesforce/apex/SetupController.refreshJobStatus';
+import retrieveJobResults from '@salesforce/apex/SetupController.retrieveJobResults';
 import { subscribe } from 'lightning/empApi';
 
 // Wire adapter for @wire-decorated property
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getJobStatusDTO',
+    '@salesforce/apex/SetupController.getJobStatusDTO',
     () => {
         const {
             createApexTestWireAdapter
@@ -20,17 +20,17 @@ jest.mock(
 
 // Imperative Apex mocks
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getCertificateByJobId',
+    '@salesforce/apex/SetupController.getCertificateByJobId',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.refreshJobStatus',
+    '@salesforce/apex/SetupController.refreshJobStatus',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.retrieveJobResults',
+    '@salesforce/apex/SetupController.retrieveJobResults',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
@@ -273,10 +273,10 @@ describe('c-qrng-job-status-panel', () => {
 
         expect(subscribe).toHaveBeenCalledTimes(2);
         expect(subscribe.mock.calls[0][0]).toBe(
-            '/event/OpenSF__QRNG_Complete__e'
+            '/event/OpenSF__Quantum_Job_Complete__e'
         );
         expect(subscribe.mock.calls[1][0]).toBe(
-            '/event/OpenSF__QRNG_Failed__e'
+            '/event/OpenSF__Quantum_Job_Failed__e'
         );
     });
 
@@ -804,7 +804,7 @@ describe('c-qrng-job-status-panel', () => {
         expect(texts).toContain('Quantum Verification');
     });
 
-    it('renders QRNG job type for non-verify jobs', async () => {
+    it('renders Quantum job type for non-verify jobs', async () => {
         const element = createComponent();
         getCertificateByJobId.mockResolvedValue(null);
 
@@ -814,6 +814,6 @@ describe('c-qrng-job-status-panel', () => {
         const detailValues =
             element.shadowRoot.querySelectorAll('.detail-value');
         const texts = Array.from(detailValues).map((d) => d.textContent.trim());
-        expect(texts).toContain('QRNG');
+        expect(texts).toContain('Quantum');
     });
 });

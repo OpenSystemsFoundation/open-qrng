@@ -1,9 +1,9 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngSettingsPanel from 'c/qrngSettingsPanel';
-import saveSettings from '@salesforce/apex/QRNGSetupController.saveSettings';
+import saveSettings from '@salesforce/apex/SetupController.saveSettings';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.saveSettings',
+    '@salesforce/apex/SetupController.saveSettings',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );

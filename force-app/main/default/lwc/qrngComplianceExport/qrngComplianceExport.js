@@ -1,5 +1,5 @@
 import { LightningElement, track } from 'lwc';
-import exportComplianceEvidence from '@salesforce/apex/QRNGSetupController.exportComplianceEvidence';
+import exportComplianceEvidence from '@salesforce/apex/SetupController.exportComplianceEvidence';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class QrngComplianceExport extends LightningElement {

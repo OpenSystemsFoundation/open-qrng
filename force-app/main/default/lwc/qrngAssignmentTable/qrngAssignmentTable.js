@@ -1,5 +1,5 @@
 import { LightningElement, api, wire, track } from 'lwc';
-import getAssignments from '@salesforce/apex/QRNGSetupController.getAssignments';
+import getAssignments from '@salesforce/apex/SetupController.getAssignments';
 
 const COLUMNS = [
     {

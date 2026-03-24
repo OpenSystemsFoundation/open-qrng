@@ -130,18 +130,18 @@ public with sharing class FairnessCertificateService {
 
         // Stamp backend verification status at certificate creation time
         if (String.isNotBlank(job.Backend__c)) {
-            List<QRNG_Backend__c> backends = [
+            List<Quantum_Backend__c> backends = [
                 SELECT
                     Id,
                     Quantum_Verified__c,
                     CHSH_S_Value__c,
                     CHSH_Verified_At__c
-                FROM QRNG_Backend__c
+                FROM Quantum_Backend__c
                 WHERE Name = :job.Backend__c
                 LIMIT 1
             ];
             if (!backends.isEmpty()) {
-                QRNG_Backend__c backend = backends[0];
+                Quantum_Backend__c backend = backends[0];
                 cert.Backend_Verified__c = backend.Quantum_Verified__c;
                 cert.Backend_Verified_At__c = backend.CHSH_Verified_At__c;
                 // Also populate CHSH S-value from backend if not set by job

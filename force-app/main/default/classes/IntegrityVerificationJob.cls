@@ -10,7 +10,7 @@
  * Governor limits per worker execution: ~5 SOQL, 1-2 DML, 0 callouts
  */
 public with sharing class IntegrityVerificationJob implements Schedulable {
-    public static final String JOB_NAME = 'QRNG_Integrity_Verification';
+    public static final String JOB_NAME = 'Quantum_Integrity_Verification';
     @TestVisible
     private static final Integer BATCH_SIZE = 50;
 
@@ -52,7 +52,7 @@ public with sharing class IntegrityVerificationJob implements Schedulable {
 
     @TestVisible
     private static Integer getCheckHour() {
-        QRNG_Settings__c settings = QRNG_Settings__c.getOrgDefaults();
+        Quantum_Settings__c settings = Quantum_Settings__c.getOrgDefaults();
         if (settings != null && settings.Integrity_Check_Hour__c != null) {
             Integer val = (Integer) settings.Integrity_Check_Hour__c;
             return (val >= 0 && val <= 23) ? val : 2;

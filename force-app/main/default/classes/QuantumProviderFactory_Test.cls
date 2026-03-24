@@ -27,7 +27,7 @@ private class QuantumProviderFactory_Test {
         try {
             QuantumProviderFactory.getProvider('');
             System.assert(false, 'Should have thrown exception');
-        } catch (QRNGException e) {
+        } catch (QuantumException e) {
             System.assert(
                 e.getMessage().contains('blank'),
                 'Error should mention blank: ' + e.getMessage()
@@ -40,7 +40,7 @@ private class QuantumProviderFactory_Test {
         try {
             QuantumProviderFactory.getProvider(null);
             System.assert(false, 'Should have thrown exception');
-        } catch (QRNGException e) {
+        } catch (QuantumException e) {
             System.assert(
                 e.getMessage().contains('blank'),
                 'Error should mention blank'
@@ -53,7 +53,7 @@ private class QuantumProviderFactory_Test {
         try {
             QuantumProviderFactory.getProvider('nonexistent');
             System.assert(false, 'Should have thrown exception');
-        } catch (QRNGException e) {
+        } catch (QuantumException e) {
             System.assert(
                 e.getMessage().contains('Unsupported'),
                 'Error should mention unsupported: ' + e.getMessage()
@@ -69,7 +69,7 @@ private class QuantumProviderFactory_Test {
 
     @IsTest
     static void testGetActiveProviderDefault() {
-        // No QRNG_Provider__c records — should default to IBM
+        // No Quantum_Provider__c records — should default to IBM
         QuantumProvider provider = QuantumProviderFactory.getActiveProvider();
         System.assertNotEquals(null, provider);
         System.assertEquals('ibm', provider.getProviderName());
@@ -77,7 +77,7 @@ private class QuantumProviderFactory_Test {
 
     @IsTest
     static void testGetActiveProviderFromRecord() {
-        QRNG_Provider__c p = new QRNG_Provider__c(
+        Quantum_Provider__c p = new Quantum_Provider__c(
             Name = 'IBM Quantum',
             Provider_Key__c = 'ibm',
             Is_Active__c = true

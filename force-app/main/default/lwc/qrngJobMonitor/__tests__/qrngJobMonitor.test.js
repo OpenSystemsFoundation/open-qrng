@@ -1,13 +1,13 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngJobMonitor from 'c/qrngJobMonitor';
-import getJobStatusDTO from '@salesforce/apex/QRNGSetupController.getJobStatusDTO';
-import getCertificateByJobId from '@salesforce/apex/QRNGSetupController.getCertificateByJobId';
+import getJobStatusDTO from '@salesforce/apex/SetupController.getJobStatusDTO';
+import getCertificateByJobId from '@salesforce/apex/SetupController.getCertificateByJobId';
 import { subscribe, unsubscribe, onError } from 'lightning/empApi';
 import { refreshApex } from '@salesforce/apex';
 
 // Wire adapter for @wire-decorated property
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getJobStatusDTO',
+    '@salesforce/apex/SetupController.getJobStatusDTO',
     () => {
         const {
             createApexTestWireAdapter
@@ -19,7 +19,7 @@ jest.mock(
 
 // Imperative Apex mock
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getCertificateByJobId',
+    '@salesforce/apex/SetupController.getCertificateByJobId',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
@@ -197,10 +197,10 @@ describe('c-qrng-job-monitor', () => {
 
         expect(subscribe).toHaveBeenCalledTimes(2);
         expect(subscribe.mock.calls[0][0]).toBe(
-            '/event/OpenSF__QRNG_Complete__e'
+            '/event/OpenSF__Quantum_Job_Complete__e'
         );
         expect(subscribe.mock.calls[1][0]).toBe(
-            '/event/OpenSF__QRNG_Failed__e'
+            '/event/OpenSF__Quantum_Job_Failed__e'
         );
         expect(onError).toHaveBeenCalledTimes(1);
     });

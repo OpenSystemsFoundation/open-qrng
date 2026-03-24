@@ -66,7 +66,7 @@ private class IBMQuantumProvider_Test {
     static void testAuthenticate() {
         Test.setMock(HttpCalloutMock.class, new MockIBMCallouts());
         // Set up settings with API key for IAM exchange
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             IBM_API_Key__c = 'test-api-key',
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
@@ -91,7 +91,7 @@ private class IBMQuantumProvider_Test {
         Test.setMock(HttpCalloutMock.class, new MockIBMCallouts());
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
         );
@@ -172,7 +172,7 @@ private class IBMQuantumProvider_Test {
         Test.setMock(HttpCalloutMock.class, new MockIBMCallouts());
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
         );
@@ -193,7 +193,7 @@ private class IBMQuantumProvider_Test {
     @IsTest
     static void testTestConnection() {
         Test.setMock(HttpCalloutMock.class, new MockIBMCallouts());
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             IBM_API_Key__c = 'test-api-key',
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'
@@ -212,7 +212,7 @@ private class IBMQuantumProvider_Test {
     @IsTest
     static void testDiscoverInstances() {
         Test.setMock(HttpCalloutMock.class, new MockIBMCallouts());
-        QRNG_Settings__c s = new QRNG_Settings__c(
+        Quantum_Settings__c s = new Quantum_Settings__c(
             SetupOwnerId = UserInfo.getOrganizationId(),
             IBM_API_Key__c = 'test-api-key',
             Instance_CRN__c = 'crn:v1:bluemix:public:quantum-computing:test'

@@ -1,21 +1,21 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngHealthMonitor from 'c/qrngHealthMonitor';
-import getAllBackendHealth from '@salesforce/apex/QRNGSetupController.getAllBackendHealth';
-import refreshAllBackendHealth from '@salesforce/apex/QRNGSetupController.refreshAllBackendHealth';
-import verifyBackendQuantum from '@salesforce/apex/QRNGSetupController.verifyBackendQuantum';
+import getAllBackendHealth from '@salesforce/apex/SetupController.getAllBackendHealth';
+import refreshAllBackendHealth from '@salesforce/apex/SetupController.refreshAllBackendHealth';
+import verifyBackendQuantum from '@salesforce/apex/SetupController.verifyBackendQuantum';
 
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.getAllBackendHealth',
+    '@salesforce/apex/SetupController.getAllBackendHealth',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.refreshAllBackendHealth',
+    '@salesforce/apex/SetupController.refreshAllBackendHealth',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );
 jest.mock(
-    '@salesforce/apex/QRNGSetupController.verifyBackendQuantum',
+    '@salesforce/apex/SetupController.verifyBackendQuantum',
     () => ({ default: jest.fn() }),
     { virtual: true }
 );

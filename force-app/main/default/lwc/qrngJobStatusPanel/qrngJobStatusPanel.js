@@ -1,14 +1,14 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { subscribe, unsubscribe, onError } from 'lightning/empApi';
 import { refreshApex } from '@salesforce/apex';
-import getJobStatusDTO from '@salesforce/apex/QRNGSetupController.getJobStatusDTO';
-import getCertificateByJobId from '@salesforce/apex/QRNGSetupController.getCertificateByJobId';
-import refreshJobStatus from '@salesforce/apex/QRNGSetupController.refreshJobStatus';
-import retrieveJobResults from '@salesforce/apex/QRNGSetupController.retrieveJobResults';
+import getJobStatusDTO from '@salesforce/apex/SetupController.getJobStatusDTO';
+import getCertificateByJobId from '@salesforce/apex/SetupController.getCertificateByJobId';
+import refreshJobStatus from '@salesforce/apex/SetupController.refreshJobStatus';
+import retrieveJobResults from '@salesforce/apex/SetupController.retrieveJobResults';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
-const COMPLETE_CHANNEL = '/event/OpenSF__QRNG_Complete__e';
-const FAILED_CHANNEL = '/event/OpenSF__QRNG_Failed__e';
+const COMPLETE_CHANNEL = '/event/OpenSF__Quantum_Job_Complete__e';
+const FAILED_CHANNEL = '/event/OpenSF__Quantum_Job_Failed__e';
 
 export default class QrngJobStatusPanel extends LightningElement {
     @api recordId;
@@ -138,13 +138,13 @@ export default class QrngJobStatusPanel extends LightningElement {
         return this._dto?.useBellTest || false;
     }
     get jobType() {
-        return this._dto?.jobType || 'QRNG';
+        return this._dto?.jobType || 'Quantum';
     }
     get isVerifyJob() {
         return this.jobType === 'CHSH Verification' || this.useBellTest;
     }
     get jobTypeLabel() {
-        return this.isVerifyJob ? 'Quantum Verification' : 'QRNG';
+        return this.isVerifyJob ? 'Quantum Verification' : 'Quantum';
     }
     get assignmentType() {
         return this._dto?.assignmentType || '—';

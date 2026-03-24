@@ -1,6 +1,6 @@
 import { LightningElement, track, wire } from 'lwc';
-import getSettings from '@salesforce/apex/QRNGSetupController.getSettings';
-import submitQRNGJob from '@salesforce/apex/QRNGSetupController.submitQRNGJob';
+import getSettings from '@salesforce/apex/SetupController.getSettings';
+import submitQuantumJob from '@salesforce/apex/SetupController.submitQuantumJob';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 const DEFAULT_MAX_QUBITS = 127;
@@ -229,7 +229,7 @@ export default class QrngRequestForm extends LightningElement {
         try {
             const backendToSubmit =
                 this.backend === '__least_busy__' ? '' : this.backend;
-            const jobId = await submitQRNGJob({
+            const jobId = await submitQuantumJob({
                 backend: backendToSubmit,
                 numQubits: this.numQubits,
                 shots: this.shots,
