@@ -1,6 +1,6 @@
 # QuantumFair (open-qrng) — Agent Definitions
 
-This file defines AI agent roles for developing the QuantumFair Salesforce managed package. Each agent has a specific responsibility boundary and set of conventions it must follow.
+This file defines AI agent roles for developing QuantumFair, an open-source Salesforce app distributed as an unmanaged package / source deploy. Each agent has a specific responsibility boundary and set of conventions it must follow.
 
 ---
 
@@ -10,13 +10,15 @@ This file defines AI agent roles for developing the QuantumFair Salesforce manag
 
 ### Conventions
 
-- All Apex classes use `with sharing` unless explicitly documented otherwise
-- Namespace-aware: this is a managed package — never hardcode object/field API names without the namespace prefix pattern
-- Every service class gets a corresponding `_Test` class in `classes/tests/`
+- All Apex classes use `with sharing` unless explicitly documented otherwise (async system-maintenance workers like `JobPoller`/`JobPollScheduler` are documented `without sharing`)
+- No namespace: the project distributes as an unmanaged package / source deploy — object/field API names are un-namespaced
+- Every service class gets a corresponding `_Test` class alongside it in the flat `classes/` directory
 - Test classes must achieve 90%+ code coverage per class, not just org-wide
 - Use `@TestSetup` for shared test data, never insert data in individual test methods without justification
-- Callouts to IBM Quantum REST API go through Named Credentials — never construct raw endpoint URLs with API keys in Apex
-- Platform Cache for ephemeral data (IAM tokens), Custom Metadata Types for config (backend definitions)
+- Callouts to the IBM Quantum REST API are authorized via Remote Site Settings; the API key lives in the Protected custom setting `Quantum_Settings__c.IBM_API_Key__c` and is only ever sent to IBM IAM for token exchange — never construct endpoint URLs containing API keys
+- Platform Cache (`local.QuantumFair` partition) for ephemeral data (IAM bearer tokens); backend/provider config lives in `Quantum_Provider__c`/`Quantum_Backend__c` records
+- Privileged `@AuraEnabled` methods must call `requireAdmin()` (the `QuantumFair_Administer` custom permission gate); controller reads enforce FLS via `WITH USER_MODE` / `Security.stripInaccessible`
+- Randomness consumption uses rejection sampling only — never modulo, never a pseudo-random fallback
 - Queueable chains for async polling — never use `@future` for IBM job polling
 - Governor limit budget awareness: document callout count, SOQL count, and heap usage in class-level comments for any class that processes quantum results
 - Von Neumann debiasing, SHA-256 hashing, and statistical validation are deterministic — test with known input/output fixtures
@@ -28,47 +30,50 @@ This file defines AI agent roles for developing the QuantumFair Salesforce manag
 
 ### Apex Class Organization
 
-Classes are organized by domain responsibility:
+All classes live in the flat `force-app/main/default/classes/` directory (test classes alongside their sources), organized by domain responsibility:
 
-| Directory       | Purpose                                                            |
-| --------------- | ------------------------------------------------------------------ |
-| `api/`          | IBM Quantum integration — auth, REST client, provider impl         |
-| `circuits/`     | OpenQASM 3.0 circuit generation (ISA-compliant)                    |
-| `jobs/`         | Async polling (Queueable chain), job sweeper, poll scheduler       |
-| `results/`      | Result parsing, von Neumann debiasing, statistical validation      |
-| `certificates/` | Fairness certificate service, integrity verification, chaining     |
-| `compliance/`   | Event logger, digest email, summary job, evidence export           |
-| `controllers/`  | LWC controllers, @InvocableMethod for Flow Builder                 |
-| `shared/`       | Interfaces (QuantumProvider, QuantumConsumer), factory, exceptions |
-| `tests/`        | All @isTest classes                                                |
+| Domain       | Purpose                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| API          | IBM Quantum integration — auth, REST client, response parsing, provider impl               |
+| Circuits     | OpenQASM 3.0 circuit generation (ISA-compliant)                                            |
+| Jobs         | Async submission queueable, polling chain, job processor, sweeper, poll scheduler          |
+| Results      | Result parsing, per-qubit von Neumann debiasing, statistical validation, assignment engine |
+| Certificates | Fairness certificate service, integrity verification, chaining                             |
+| Compliance   | Event logger, digest email, summary job, evidence export                                   |
+| Controllers  | LWC controller, @InvocableMethod for Flow Builder                                          |
+| Shared       | Interfaces (QuantumProvider, QuantumConsumer), factory, exceptions                         |
 
 ### Key Classes
 
-| Class                        | Directory       | Responsibility                                 |
-| ---------------------------- | --------------- | ---------------------------------------------- |
-| `IBMQuantumAuth`             | `api/`          | IAM token exchange + Platform Cache            |
-| `IBMQuantumService`          | `api/`          | REST client — submit, poll, results            |
-| `IBMQuantumProvider`         | `api/`          | QuantumProvider implementation for IBM Quantum |
-| `CircuitBuilder`             | `circuits/`     | Generate ISA-compliant OpenQASM 3.0            |
-| `JobPoller`                  | `jobs/`         | Queueable chain for async polling              |
-| `JobSweeper`                 | `jobs/`         | Cleanup stale/abandoned quantum jobs           |
-| `JobPollScheduler`           | `jobs/`         | Scheduled poll orchestration                   |
-| `ResultParser`               | `results/`      | Bitstring extraction + von Neumann debiasing   |
-| `RandomnessValidator`        | `results/`      | Statistical randomness tests                   |
-| `QuantumAssignmentEngine`    | `results/`      | Random assignment algorithms                   |
-| `FairnessCertificateService` | `certificates/` | Certificate creation + chain linking           |
-| `IntegrityVerificationJob`   | `certificates/` | Nightly re-hash verification of certificates   |
-| `ComplianceEventLogger`      | `compliance/`   | Exception-only audit event creation + hashing  |
-| `ComplianceDigestJob`        | `compliance/`   | Daily hash digest email to compliance mailbox  |
-| `ComplianceSummaryJob`       | `compliance/`   | Monthly aggregate compliance summary           |
-| `ComplianceEvidenceExporter` | `compliance/`   | Framework-specific evidence JSON export        |
-| `ComplianceControlService`   | `compliance/`   | Query compliance control-to-framework mapping  |
-| `SetupController`            | `controllers/`  | LWC controller for admin setup + job dashboard |
-| `QuantumRandomAssignment`    | `controllers/`  | @InvocableMethod for Flow Builder              |
-| `QuantumProvider`            | `shared/`       | Interface for quantum backend providers        |
-| `QuantumProviderFactory`     | `shared/`       | Factory for obtaining provider instances       |
-| `QuantumConsumer`            | `shared/`       | Interface for custom randomness consumers      |
-| `QuantumException`           | `shared/`       | Package-specific exception class               |
+| Class                        | Domain       | Responsibility                                   |
+| ---------------------------- | ------------ | ------------------------------------------------ |
+| `IBMQuantumAuth`             | API          | IAM token exchange + Platform Cache              |
+| `IBMQuantumService`          | API          | REST client — submit, poll, results              |
+| `IBMQuantumProvider`         | API          | QuantumProvider implementation for IBM Quantum   |
+| `IBMResponseParser`          | API          | IBM response shape parsing                       |
+| `CircuitBuilder`             | Circuits     | Generate ISA-compliant OpenQASM 3.0              |
+| `QuantumSubmissionQueueable` | Jobs         | Chained async submission of Pending jobs         |
+| `JobPoller`                  | Jobs         | Queueable poll chain (backoff, transient retry)  |
+| `JobPollScheduler`           | Jobs         | Schedulable hop between polls                    |
+| `JobProcessor`               | Jobs         | Idempotent completion processing + assignments   |
+| `JobSweeper`                 | Jobs         | Scheduled safety net for stale/abandoned jobs    |
+| `ResultParser`               | Results      | Bitstring extraction + per-qubit von Neumann     |
+| `RandomnessValidator`        | Results      | Statistical randomness tests (alpha = 0.01)      |
+| `ValidationRunner`           | Results      | Async SP 800-90B suite — can revoke certificates |
+| `QuantumAssignmentEngine`    | Results      | Rejection-sampled assignment algorithms          |
+| `FairnessCertificateService` | Certificates | Certificate creation + chain linking             |
+| `IntegrityVerificationJob`   | Certificates | Nightly re-hash verification of certificates     |
+| `ComplianceEventLogger`      | Compliance   | Audit event creation + hashing                   |
+| `ComplianceDigestJob`        | Compliance   | Daily hash digest email to compliance mailbox    |
+| `ComplianceSummaryJob`       | Compliance   | Aggregate compliance summary                     |
+| `ComplianceEvidenceExporter` | Compliance   | Framework-specific evidence JSON export          |
+| `ComplianceControlService`   | Compliance   | Query compliance control-to-framework mapping    |
+| `SetupController`            | Controllers  | LWC controller (permission-gated, FLS-enforced)  |
+| `QuantumRandomAssignment`    | Controllers  | @InvocableMethod for Flow Builder (bulk-safe)    |
+| `QuantumProvider`            | Shared       | Interface for quantum backend providers          |
+| `QuantumProviderFactory`     | Shared       | Factory for obtaining provider instances         |
+| `QuantumConsumer`            | Shared       | Interface for custom randomness consumers        |
+| `QuantumException`           | Shared       | Package-specific exception class                 |
 
 ---
 
@@ -116,6 +121,7 @@ Classes are organized by domain responsibility:
 | `qrngChshVisualizer`      | CHSH correlator breakdown chart                                           |
 | `qrngComplianceExport`    | Framework evidence JSON download                                          |
 | `qrngEventSubscription`   | Shared Platform Event subscription utility                                |
+| `qrngUtils`               | Shared utilities (reduceErrors)                                           |
 
 ---
 
@@ -125,13 +131,15 @@ Classes are organized by domain responsibility:
 
 ### Conventions
 
-- Custom objects: `Quantum_Job__c`, `Fairness_Certificate__c`, `Quantum_Assignment__c`, `Quantum_Backend__c`, `Compliance_Event__c`
-- Custom Metadata Types: `Quantum_Backend_Config__mdt` (Protected), `Compliance_Control__mdt` (24 seed records)
-- Custom Settings: `Quantum_Settings__c` (Hierarchy — default backend, shots, compliance email)
+- Custom objects: `Quantum_Job__c`, `Fairness_Certificate__c`, `Quantum_Assignment__c`, `Quantum_Provider__c`, `Quantum_Backend__c`, `Compliance_Event__c`
+- Custom Metadata Types: `Compliance_Control__mdt` (24 seed records)
+- Custom Settings: `Quantum_Settings__c` (Protected Hierarchy — IBM API key, default backend, shots, compliance email)
+- Custom Permissions: `QuantumFair_Administer` (granted only in the Admin permission set; gates privileged @AuraEnabled methods)
 - Platform Events: `Quantum_Job_Complete__e`, `Quantum_Job_Failed__e`
-- OWD for custom objects: Private (sharing rules for access control)
-- Permission sets: `QuantumFair_Admin`, `QuantumFair_User`, `QuantumFair_Auditor` (read-only) — never use profiles
-- Named Credential: `IBM_Quantum_Runtime` + External Credential: `IBM_Quantum`
+- OWD for custom objects: Private (master-detail children Controlled by Parent)
+- Permission sets: `QuantumFair_Admin`, `QuantumFair_User`, `QuantumFair_Auditor` (read-only) — never use profiles; all three grant `SetupController` class access + Platform Event read
+- Remote Site Settings: `IBM_IAM`, `IBM_Quantum_API`, `IBM_Resource_Controller` (no Named/External Credentials — the API key lives in the Protected custom setting)
+- Platform Cache partition: `QuantumFair` (IAM bearer token cache)
 - All metadata XML must be valid for API version 66.0
 - Field-level security: explicitly set in permission sets, never default-open
 - Describe every field with a `description` and `inlineHelpText` in the metadata XML
@@ -179,13 +187,13 @@ sf apex run test --code-coverage --result-format human --wait 10
 
 ### Conventions
 
-- Scratch org definition: `config/project-scratch-def.json`
-- Package type: Managed (2GP — Second-Generation Packaging)
+- Scratch org definition: `config/project-scratch-def.json` (non-namespaced — the project has no namespace)
+- Distribution: unmanaged package / open-source source deploy (no 2GP packaging, no `packageAliases`)
 - Branch strategy: `master` is always deployable, feature branches for development
-- CI pipeline: lint + format check + Jest tests + scratch org creation + Apex deploy + Apex tests
+- CI pipeline: lint + format check + Jest tests + scratch org creation + Apex deploy + Apex tests (fork-safe; workflows use concurrency groups)
 - Never store secrets in workflow files — use GitHub Secrets for IBM API key, SF auth URL
 - Scratch org TTL: 7 days for CI, 30 days for development
-- Package version naming: `MAJOR.MINOR.PATCH-beta.BUILD` during development
+- Version naming: `MAJOR.MINOR.PATCH` in `sfdx-project.json` / CHANGELOG.md
 
 ### Claude Code Web Session Setup
 
@@ -244,7 +252,7 @@ gh pr create --title "feat: my feature" --body "..."
 - Bell-test QRNG: Bell pairs (H + ECR) with random basis rotation + measure
 - OpenQASM 3.0 output — no Qiskit/Python dependency for circuit generation
 - **Coupling map integration:** Always validate qubit connectivity against the backend coupling map before circuit submission. Use physically connected qubits for two-qubit gates.
-- CHSH S-value computation for Bell-test certification: S > 2.0 = quantum certified
+- CHSH S-value computation for Bell-test certification: requires (S − 2.0) > 2σ_S (classical bound violated by at least two standard errors — "consistent with quantum origin", never "proves")
 - **Gate fidelity:** Prefer qubits and connections with higher gate fidelity when coupling map data is available
 
 ---
@@ -258,7 +266,7 @@ The scratch org alias is set by the session hook (default: `qrng-dev`, configura
 sf org open -o qrng-dev --url-only
 
 # QuantumFair app tab URL (append to scratch org lightning domain)
-# https://<scratch-org-domain>.scratch.lightning.force.com/lightning/n/OpenSF__QuantumFair
+# https://<scratch-org-domain>.scratch.lightning.force.com/lightning/n/QuantumFair
 
 # Deploy changes during development
 sf project deploy start --target-org qrng-dev --ignore-conflicts
@@ -271,7 +279,7 @@ sf org assign permset --name QuantumFair_Admin --target-org qrng-dev
 sf org assign permset --name QuantumFair_User --target-org qrng-dev
 ```
 
-The QuantumFair tab uses the `OpenSF__` namespace prefix. Always use `/lightning/n/OpenSF__QuantumFair` to navigate to the main app page.
+The QuantumFair tab is un-namespaced. Always use `/lightning/n/QuantumFair` to navigate to the main app page.
 
 ### Manual Scratch Org Setup (local CLI without session hook)
 
@@ -358,8 +366,8 @@ Playwright enables UI debugging without a visible browser:
 1. **Read ARCHITECTURE.md** before making structural decisions — it is the source of truth for system design
 2. **Apache-2.0 license** — all source files must be compatible
 3. **No external servers** — everything runs on Salesforce except IBM Quantum API callouts
-4. **BYOQ model** — never assume a specific IBM API key; always use Named Credentials
-5. **Security first** — no raw API keys in code, no customer data in quantum circuits, no PII in logs
+4. **BYOQ model** — never assume a specific IBM API key; each org enters its own key via the Setup tab (Protected custom setting)
+5. **Security first** — no raw API keys in code or logs, key never returned to the client, no customer data in quantum circuits, no PII in logs
 6. **Governor limits** — every Apex transaction must document its callout/SOQL/DML budget
 7. **Deterministic assignments** — given the same quantum random bits, the assignment engine must always produce the same result (for audit verification)
 8. **DTO pattern** — all Apex-to-LWC communication uses typed DTOs, not raw SObjects or untyped Maps

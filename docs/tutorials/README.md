@@ -10,7 +10,7 @@ Step-by-step guides for Salesforce admins to implement quantum-certified fair ra
 
 Before following any tutorial, ensure:
 
-1. **QuantumFair is installed** in your org (managed package)
+1. **QuantumFair is installed** in your org (unmanaged package or source deploy)
 2. **IBM Quantum API key** is configured via the QuantumFair Setup tab
 3. **Permission sets** are assigned:
     - `QuantumFair_Admin` for admins configuring the system

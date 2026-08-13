@@ -1,9 +1,8 @@
 {
-    "orgName": "OpenSF",
+    "orgName": "QuantumFair",
     "edition": "Partner Developer",
     "language": "en_US",
-    "namespace": "OpenSF",
-    "features": ["ContactsToMultipleAccounts"],
+    "features": ["ContactsToMultipleAccounts", "PlatformCache"],
     "settings": {
         "mobileSettings": {
             "enableS1EncryptedStoragePref2": false

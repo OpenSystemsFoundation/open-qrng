@@ -53,6 +53,9 @@ playwright-report/
 test-results/
 apex-results/
 jest-results.json
+*-output.txt
+e2e-output.txt
+.auth/
 
 # Python Salesforce Functions
 **/__pycache__/

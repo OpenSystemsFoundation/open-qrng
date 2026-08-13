@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
+        <description
+        >Enqueues the quantum assignment asynchronously (no callout runs in this transaction). Error handling: before activating this flow, add a fault connector on this element to show an error screen or notify an admin — otherwise submission errors are only recorded on the Quantum_Job__c record.</description>
         <name>Quantum_Rebalance</name>
         <label>Quantum Rebalance Accounts</label>
         <locationX>176</locationX>
         <locationY>890</locationY>
-        <actionName>OpenSF__QuantumRandomAssignment</actionName>
+        <actionName>QuantumRandomAssignment</actionName>
         <actionType>apex</actionType>
         <connector>
             <targetReference>Confirmation_Screen</targetReference>
@@ -168,7 +170,7 @@
         </rules>
     </decisions>
     <description
-    >Admin-driven Screen Flow to reassign Accounts during territory changes using quantum-certified randomization. The admin selects a territory or account filter, chooses target reps, picks Uniform or Weighted assignment, and submits to QuantumFair. Includes Bell Test option for high-stakes rebalances. A Fairness Certificate proves no favoritism.</description>
+    >Admin-driven Screen Flow to reassign Accounts during territory changes using quantum-certified randomization. The admin selects a territory or account filter, chooses target reps, picks Uniform or Weighted assignment, and submits to QuantumFair. The invocable action only enqueues the job — results arrive asynchronously via the Quantum_Job_Complete__e Platform Event. Includes Bell Test option for high-stakes rebalances. A Fairness Certificate proves no favoritism.</description>
     <interviewLabel
     >Quantum Account Rebalance {!$Flow.CurrentDateTime}</interviewLabel>
     <isTemplate>true</isTemplate>
