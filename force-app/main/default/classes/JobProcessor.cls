@@ -12,9 +12,18 @@
  *   - Enqueue extended validation (sampler only)
  *   - Publish Platform Events
  *
- * Governor limits per call: 1 callout (getJobResults), ~3 SOQL, 2-3 DML
+ * Governor limits per call: 1 callout (getJobResults), ~6 SOQL, 3-4 DML
  */
 public with sharing class JobProcessor {
+    /**
+     * Maximum length of the LongTextArea fields that store encoded results.
+     * Results exceeding this are FAILED, never truncated — a truncated
+     * bitstring would be hashed into the certificate and silently break
+     * third-party audit replay (H-R3).
+     */
+    @TestVisible
+    private static Integer maxStoredResultChars = 131072;
+
     /**
      * Result DTO returned after processing a completed job.
      */
@@ -39,6 +48,22 @@ public with sharing class JobProcessor {
         String resultsJson,
         Map<String, Object> statusResponse
     ) {
+        // Idempotency guard: lock the job row so concurrent completion
+        // signals (poller + sweeper + manual retrieve) serialize; if the
+        // job is already terminal and certified, this is a duplicate —
+        // return the existing outcome without re-processing or
+        // re-publishing events.
+        Quantum_Job__c lockedJob = [
+            SELECT Id, Status__c, Assignment_Request__c, Assignment_Type__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+            FOR UPDATE
+        ];
+        ProcessingResult duplicate = checkAlreadyProcessed(lockedJob);
+        if (duplicate != null) {
+            return duplicate;
+        }
+
         Integer numQubits = job.Num_Qubits__c != null
             ? (Integer) job.Num_Qubits__c
             : 8;
@@ -47,7 +72,10 @@ public with sharing class JobProcessor {
             numQubits
         );
         String rawBits = ResultParser.concatenateBitstrings(bitstrings);
-        String debiasedBits = ResultParser.vonNeumannDebias(rawBits);
+        // Per-qubit debiasing (H-M1); Bell jobs exclude correlated pair bits
+        String debiasedBits = job.Use_Bell_Test__c == true
+            ? ResultParser.vonNeumannDebiasBellPairs(rawBits, numQubits)
+            : ResultParser.vonNeumannDebias(rawBits, numQubits);
 
         // Critical realtime gate: frequency test (blocks certification)
         Map<String, Object> validationResults = RandomnessValidator.validate(
@@ -66,24 +94,46 @@ public with sharing class JobProcessor {
             ) {
                 shots.add(rawBits.substring(i, i + numQubits));
             }
-            Double sValue = RandomnessValidator.calculateCHSH(shots, numPairs);
-            validationResults.put('chshSValue', sValue);
-            validationResults.put('bellTestPassed', sValue > 2.0);
+            Map<String, Object> chshStats = RandomnessValidator.calculateCHSHWithStats(
+                shots,
+                numPairs
+            );
+            validationResults.putAll(chshStats);
 
-            if (sValue <= 2.0) {
+            if ((Boolean) chshStats.get('bellTestPassed') != true) {
                 isValid = false;
                 validationResults.put('passed', false);
             }
         }
 
+        // Defensive truncation guard (H-R3): results that cannot be stored
+        // in full are FAILED, never truncated-and-hashed. The primary guard
+        // rejects oversized configs at submission time.
+        String encodedRaw = ResultParser.encodeForStorage(rawBits);
+        String encodedDebiased = ResultParser.encodeForStorage(debiasedBits);
+        if (
+            encodedRaw.length() > maxStoredResultChars ||
+            encodedDebiased.length() > maxStoredResultChars
+        ) {
+            return failJob(
+                job,
+                'Result too large to store without truncation (' +
+                    encodedRaw.length() +
+                    ' encoded chars, maximum ' +
+                    maxStoredResultChars +
+                    '). Truncating would break the audit chain. Lower ' +
+                    'qubits x shots so that ceil(qubits*shots/4) + 2 <= ' +
+                    maxStoredResultChars +
+                    ' and resubmit.'
+            );
+        }
+
         // Update job record
         String validationJson = JSON.serialize(validationResults);
-        String encodedRaw = ResultParser.encodeForStorage(rawBits);
         job.Status__c = 'Completed';
-        job.Raw_Results__c = encodedRaw.left(131072);
+        job.Raw_Results__c = encodedRaw;
         job.Result_Fingerprint__c = ResultParser.generateFingerprint(rawBits);
-        String encodedDebiased = ResultParser.encodeForStorage(debiasedBits);
-        job.Debiased_Results__c = encodedDebiased.left(131072);
+        job.Debiased_Results__c = encodedDebiased;
         job.Completed_At__c = DateTime.now();
         stampExecutionTime(job);
         if (statusResponse != null) {
@@ -103,6 +153,31 @@ public with sharing class JobProcessor {
             certStatus
         );
 
+        // Wire the assignment engine (B1): after certification, replay the
+        // persisted assignment request against the certified debiased pool.
+        // Assignment failure must never lose the certificate: errors are
+        // logged on the job and no partial assignments are kept.
+        if (
+            isValid &&
+            String.isNotBlank(lockedJob.Assignment_Request__c) &&
+            String.isNotBlank(lockedJob.Assignment_Type__c)
+        ) {
+            try {
+                createAssignments(
+                    job.Id,
+                    certId,
+                    lockedJob.Assignment_Type__c,
+                    lockedJob.Assignment_Request__c,
+                    debiasedBits
+                );
+            } catch (Exception e) {
+                appendJobError(
+                    job.Id,
+                    ('Assignment failed: ' + e.getMessage()).left(4000)
+                );
+            }
+        }
+
         // Enqueue async extended validation tests (non-blocking)
         if (!Test.isRunningTest()) {
             System.enqueueJob(new ValidationRunner(job.Id));
@@ -115,7 +190,7 @@ public with sharing class JobProcessor {
             Num_Random_Bits__c = debiasedBits.length(),
             Status__c = certStatus
         );
-        EventBus.publish(completeEvent);
+        publishSafely(completeEvent, job.Id);
 
         ProcessingResult result = new ProcessingResult();
         result.status = 'Completed';
@@ -144,6 +219,18 @@ public with sharing class JobProcessor {
         String resultsJson,
         Map<String, Object> statusResponse
     ) {
+        // Idempotency guard (see processSamplerCompletion)
+        Quantum_Job__c lockedJob = [
+            SELECT Id, Status__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+            FOR UPDATE
+        ];
+        ProcessingResult duplicate = checkAlreadyProcessed(lockedJob);
+        if (duplicate != null) {
+            return duplicate;
+        }
+
         // Parse individual expectation values (one per PUB/observable)
         List<Double> evs = ResultParser.parseAllEstimatorResults(resultsJson);
         List<Double> stds = ResultParser.parseAllEstimatorStds(resultsJson);
@@ -237,11 +324,12 @@ public with sharing class JobProcessor {
 
         // Publish completion event (no certificate for verification jobs)
         String certStatus = sValueAbs > 2.0 ? 'Certified' : 'Failed';
-        EventBus.publish(
+        publishSafely(
             new Quantum_Job_Complete__e(
                 Job_Id__c = job.Id,
                 Status__c = certStatus
-            )
+            ),
+            job.Id
         );
 
         ProcessingResult result = new ProcessingResult();
@@ -284,11 +372,12 @@ public with sharing class JobProcessor {
         updateBackendVerification(job.Backend__c, sValue, job.Id);
 
         String certStatus = sValue > 2.0 ? 'Certified' : 'Failed';
-        EventBus.publish(
+        publishSafely(
             new Quantum_Job_Complete__e(
                 Job_Id__c = job.Id,
                 Status__c = certStatus
-            )
+            ),
+            job.Id
         );
 
         ProcessingResult result = new ProcessingResult();
@@ -405,5 +494,198 @@ public with sharing class JobProcessor {
         }
         summary += '\nS = ' + sValueAbs + '\n';
         return summary;
+    }
+
+    /**
+     * Idempotency check: returns the prior outcome when the (locked) job is
+     * already terminal AND a certificate exists for it; null otherwise.
+     */
+    private static ProcessingResult checkAlreadyProcessed(
+        Quantum_Job__c lockedJob
+    ) {
+        if (
+            lockedJob.Status__c != 'Completed' &&
+            lockedJob.Status__c != 'Failed'
+        ) {
+            return null;
+        }
+        List<Fairness_Certificate__c> existingCerts = [
+            SELECT Id
+            FROM Fairness_Certificate__c
+            WHERE Quantum_Job__c = :lockedJob.Id
+            LIMIT 1
+        ];
+        if (existingCerts.isEmpty()) {
+            return null;
+        }
+        ProcessingResult result = new ProcessingResult();
+        result.status = lockedJob.Status__c;
+        result.certificateId = existingCerts[0].Id;
+        return result;
+    }
+
+    /**
+     * Fail a job without creating a certificate (e.g. oversized results).
+     */
+    private static ProcessingResult failJob(
+        Quantum_Job__c job,
+        String errorMessage
+    ) {
+        job.Status__c = 'Failed';
+        job.Error_Message__c = errorMessage.left(32768);
+        job.Completed_At__c = DateTime.now();
+        update job;
+
+        publishSafely(
+            new Quantum_Job_Failed__e(
+                Job_Id__c = job.Id,
+                Error_Message__c = errorMessage.left(255)
+            ),
+            job.Id
+        );
+
+        ProcessingResult result = new ProcessingResult();
+        result.status = 'Failed';
+        return result;
+    }
+
+    /**
+     * Deserialize the persisted assignment request, dispatch to the
+     * assignment engine by type, insert the assignments (all-or-nothing),
+     * and stamp the canonical assignment hash on the certificate.
+     */
+    @TestVisible
+    private static void createAssignments(
+        Id jobId,
+        Id certificateId,
+        String assignmentType,
+        String requestJson,
+        String debiasedBits
+    ) {
+        QuantumRandomAssignment.AssignmentRequestData req = (QuantumRandomAssignment.AssignmentRequestData) JSON.deserialize(
+            requestJson,
+            QuantumRandomAssignment.AssignmentRequestData.class
+        );
+
+        List<Quantum_Assignment__c> assignments;
+        if (assignmentType == 'Uniform') {
+            assignments = QuantumAssignmentEngine.assignUniform(
+                req.recordIds,
+                req.assigneeIds,
+                debiasedBits,
+                jobId,
+                certificateId
+            );
+        } else if (assignmentType == 'Weighted') {
+            assignments = QuantumAssignmentEngine.assignWeighted(
+                req.recordIds,
+                req.assigneeIds,
+                req.weights,
+                debiasedBits,
+                jobId,
+                certificateId
+            );
+        } else if (assignmentType == 'Subset') {
+            assignments = QuantumAssignmentEngine.selectSubset(
+                req.recordIds,
+                req.sampleSize,
+                debiasedBits,
+                jobId,
+                certificateId
+            );
+        } else {
+            throw new QuantumException(
+                'Unknown assignment type: ' + assignmentType
+            );
+        }
+
+        // All-or-nothing: any failure throws and no assignments are kept
+        insert assignments;
+
+        FairnessCertificateService.updateAssignmentHash(
+            certificateId,
+            canonicalAssignmentString(assignments)
+        );
+    }
+
+    /**
+     * Canonical assignment serialization hashed into the certificate:
+     * assignments sorted by Assignment_Index__c, one line per assignment
+     * formatted 'index:recordId:assigneeId' (assigneeId empty for Subset
+     * selections), joined with '\n'.
+     */
+    @TestVisible
+    private static String canonicalAssignmentString(
+        List<Quantum_Assignment__c> assignments
+    ) {
+        Map<Integer, Quantum_Assignment__c> byIndex = new Map<Integer, Quantum_Assignment__c>();
+        List<Integer> indexes = new List<Integer>();
+        for (Quantum_Assignment__c a : assignments) {
+            Integer idx = (Integer) a.Assignment_Index__c;
+            byIndex.put(idx, a);
+            indexes.add(idx);
+        }
+        indexes.sort();
+
+        List<String> lines = new List<String>();
+        for (Integer idx : indexes) {
+            Quantum_Assignment__c a = byIndex.get(idx);
+            lines.add(
+                idx +
+                    ':' +
+                    a.Assigned_Record_ID__c +
+                    ':' +
+                    (a.Assigned_To_ID__c == null ? '' : a.Assigned_To_ID__c)
+            );
+        }
+        return String.join(lines, '\n');
+    }
+
+    /**
+     * Publish a Platform Event, capturing the SaveResult. On failure,
+     * append a truncated note to the job's Error_Message__c — never throw
+     * (event delivery is best-effort; the job record is the source of truth).
+     */
+    private static void publishSafely(SObject event, Id jobId) {
+        Database.SaveResult sr = EventBus.publish(event);
+        if (!sr.isSuccess()) {
+            List<String> messages = new List<String>();
+            for (Database.Error err : sr.getErrors()) {
+                messages.add(err.getMessage());
+            }
+            appendJobError(
+                jobId,
+                ('Event publish failed: ' + String.join(messages, '; '))
+                    .left(1000)
+            );
+        }
+    }
+
+    /**
+     * Append a note to the job's Error_Message__c without overwriting
+     * existing content. Best-effort: never throws.
+     */
+    private static void appendJobError(Id jobId, String note) {
+        try {
+            Quantum_Job__c job = [
+                SELECT Id, Error_Message__c
+                FROM Quantum_Job__c
+                WHERE Id = :jobId
+                LIMIT 1
+            ];
+            String existing = String.isBlank(job.Error_Message__c)
+                ? ''
+                : job.Error_Message__c + '\n';
+            job.Error_Message__c = (existing + note).left(32768);
+            update job;
+        } catch (Exception e) {
+            System.debug(
+                LoggingLevel.ERROR,
+                'JobProcessor.appendJobError failed for ' +
+                    jobId +
+                    ': ' +
+                    e.getMessage()
+            );
+        }
     }
 }
