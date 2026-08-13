@@ -192,17 +192,33 @@
             </template>
 
             <template if:false={hasResults}>
-                <div
-                    class="slds-illustration slds-illustration_small slds-text-align_center"
-                >
-                    <p
-                        class="slds-text-body_regular slds-text-color_weak"
+                <template if:true={loadError}>
+                    <div
+                        class="slds-scoped-notification slds-media slds-media_center slds-theme_error slds-p-around_small"
+                        role="status"
+                        data-testid="validation-results-error"
                     >
-                        No validation results yet. Complete
-                        the job or click "Run All Tests" to
-                        validate.
-                    </p>
-                </div>
+                        <div class="slds-media__body">
+                            <p>
+                                Could not load validation
+                                results: {loadError}
+                            </p>
+                        </div>
+                    </div>
+                </template>
+                <template if:false={loadError}>
+                    <div
+                        class="slds-illustration slds-illustration_small slds-text-align_center"
+                    >
+                        <p
+                            class="slds-text-body_regular slds-text-color_weak"
+                        >
+                            No validation results yet.
+                            Complete the job or click "Run
+                            All Tests" to validate.
+                        </p>
+                    </div>
+                </template>
             </template>
 
             <!-- Loading -->
@@ -228,17 +244,24 @@
         <section
             role="dialog"
             tabindex="-1"
+            aria-modal="true"
+            aria-labelledby="circuit-modal-heading"
             class="slds-modal slds-fade-in-open slds-modal_large"
+            onkeydown={handleModalKeydown}
         >
             <div class="slds-modal__container">
                 <header class="slds-modal__header">
                     <lightning-button-icon
                         icon-name="utility:close"
-                        alternative-text="Close"
+                        alternative-text="Close circuit diagram"
                         class="slds-modal__close"
                         onclick={handleCloseCircuit}
+                        data-modal-close
                     ></lightning-button-icon>
-                    <h2 class="slds-modal__title">
+                    <h2
+                        id="circuit-modal-heading"
+                        class="slds-modal__title"
+                    >
                         Quantum Circuit Diagram
                     </h2>
                 </header>
@@ -246,7 +269,7 @@
                     class="slds-modal__content slds-p-around_medium"
                 >
                     <c-qrng-circuit-visualizer
-                        num-qubits="8"
+                        num-qubits={circuitQubits}
                         use-bell-test
                     ></c-qrng-circuit-visualizer>
                 </div>

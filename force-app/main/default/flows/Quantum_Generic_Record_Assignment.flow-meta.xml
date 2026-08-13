@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
+        <description
+        >Enqueues the quantum assignment asynchronously (no callout runs in this transaction). Error handling: before activating this flow, add a fault connector on this element to show an error screen — otherwise submission errors are only recorded on the Quantum_Job__c record.</description>
         <name>Quantum_Assign_Uniform</name>
         <label>Quantum Assign (Uniform)</label>
         <locationX>176</locationX>
         <locationY>458</locationY>
-        <actionName>OpenSF__QuantumRandomAssignment</actionName>
+        <actionName>QuantumRandomAssignment</actionName>
         <actionType>apex</actionType>
         <connector>
             <targetReference>Result_Screen</targetReference>
@@ -50,11 +52,13 @@
         </outputParameters>
     </actionCalls>
     <actionCalls>
+        <description
+        >Enqueues the quantum assignment asynchronously (no callout runs in this transaction). Error handling: before activating this flow, add a fault connector on this element to show an error screen — otherwise submission errors are only recorded on the Quantum_Job__c record.</description>
         <name>Quantum_Assign_Weighted</name>
         <label>Quantum Assign (Weighted)</label>
         <locationX>440</locationX>
         <locationY>458</locationY>
-        <actionName>OpenSF__QuantumRandomAssignment</actionName>
+        <actionName>QuantumRandomAssignment</actionName>
         <actionType>apex</actionType>
         <connector>
             <targetReference>Result_Screen</targetReference>
@@ -105,11 +109,13 @@
         </outputParameters>
     </actionCalls>
     <actionCalls>
+        <description
+        >Enqueues the quantum selection asynchronously (no callout runs in this transaction). Error handling: before activating this flow, add a fault connector on this element to show an error screen — otherwise submission errors are only recorded on the Quantum_Job__c record.</description>
         <name>Quantum_Assign_Subset</name>
         <label>Quantum Select (Subset)</label>
         <locationX>704</locationX>
         <locationY>458</locationY>
-        <actionName>OpenSF__QuantumRandomAssignment</actionName>
+        <actionName>QuantumRandomAssignment</actionName>
         <actionType>apex</actionType>
         <connector>
             <targetReference>Result_Screen</targetReference>
@@ -220,7 +226,7 @@
         </rules>
     </decisions>
     <description
-    >Generic Screen Flow template for quantum-certified random assignment. Works with ANY object — accepts record IDs and assignee IDs as text input, supports all three assignment modes (Uniform, Weighted, Subset), and includes Bell Test toggle. Copy this template and adapt it: replace the text inputs with Get Records elements for your specific object, or use it as-is for ad-hoc assignments by pasting IDs directly.</description>
+    >Generic Screen Flow template for quantum-certified random assignment. Works with ANY object — accepts record IDs and assignee IDs as text input, supports all three assignment modes (Uniform, Weighted, Subset), and includes Bell Test toggle. The invocable action only enqueues the job — results arrive asynchronously via the Quantum_Job_Complete__e Platform Event. Copy this template and adapt it: replace the text inputs with Get Records elements for your specific object, or use it as-is for ad-hoc assignments by pasting IDs directly.</description>
     <interviewLabel
     >Quantum Generic Assignment {!$Flow.CurrentDateTime}</interviewLabel>
     <isTemplate>true</isTemplate>

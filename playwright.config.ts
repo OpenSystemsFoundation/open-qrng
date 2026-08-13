@@ -8,7 +8,7 @@ import { defineConfig, devices } from '@playwright/test';
  *   - SF_LOGIN_URL: Salesforce login URL (e.g. https://test.salesforce.com)
  *   - SF_INSTANCE_URL: Scratch org instance URL
  *   - SF_ACCESS_TOKEN: OAuth access token for the scratch org
- *   - SF_APP_PAGE: Lightning app page path (default: /lightning/n/OpenSF__QuantumFair)
+ *   - SF_APP_PAGE: Lightning app page path (default: /lightning/n/QuantumFair)
  *
  * For local development without a scratch org, tests use mock mode
  * which renders static HTML fixtures that mirror the LWC structure.

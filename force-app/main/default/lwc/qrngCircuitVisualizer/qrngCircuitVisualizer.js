@@ -1,4 +1,5 @@
 import { LightningElement, api } from 'lwc';
+import { setupHiDpiCanvas } from 'c/qrngUtils';
 
 // CHSH basis configurations matching CircuitBuilder.buildBellCircuitFromPairs
 const CHSH_CONFIGS = [
@@ -35,6 +36,14 @@ export default class QrngCircuitVisualizer extends LightningElement {
     @api useBellTest = false;
 
     _resizeObserver;
+
+    get circuitAriaLabel() {
+        const qubits = parseInt(this.numQubits, 10) || 4;
+        const kind = this.useBellTest
+            ? 'CHSH Bell test circuit diagram'
+            : 'Quantum circuit diagram';
+        return `${kind}, ${qubits} qubit${qubits === 1 ? '' : 's'}`;
+    }
 
     renderedCallback() {
         this.drawCircuit();
@@ -73,10 +82,8 @@ export default class QrngCircuitVisualizer extends LightningElement {
     drawStandardCircuit(canvas, width, qubits) {
         const rowHeight = 50;
         const height = Math.max(qubits * rowHeight + 40, 100);
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
+        const ctx = setupHiDpiCanvas(canvas, width, height);
+        if (!ctx) return;
         ctx.clearRect(0, 0, width, height);
 
         const wireColor = '#706e6b';
@@ -139,10 +146,8 @@ export default class QrngCircuitVisualizer extends LightningElement {
             numPairs * (rowHeight * 2 + pairSpacing) + topPad + legendHeight,
             150
         );
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
+        const ctx = setupHiDpiCanvas(canvas, width, height);
+        if (!ctx) return;
         ctx.clearRect(0, 0, width, height);
 
         const wireColor = '#706e6b';

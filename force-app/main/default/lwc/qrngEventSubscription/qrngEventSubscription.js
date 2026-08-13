@@ -18,8 +18,8 @@
  */
 import { subscribe, unsubscribe, onError } from 'lightning/empApi';
 
-const COMPLETE_CHANNEL = '/event/OpenSF__Quantum_Job_Complete__e';
-const FAILED_CHANNEL = '/event/OpenSF__Quantum_Job_Failed__e';
+const COMPLETE_CHANNEL = '/event/Quantum_Job_Complete__e';
+const FAILED_CHANNEL = '/event/Quantum_Job_Failed__e';
 
 let _errorHandlerRegistered = false;
 
@@ -30,7 +30,7 @@ let _errorHandlerRegistered = false;
  * @returns {Object} subscription handle with .complete and .failed properties
  */
 export function subscribeToQuantumEvents(onComplete, onFailed) {
-    const handle = { complete: null, failed: null };
+    const handle = { complete: null, failed: null, cancelled: false };
 
     if (!_errorHandlerRegistered) {
         onError((error) => {
@@ -43,7 +43,13 @@ export function subscribeToQuantumEvents(onComplete, onFailed) {
         subscribe(COMPLETE_CHANNEL, -1, (message) => {
             onComplete(message);
         }).then((sub) => {
-            handle.complete = sub;
+            // If the component unsubscribed before the subscription
+            // resolved, release it immediately instead of leaking it.
+            if (handle.cancelled) {
+                unsubscribe(sub);
+            } else {
+                handle.complete = sub;
+            }
         });
     }
 
@@ -51,7 +57,11 @@ export function subscribeToQuantumEvents(onComplete, onFailed) {
         subscribe(FAILED_CHANNEL, -1, (message) => {
             onFailed(message);
         }).then((sub) => {
-            handle.failed = sub;
+            if (handle.cancelled) {
+                unsubscribe(sub);
+            } else {
+                handle.failed = sub;
+            }
         });
     }
 
@@ -60,10 +70,13 @@ export function subscribeToQuantumEvents(onComplete, onFailed) {
 
 /**
  * Unsubscribe from QRNG Platform Events.
+ * Safe to call before the underlying subscribe() promises resolve —
+ * pending subscriptions are released as soon as they arrive.
  * @param {Object} handle - subscription handle from subscribeToQuantumEvents
  */
 export function unsubscribeFromQuantumEvents(handle) {
     if (handle) {
+        handle.cancelled = true;
         if (handle.complete) {
             unsubscribe(handle.complete);
             handle.complete = null;

@@ -15,7 +15,12 @@
                 class="canvas-container"
                 lwc:ref="chartContainer"
             >
-                <canvas lwc:ref="chartCanvas"></canvas>
+                <canvas
+                    lwc:ref="chartCanvas"
+                    role="img"
+                    aria-label="Bar chart of raw measurement bitstring distribution"
+                    data-testid="results-chart"
+                ></canvas>
             </div>
             <template if:true={hasData}>
                 <div
@@ -52,6 +57,8 @@
                 >
                     <canvas
                         lwc:ref="debiasedCanvas"
+                        role="img"
+                        aria-label="Bar chart of debiased measurement bitstring distribution"
                     ></canvas>
                 </div>
                 <div

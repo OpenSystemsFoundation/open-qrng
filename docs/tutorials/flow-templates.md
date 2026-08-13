@@ -1,6 +1,6 @@
 # QuantumFair Flow Templates
 
-Out-of-the-box Salesforce Flow templates that ship with the QuantumFair managed package. These templates use **standard Salesforce objects** (Lead, Case, Opportunity, Account) so they work in every org without customization.
+Out-of-the-box Salesforce Flow templates that ship with QuantumFair. These templates use **standard Salesforce objects** (Lead, Case, Opportunity, Account) so they work in every org without customization.
 
 ## How to Use a Template
 

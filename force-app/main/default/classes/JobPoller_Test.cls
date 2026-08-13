@@ -62,6 +62,27 @@ private class JobPoller_Test {
         }
     }
 
+    private class MockUnknownStatusJob implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            HttpResponse res = new HttpResponse();
+            res.setStatusCode(200);
+            res.setBody(
+                '{"id":"job_test","status":"mystery_state","state":{"status":"mystery_state"}}'
+            );
+            return res;
+        }
+    }
+
+    /**
+     * Simulates a transport-level callout failure (timeout, connection
+     * reset, etc.) — the classic transient error.
+     */
+    private class MockCalloutTimeout implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            throw new System.CalloutException('Read timed out');
+        }
+    }
+
     private class MockEstimatorCompletedJob implements HttpCalloutMock {
         public HttpResponse respond(HttpRequest req) {
             HttpResponse res = new HttpResponse();
@@ -80,20 +101,25 @@ private class JobPoller_Test {
         }
     }
 
+    private static Quantum_Job__c makeJob(String status, DateTime submittedAt) {
+        return new Quantum_Job__c(
+            External_Job_ID__c = 'job_test',
+            Backend__c = 'test_backend',
+            Status__c = status,
+            Shots__c = 1024,
+            Num_Qubits__c = 8,
+            Submitted_At__c = submittedAt
+        );
+    }
+
     @IsTest
     static void testPollCompletedJob() {
         Test.setMock(HttpCalloutMock.class, new MockCompletedJob());
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
 
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'job_test',
-            Backend__c = 'test_backend',
-            Status__c = 'Submitted',
-            Shots__c = 8,
-            Num_Qubits__c = 8,
-            Submitted_At__c = DateTime.now()
-        );
+        Quantum_Job__c job = makeJob('Submitted', DateTime.now());
+        job.Shots__c = 8;
         insert job;
 
         Test.startTest();
@@ -125,14 +151,7 @@ private class JobPoller_Test {
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
 
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'job_test',
-            Backend__c = 'test_backend',
-            Status__c = 'Submitted',
-            Shots__c = 1024,
-            Num_Qubits__c = 8,
-            Submitted_At__c = DateTime.now()
-        );
+        Quantum_Job__c job = makeJob('Submitted', DateTime.now());
         insert job;
 
         Test.startTest();
@@ -141,11 +160,21 @@ private class JobPoller_Test {
         Test.stopTest();
 
         job = [
-            SELECT Id, Status__c, Poll_Count__c
+            SELECT Id, Status__c, Poll_Count__c, Last_Polled_At__c
             FROM Quantum_Job__c
             WHERE Id = :job.Id
         ];
         System.assertEquals('Queued', job.Status__c);
+        System.assertEquals(
+            1,
+            job.Poll_Count__c,
+            'Poll counter should increment'
+        );
+        System.assertNotEquals(
+            null,
+            job.Last_Polled_At__c,
+            'Every poll should stamp Last_Polled_At__c (sweeper freshness signal)'
+        );
     }
 
     @IsTest
@@ -154,14 +183,7 @@ private class JobPoller_Test {
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
 
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'job_test',
-            Backend__c = 'test_backend',
-            Status__c = 'Submitted',
-            Shots__c = 1024,
-            Num_Qubits__c = 8,
-            Submitted_At__c = DateTime.now()
-        );
+        Quantum_Job__c job = makeJob('Submitted', DateTime.now());
         insert job;
 
         Test.startTest();
@@ -183,14 +205,7 @@ private class JobPoller_Test {
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
 
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'job_test',
-            Backend__c = 'test_backend',
-            Status__c = 'Submitted',
-            Shots__c = 1024,
-            Num_Qubits__c = 8,
-            Submitted_At__c = DateTime.now()
-        );
+        Quantum_Job__c job = makeJob('Submitted', DateTime.now());
         insert job;
 
         Test.startTest();
@@ -216,14 +231,7 @@ private class JobPoller_Test {
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
 
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'job_test',
-            Backend__c = 'test_backend',
-            Status__c = 'Submitted',
-            Shots__c = 1024,
-            Num_Qubits__c = 8,
-            Submitted_At__c = DateTime.now()
-        );
+        Quantum_Job__c job = makeJob('Submitted', DateTime.now());
         insert job;
 
         Test.startTest();
@@ -245,26 +253,213 @@ private class JobPoller_Test {
     }
 
     @IsTest
-    static void testPollExceededMaxPolls() {
-        // Use any mock — the poller should fail before making the callout
+    static void testTransientErrorKeepsJobPending() {
+        Test.setMock(HttpCalloutMock.class, new MockCalloutTimeout());
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+
+        Quantum_Job__c job = makeJob('Running', DateTime.now());
+        insert job;
+
+        Test.startTest();
+        System.enqueueJob(new JobPoller(job.Id, 'job_test', 3));
+        Test.stopTest();
+
+        job = [
+            SELECT
+                Id,
+                Status__c,
+                Poll_Count__c,
+                Error_Message__c,
+                Last_Polled_At__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assertEquals(
+            'Running',
+            job.Status__c,
+            'A transient error must NOT flip the job status'
+        );
+        System.assertEquals(
+            4,
+            job.Poll_Count__c,
+            'Poll counter should still increment on a transient error'
+        );
+        System.assert(
+            job.Error_Message__c.contains('Transient polling error'),
+            'The transient error should be logged on the job: ' +
+            job.Error_Message__c
+        );
+        System.assert(
+            job.Error_Message__c.contains('Read timed out'),
+            'The underlying error text should be preserved'
+        );
+        System.assertNotEquals(null, job.Last_Polled_At__c);
+    }
+
+    @IsTest
+    static void testConsecutiveTransientCapFailsTerminally() {
+        Test.setMock(HttpCalloutMock.class, new MockCalloutTimeout());
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+
+        Quantum_Job__c job = makeJob('Running', DateTime.now());
+        insert job;
+
+        Test.startTest();
+        // 9 prior consecutive transient errors — this one is the 10th
+        System.enqueueJob(new JobPoller(job.Id, 'job_test', 12, 9));
+        Test.stopTest();
+
+        job = [
+            SELECT Id, Status__c, Error_Message__c, Completed_At__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assertEquals(
+            'Failed',
+            job.Status__c,
+            'Consecutive-transient safety cap should fail the job'
+        );
+        System.assert(
+            job.Error_Message__c.contains('consecutive transient'),
+            'Should explain the transient-error cap: ' + job.Error_Message__c
+        );
+        System.assertNotEquals(null, job.Completed_At__c);
+    }
+
+    @IsTest
+    static void testUnknownStatusTreatedAsTransient() {
+        Test.setMock(HttpCalloutMock.class, new MockUnknownStatusJob());
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+
+        Quantum_Job__c job = makeJob('Submitted', DateTime.now());
+        insert job;
+
+        Test.startTest();
+        System.enqueueJob(new JobPoller(job.Id, 'job_test', 0));
+        Test.stopTest();
+
+        job = [
+            SELECT Id, Status__c, Poll_Count__c, Error_Message__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assertEquals(
+            'Submitted',
+            job.Status__c,
+            'An unknown IBM status must not change the job status'
+        );
+        System.assertEquals(1, job.Poll_Count__c);
+        System.assert(
+            job.Error_Message__c.contains('mystery_state'),
+            'The raw unrecognized status should be logged: ' +
+            job.Error_Message__c
+        );
+    }
+
+    @IsTest
+    static void testUnknownStatusCountsTowardTransientCap() {
+        Test.setMock(HttpCalloutMock.class, new MockUnknownStatusJob());
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+
+        Quantum_Job__c job = makeJob('Submitted', DateTime.now());
+        insert job;
+
+        Test.startTest();
+        // 9 prior consecutive transient errors — this unknown status is the 10th
+        System.enqueueJob(new JobPoller(job.Id, 'job_test', 9, 9));
+        Test.stopTest();
+
+        job = [
+            SELECT Id, Status__c, Error_Message__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assertEquals('Failed', job.Status__c);
+        System.assert(
+            job.Error_Message__c.contains('mystery_state'),
+            'Terminal message should include the raw status: ' +
+            job.Error_Message__c
+        );
+    }
+
+    @IsTest
+    static void testPollBudgetExhausted() {
+        // Any mock — the poller should fail before making the callout
         Test.setMock(HttpCalloutMock.class, new MockQueuedJob());
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
 
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'job_test',
-            Backend__c = 'test_backend',
-            Status__c = 'Running',
-            Shots__c = 1024,
-            Num_Qubits__c = 8,
-            Submitted_At__c = DateTime.now()
-        );
+        // Submitted 7 hours ago — past the 6-hour wall-clock budget
+        Quantum_Job__c job = makeJob('Running', DateTime.now().addHours(-7));
         insert job;
 
         Test.startTest();
-        // Pass pollCount = 100 (MAX_POLLS) to trigger the limit
-        JobPoller poller = new JobPoller(job.Id, 'job_test', 100);
-        System.enqueueJob(poller);
+        System.enqueueJob(new JobPoller(job.Id, 'job_test', 5));
+        Test.stopTest();
+
+        job = [
+            SELECT Id, Status__c, Error_Message__c, External_Job_ID__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assertEquals('Failed', job.Status__c);
+        System.assert(
+            job.Error_Message__c.contains('Polling budget exceeded'),
+            'Should explain budget exhaustion: ' + job.Error_Message__c
+        );
+        System.assert(
+            job.Error_Message__c.contains('Retrieve Results'),
+            'Should point at the recovery path: ' + job.Error_Message__c
+        );
+        System.assertEquals(
+            'job_test',
+            job.External_Job_ID__c,
+            'IBM job id must stay intact for manual recovery'
+        );
+    }
+
+    @IsTest
+    static void testPollBudgetNotExhaustedForFreshJob() {
+        Test.setMock(HttpCalloutMock.class, new MockQueuedJob());
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+
+        // High poll count but fresh Submitted_At__c — wall-clock budget
+        // governs, not the poll count
+        Quantum_Job__c job = makeJob('Running', DateTime.now());
+        insert job;
+
+        Test.startTest();
+        System.enqueueJob(new JobPoller(job.Id, 'job_test', 150));
+        Test.stopTest();
+
+        job = [
+            SELECT Id, Status__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assertEquals(
+            'Queued',
+            job.Status__c,
+            'A fresh job must keep polling regardless of poll count'
+        );
+    }
+
+    @IsTest
+    static void testPollFallbackCapWhenSubmittedAtMissing() {
+        Test.setMock(HttpCalloutMock.class, new MockQueuedJob());
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+
+        Quantum_Job__c job = makeJob('Running', null);
+        insert job;
+
+        Test.startTest();
+        System.enqueueJob(new JobPoller(job.Id, 'job_test', 100));
         Test.stopTest();
 
         job = [
@@ -275,7 +470,38 @@ private class JobPoller_Test {
         System.assertEquals('Failed', job.Status__c);
         System.assert(
             job.Error_Message__c.contains('maximum attempts'),
-            'Should indicate max polls exceeded'
+            'Should indicate the fallback poll cap: ' + job.Error_Message__c
+        );
+    }
+
+    @IsTest
+    static void testPollSkipsAlreadyFinalizedJob() {
+        Test.setMock(HttpCalloutMock.class, new MockQueuedJob());
+        IBMQuantumAuth.cachedToken = 'test-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
+
+        // Another actor (sweeper / manual retrieval) already completed it
+        Quantum_Job__c job = makeJob('Completed', DateTime.now());
+        insert job;
+
+        Test.startTest();
+        System.enqueueJob(new JobPoller(job.Id, 'job_test', 1));
+        Test.stopTest();
+
+        job = [
+            SELECT Id, Status__c, Poll_Count__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assertEquals(
+            'Completed',
+            job.Status__c,
+            'A finalized job must not be touched'
+        );
+        System.assertEquals(
+            0,
+            job.Poll_Count__c,
+            'No poll should be recorded on a finalized job'
         );
     }
 
@@ -353,15 +579,9 @@ private class JobPoller_Test {
         IBMQuantumAuth.cachedToken = 'test-token';
         IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(30);
 
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'job_test',
-            Backend__c = 'test_backend',
-            Status__c = 'Submitted',
-            Shots__c = 8,
-            Num_Qubits__c = 8,
-            Use_Bell_Test__c = true,
-            Submitted_At__c = DateTime.now()
-        );
+        Quantum_Job__c job = makeJob('Submitted', DateTime.now());
+        job.Shots__c = 8;
+        job.Use_Bell_Test__c = true;
         insert job;
 
         Test.startTest();
@@ -390,12 +610,88 @@ private class JobPoller_Test {
     }
 
     @IsTest
-    static void testCalculateDelay() {
-        System.assertEquals(5, JobPoller.calculateDelay(0));
-        System.assertEquals(10, JobPoller.calculateDelay(1));
-        System.assertEquals(20, JobPoller.calculateDelay(2));
-        System.assertEquals(40, JobPoller.calculateDelay(3));
-        System.assertEquals(60, JobPoller.calculateDelay(4)); // capped
-        System.assertEquals(60, JobPoller.calculateDelay(10)); // still capped
+    static void testCalculateDelayMinutes() {
+        // First 5 polls: 1 minute apart
+        System.assertEquals(1, JobPoller.calculateDelayMinutes(0));
+        System.assertEquals(1, JobPoller.calculateDelayMinutes(4));
+        // Then the interval stretches
+        System.assertEquals(2, JobPoller.calculateDelayMinutes(5));
+        System.assertEquals(3, JobPoller.calculateDelayMinutes(6));
+        System.assertEquals(5, JobPoller.calculateDelayMinutes(7));
+        System.assertEquals(7, JobPoller.calculateDelayMinutes(8));
+        // Capped at 10 minutes
+        System.assertEquals(10, JobPoller.calculateDelayMinutes(9));
+        System.assertEquals(10, JobPoller.calculateDelayMinutes(50));
+    }
+
+    @IsTest
+    static void testIsTransientErrorClassification() {
+        System.assertEquals(
+            true,
+            JobPoller.isTransientError(
+                new System.CalloutException('Read timed out')
+            ),
+            'CalloutException is transient'
+        );
+        System.assertEquals(
+            true,
+            JobPoller.isTransientError(
+                new QuantumException('Failed to get job status: 503')
+            ),
+            '5xx is transient'
+        );
+        System.assertEquals(
+            true,
+            JobPoller.isTransientError(
+                new QuantumException('Failed to get job status: 429')
+            ),
+            '429 is transient'
+        );
+        System.assertEquals(
+            true,
+            JobPoller.isTransientError(
+                new QuantumException(
+                    'IBM IAM token exchange failed: 400 bad key'
+                )
+            ),
+            'IAM exchange failures are transient'
+        );
+        System.assertEquals(
+            true,
+            JobPoller.isTransientError(
+                new QuantumException('Request timeout while contacting IBM')
+            ),
+            'Timeout signatures are transient'
+        );
+        System.assertEquals(
+            false,
+            JobPoller.isTransientError(
+                new QuantumException('Failed to get job status: 404')
+            ),
+            '404 is not transient'
+        );
+        System.assertEquals(
+            false,
+            JobPoller.isTransientError(
+                new QuantumException('No results found in IBM response')
+            ),
+            'Parse/processing errors are not transient'
+        );
+    }
+
+    @IsTest
+    static void testAppendErrorKeepsNewestContent() {
+        String appended = JobPoller.appendError('first', 'second');
+        System.assertEquals('first\nsecond', appended);
+        System.assertEquals('only', JobPoller.appendError(null, 'only'));
+        System.assertEquals('only', JobPoller.appendError('', 'only'));
+
+        String longExisting = 'x'.repeat(32760);
+        String truncated = JobPoller.appendError(longExisting, 'NEWEST-NOTE');
+        System.assertEquals(32768, truncated.length());
+        System.assert(
+            truncated.endsWith('NEWEST-NOTE'),
+            'Truncation must keep the newest note'
+        );
     }
 }

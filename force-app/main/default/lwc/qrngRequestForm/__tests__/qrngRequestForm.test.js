@@ -610,6 +610,32 @@ describe('c-qrng-request-form', () => {
         await flushPromises();
 
         expect(submitQuantumJob).toHaveBeenCalled();
+        // NaN guard: the previous valid value (default 8) is retained
+        expect(submitQuantumJob).toHaveBeenCalledWith(
+            expect.objectContaining({ numQubits: 8 })
+        );
+    });
+
+    it('NaN shots input keeps the previous value', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        const inputs = element.shadowRoot.querySelectorAll('lightning-input');
+        const shotsInput = Array.from(inputs).find((i) => i.label === 'Shots');
+        shotsInput.value = '';
+        shotsInput.dispatchEvent(new CustomEvent('change'));
+        await flushPromises();
+
+        submitQuantumJob.mockResolvedValue('job-shots-nan');
+        const buttons = element.shadowRoot.querySelectorAll('lightning-button');
+        Array.from(buttons)
+            .find((b) => b.variant === 'brand')
+            .click();
+        await flushPromises();
+
+        expect(submitQuantumJob).toHaveBeenCalledWith(
+            expect.objectContaining({ shots: 1024 })
+        );
     });
 
     it('handles non-numeric shots input gracefully', async () => {
@@ -655,13 +681,26 @@ describe('c-qrng-request-form', () => {
     it('handles wire settings error', async () => {
         const element = createComponent();
 
-        getSettings.error({ body: { message: 'Settings load failed' } });
+        getSettings.error({ message: 'Settings load failed' });
         await flushPromises();
 
         // Component should still render
         expect(
             element.shadowRoot.querySelector('lightning-combobox')
         ).not.toBeNull();
+    });
+
+    it('renders inline error state when settings wire errors', async () => {
+        const element = createComponent();
+
+        getSettings.error({ message: 'Settings load failed' });
+        await flushPromises();
+
+        const errorBox = element.shadowRoot.querySelector(
+            '[data-testid="request-form-error"]'
+        );
+        expect(errorBox).not.toBeNull();
+        expect(errorBox.textContent).toContain('Settings load failed');
     });
 
     it('handles Bell test toggle with odd qubits', async () => {

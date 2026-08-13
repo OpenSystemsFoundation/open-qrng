@@ -1,7 +1,6 @@
 import { createElement } from '@lwc/engine-dom';
 import QuantumFairApp from 'c/quantumFairApp';
 import { subscribe, unsubscribe, onError } from 'lightning/empApi';
-import getSettings from '@salesforce/apex/SetupController.getSettings';
 
 // Mock Apex wire adapters used by child components
 jest.mock(
@@ -317,7 +316,7 @@ describe('c-quantum-fair-app', () => {
         await flushPromises();
 
         expect(subscribe).toHaveBeenCalledWith(
-            '/event/OpenSF__Quantum_Job_Complete__e',
+            '/event/Quantum_Job_Complete__e',
             -1,
             expect.any(Function)
         );
@@ -369,25 +368,27 @@ describe('c-quantum-fair-app', () => {
         spy.mockRestore();
     });
 
-    it('wiredSettings triggers _initOperationsTab via setTimeout', async () => {
-        createComponent();
+    it('releases the empApi subscription when disconnected before subscribe resolves', async () => {
+        // subscribe resolves only when we say so
+        let resolveSub;
+        subscribe.mockImplementationOnce(
+            () =>
+                new Promise((resolve) => {
+                    resolveSub = resolve;
+                })
+        );
+
+        const element = createComponent();
+        // Detach while subscribe() is still pending (child components may
+        // release their own resolved subscriptions here — that's fine)
+        document.body.removeChild(element);
         await flushPromises();
+        expect(unsubscribe).not.toHaveBeenCalledWith({ id: 'late-sub' });
 
-        const settingsData = { someKey: 'someValue' };
-        getSettings.emit(settingsData);
-
-        // Allow setTimeout(fn, 0) to execute
+        // Late subscription arrives — must be released immediately
+        resolveSub({ id: 'late-sub' });
         await flushPromises();
-
-        // The function was called; we just verify no error occurred
-        // and that a second emit does not re-initialize
-        // Record how many times subscribe has been called after first init
-        const callCountAfterFirstInit = subscribe.mock.calls.length;
-
-        getSettings.emit(settingsData);
-        await flushPromises();
-        // _settingsInitialized prevents double init - subscribe count stays the same
-        expect(subscribe.mock.calls.length).toBe(callCountAfterFirstInit);
+        expect(unsubscribe).toHaveBeenCalledWith({ id: 'late-sub' });
     });
 
     it('Platform Event callback calls _refreshHealthMonitor', async () => {

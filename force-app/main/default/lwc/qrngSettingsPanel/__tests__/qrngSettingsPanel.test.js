@@ -89,6 +89,24 @@ describe('c-qrng-settings-panel', () => {
         expect(apiKeyH).toHaveBeenCalled();
     });
 
+    it('save payload sends useBellTest: null (no change), never false', async () => {
+        saveSettings.mockResolvedValue(undefined);
+        const el = createComponent();
+        await flushPromises();
+
+        el.shadowRoot.querySelector('lightning-button').click();
+        await flushPromises();
+
+        expect(saveSettings).toHaveBeenCalledWith(
+            expect.objectContaining({
+                apiKey: null,
+                instanceCRN: null,
+                useBellTest: null
+            })
+        );
+        expect(saveSettings.mock.calls[0][0].useBellTest).not.toBe(false);
+    });
+
     it('Save button shows error toast on failure', async () => {
         saveSettings.mockRejectedValue({ body: { message: 'Save error' } });
         const el = createComponent();
@@ -203,6 +221,12 @@ describe('c-qrng-settings-panel', () => {
         expect(ctx.defaultShots).toBe(2048);
     });
 
+    it('handleShotsChange keeps previous value on NaN', () => {
+        const ctx = { defaultShots: 1024 };
+        proto.handleShotsChange.call(ctx, { target: { value: '' } });
+        expect(ctx.defaultShots).toBe(1024);
+    });
+
     it('handleComplianceEmailChange updates email', () => {
         const ctx = { complianceEmail: '' };
         proto.handleComplianceEmailChange.call(ctx, {
@@ -227,12 +251,5 @@ describe('c-qrng-settings-panel', () => {
         });
         expect(ctx.useLeastBusy).toBe(false);
         expect(ctx.defaultBackend).toBe('ibm_brisbane');
-    });
-
-    it('reduceErrors handles different formats', () => {
-        expect(proto.reduceErrors('plain')).toBe('plain');
-        expect(proto.reduceErrors({ body: { message: 'b' } })).toBe('b');
-        expect(proto.reduceErrors({ message: 'm' })).toBe('m');
-        expect(proto.reduceErrors({ x: 1 })).toBe('{"x":1}');
     });
 });

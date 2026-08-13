@@ -314,7 +314,7 @@ describe('c-qrng-fairness-certificate', () => {
         expect(testBadges.length).toBe(3);
     });
 
-    it('verify button handles failure gracefully', async () => {
+    it('verify exception shows neutral retry message, not a tamper alarm', async () => {
         verifyCertificate.mockRejectedValue(new Error('Network failure'));
 
         const element = createComponent({ certificateId: 'a01xx000001234' });
@@ -327,7 +327,35 @@ describe('c-qrng-fairness-certificate', () => {
         verifyButton.click();
         await flushPromises();
 
-        // Should show integrity check failed message
+        // Transient errors must NOT render as tamper alarms
+        const errorStyled = element.shadowRoot.querySelector(
+            '.slds-text-color_error'
+        );
+        expect(errorStyled).toBeNull();
+
+        const neutralMsg = element.shadowRoot.querySelector(
+            '.slds-text-color_weak.slds-m-top_small'
+        );
+        expect(neutralMsg).not.toBeNull();
+        expect(neutralMsg.textContent).toBe(
+            'Verification could not be completed. Try again.'
+        );
+        expect(element.shadowRoot.textContent).not.toContain(
+            'data may have been modified'
+        );
+    });
+
+    it('genuine integrityVerified=false response still shows the tamper message', async () => {
+        verifyCertificate.mockResolvedValue({ integrityVerified: false });
+
+        const element = createComponent({ certificateId: 'a01xx000001234' });
+
+        getCertificateDTO.emit(MOCK_CERTIFICATE);
+        await flushPromises();
+
+        element.shadowRoot.querySelector('lightning-button').click();
+        await flushPromises();
+
         const resultMsg = element.shadowRoot.querySelector(
             '.slds-text-color_error'
         );
@@ -335,6 +363,78 @@ describe('c-qrng-fairness-certificate', () => {
         expect(resultMsg.textContent).toBe(
             'Integrity check failed - data may have been modified'
         );
+    });
+
+    it('supports @api recordId (record page) as the wire id', async () => {
+        const element = createComponent({ recordId: 'a01xxRECORD00001' });
+
+        getCertificateDTO.emit(MOCK_CERTIFICATE);
+        await flushPromises();
+
+        // Wire config should have been driven by recordId
+        expect(getCertificateDTO.getLastConfig()).toEqual({
+            certificateId: 'a01xxRECORD00001'
+        });
+        const certId = element.shadowRoot.querySelector('.certificate-id');
+        expect(certId.textContent).toBe('CERT-0001');
+    });
+
+    it('recordId wins over certificateId when both are set', async () => {
+        createComponent({
+            certificateId: 'a01xxEXPLICIT001',
+            recordId: 'a01xxRECORD00001'
+        });
+        await flushPromises();
+
+        expect(getCertificateDTO.getLastConfig()).toEqual({
+            certificateId: 'a01xxRECORD00001'
+        });
+    });
+
+    it('verify uses the effective id from recordId', async () => {
+        verifyCertificate.mockResolvedValue({ integrityVerified: true });
+        const element = createComponent({ recordId: 'a01xxRECORD00001' });
+
+        getCertificateDTO.emit(MOCK_CERTIFICATE);
+        await flushPromises();
+
+        element.shadowRoot.querySelector('lightning-button').click();
+        await flushPromises();
+
+        expect(verifyCertificate).toHaveBeenCalledWith({
+            certificateId: 'a01xxRECORD00001'
+        });
+    });
+
+    it('renders inline error state when the wire errors', async () => {
+        const element = createComponent({ certificateId: 'a01xx000001234' });
+
+        getCertificateDTO.error({ message: 'No access' });
+        await flushPromises();
+
+        const errorBox = element.shadowRoot.querySelector(
+            '[data-testid="cert-load-error"]'
+        );
+        expect(errorBox).not.toBeNull();
+        expect(errorBox.textContent).toContain('No access');
+        // No spinner when errored
+        expect(
+            element.shadowRoot.querySelector('lightning-spinner')
+        ).toBeNull();
+    });
+
+    it('renders empty state when no id is provided', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        const empty = element.shadowRoot.querySelector(
+            '[data-testid="cert-empty-state"]'
+        );
+        expect(empty).not.toBeNull();
+        expect(empty.textContent).toContain('No certificate to display');
+        expect(
+            element.shadowRoot.querySelector('lightning-spinner')
+        ).toBeNull();
     });
 
     it('hasCHSH returns true when chshSValue is present and > 0', async () => {

@@ -573,6 +573,159 @@ private class ResultParser_Test {
         System.assertEquals('', ResultParser.vonNeumannDebias('1'));
     }
 
+    @IsTest
+    static void testVonNeumannDebiasNullInput() {
+        System.assertEquals('', ResultParser.vonNeumannDebias(null));
+        System.assertEquals('', ResultParser.vonNeumannDebias(null, 4));
+    }
+
+    // ── per-qubit vonNeumannDebias ──────────────────────────────────
+
+    @IsTest
+    static void testVonNeumannDebiasPerQubitDeinterleaves() {
+        // 10 two-qubit shots; pool is shot-major so adjacent bits belong
+        // to DIFFERENT qubits.
+        List<String> shots = new List<String>{
+            '01',
+            '01',
+            '11',
+            '00',
+            '10',
+            '10',
+            '00',
+            '11',
+            '01',
+            '10'
+        };
+        String pool = ResultParser.concatenateBitstrings(shots);
+        System.assertEquals('01011100101000110110', pool);
+
+        // Legacy single-stream pairing (cross-qubit pairs)
+        System.assertEquals('001101', ResultParser.vonNeumannDebias(pool));
+
+        // Per-qubit: stream offset 0 = '0010110101' -> '100',
+        //            stream offset 1 = '1110000110' -> '101'
+        System.assertEquals(
+            '100101',
+            ResultParser.vonNeumannDebias(pool, 2),
+            'Per-qubit debias should pair each qubit stream against itself'
+        );
+    }
+
+    @IsTest
+    static void testVonNeumannDebiasPerQubitCorrectsOppositeBias() {
+        // Qubit A biased 60/40 toward 1, qubit B biased 40/60 (B = NOT A).
+        // Every cross-qubit pair is then 01 or 10, so the OLD algorithm
+        // never discards anything and simply emits qubit A's biased
+        // stream verbatim. The per-qubit algorithm debiases each stream
+        // against itself and the output is exactly balanced.
+        String streamA = '11011011011110101000'; // 12 ones / 8 zeros (60%)
+        String streamB = '00100100100001010111'; // 8 ones / 12 zeros (40%)
+        List<String> shots = new List<String>();
+        for (Integer i = 0; i < 20; i++) {
+            shots.add(
+                streamA.substring(i, i + 1) + streamB.substring(i, i + 1)
+            );
+        }
+        String pool = ResultParser.concatenateBitstrings(shots);
+        System.assertEquals('1010011010011010011010101001100110010101', pool);
+
+        // Old algorithm: output IS the biased qubit-A stream (60% ones)
+        String oldOutput = ResultParser.vonNeumannDebias(pool);
+        System.assertEquals(
+            '11011011011110101000',
+            oldOutput,
+            'Cross-qubit pairing passes qubit A bias straight through'
+        );
+        System.assertEquals(
+            12,
+            countOnes(oldOutput),
+            'Old output is still 60% ones — not debiased'
+        );
+
+        // New algorithm: balanced output
+        String newOutput = ResultParser.vonNeumannDebias(pool, 2);
+        System.assertEquals(
+            '010111101000',
+            newOutput,
+            'Per-qubit debias output should match per-stream expectation'
+        );
+        System.assertEquals(
+            6,
+            countOnes(newOutput),
+            'New output should be exactly 50% ones'
+        );
+        System.assertEquals(12, newOutput.length());
+    }
+
+    @IsTest
+    static void testVonNeumannDebiasNumQubitsOneMatchesLegacy() {
+        String raw = '01100011';
+        System.assertEquals(
+            ResultParser.vonNeumannDebias(raw),
+            ResultParser.vonNeumannDebias(raw, 1)
+        );
+        System.assertEquals(
+            ResultParser.vonNeumannDebias(raw),
+            ResultParser.vonNeumannDebias(raw, null),
+            'null numQubits should fall back to single-stream behavior'
+        );
+    }
+
+    @IsTest
+    static void testVonNeumannDebiasPerQubitTrailingPartialShot() {
+        // 5 bits with numQubits=2: only 2 complete shots, trailing bit dropped
+        // stream offset 0 = '01' -> '0', stream offset 1 = '10' -> '1'
+        System.assertEquals('01', ResultParser.vonNeumannDebias('01101', 2));
+    }
+
+    // ── vonNeumannDebiasBellPairs ───────────────────────────────────
+
+    @IsTest
+    static void testVonNeumannDebiasBellPairsKeepsAliceOnly() {
+        // numQubits=2: stored shots are big-endian, so offset 1 is meas[0]
+        // (Alice) and offset 0 is meas[1] (Bob). Only the Alice stream may
+        // enter the randomness pool — Bob is engineered to be correlated.
+        List<String> shots = new List<String>{ '10', '01', '11', '00' };
+        String pool = ResultParser.concatenateBitstrings(shots);
+        // Alice stream (offset 1): '0110' -> pairs 01->0, 10->1 -> '01'
+        // Bob stream (offset 0): '1010' would add '11' — must be excluded
+        System.assertEquals(
+            '01',
+            ResultParser.vonNeumannDebiasBellPairs(pool, 2),
+            'Bell debias should use only Alice-side (even meas index) qubits'
+        );
+        // Sanity: the non-Bell per-qubit debias includes Bob's stream too
+        System.assertEquals('1101', ResultParser.vonNeumannDebias(pool, 2));
+    }
+
+    @IsTest
+    static void testVonNeumannDebiasBellPairsInvalidInput() {
+        System.assertEquals(
+            '',
+            ResultParser.vonNeumannDebiasBellPairs(null, 2)
+        );
+        System.assertEquals(
+            '',
+            ResultParser.vonNeumannDebiasBellPairs('0101', null)
+        );
+        System.assertEquals(
+            '',
+            ResultParser.vonNeumannDebiasBellPairs('0101', 1),
+            'Bell mode requires at least one (Alice, Bob) pair'
+        );
+    }
+
+    private static Integer countOnes(String bits) {
+        Integer count = 0;
+        for (Integer i = 0; i < bits.length(); i++) {
+            if (bits.substring(i, i + 1) == '1') {
+                count++;
+            }
+        }
+        return count;
+    }
+
     // ── hexToBinary trimming ────────────────────────────────────────
 
     @IsTest

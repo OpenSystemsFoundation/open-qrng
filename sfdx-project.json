@@ -10,7 +10,6 @@
         }
     ],
     "name": "open-qrng",
-    "namespace": "OpenSF",
     "sfdcLoginUrl": "https://login.salesforce.com",
     "sourceApiVersion": "66.0"
 }

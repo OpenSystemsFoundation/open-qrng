@@ -5,6 +5,45 @@
  * Governor budget: ~5 SOQL, 1 email, 0 DML.
  */
 public with sharing class ComplianceDigestJob implements Schedulable {
+    public static final String JOB_NAME = 'QuantumFair Compliance Digest';
+    // Daily at 06:00 org time
+    @TestVisible
+    private static final String CRON_DAILY_6AM = '0 0 6 * * ?';
+
+    /**
+     * Schedule the daily digest at 06:00 org time.
+     * Removes any existing schedule first (idempotent).
+     */
+    public static void scheduleDefault() {
+        unschedule();
+        System.schedule(JOB_NAME, CRON_DAILY_6AM, new ComplianceDigestJob());
+    }
+
+    /**
+     * Remove the digest schedule.
+     */
+    public static void unschedule() {
+        List<CronTrigger> existing = [
+            SELECT Id
+            FROM CronTrigger
+            WHERE CronJobDetail.Name = :JOB_NAME
+        ];
+        for (CronTrigger ct : existing) {
+            System.abortJob(ct.Id);
+        }
+    }
+
+    /**
+     * Check if the digest is currently scheduled.
+     */
+    public static Boolean isScheduled() {
+        return [
+                SELECT COUNT()
+                FROM CronTrigger
+                WHERE CronJobDetail.Name = :JOB_NAME
+            ] > 0;
+    }
+
     public void execute(SchedulableContext ctx) {
         Quantum_Settings__c settings = Quantum_Settings__c.getOrgDefaults();
         String complianceEmail = settings.Compliance_Email__c;

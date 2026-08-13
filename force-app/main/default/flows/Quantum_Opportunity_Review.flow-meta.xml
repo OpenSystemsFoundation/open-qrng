@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
+        <description
+        >Enqueues the quantum selection asynchronously (no callout runs in this transaction). Error handling: before activating this flow, add a fault connector on this element to notify an admin or log the failure — otherwise submission errors are only recorded on the Quantum_Job__c record.</description>
         <name>Quantum_Select_Deals</name>
         <label>Quantum Select Deals for Review</label>
         <locationX>176</locationX>
         <locationY>458</locationY>
-        <actionName>OpenSF__QuantumRandomAssignment</actionName>
+        <actionName>QuantumRandomAssignment</actionName>
         <actionType>apex</actionType>
         <inputParameters>
             <name>recordIds</name>
@@ -82,7 +84,7 @@
         </rules>
     </decisions>
     <description
-    >Select a random subset of open Opportunities for pipeline review using quantum-certified randomization. Runs on a weekly schedule, queries eligible deals above a configurable amount threshold, and uses QuantumFair Subset assignment to select a fair, unbiased sample. A Fairness Certificate proves no cherry-picking occurred.</description>
+    >Select a random subset of open Opportunities for pipeline review using quantum-certified randomization. Runs on a weekly schedule, queries eligible deals above a configurable amount threshold, and uses QuantumFair Subset assignment to select a fair, unbiased sample. The invocable action only enqueues the job — results arrive asynchronously via the Quantum_Job_Complete__e Platform Event. A Fairness Certificate proves no cherry-picking occurred.</description>
     <interviewLabel
     >Quantum Opportunity Review {!$Flow.CurrentDateTime}</interviewLabel>
     <isTemplate>true</isTemplate>

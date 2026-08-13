@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <Flow xmlns="http://soap.sforce.com/2006/04/metadata">
     <actionCalls>
+        <description
+        >Enqueues the quantum assignment asynchronously (no callout runs in this transaction). Error handling: before activating this flow, add a fault connector on this element to notify an admin or log the failure — otherwise submission errors are only recorded on the Quantum_Job__c record.</description>
         <name>Quantum_Route_Cases</name>
         <label>Quantum Route Cases</label>
         <locationX>176</locationX>
         <locationY>674</locationY>
-        <actionName>OpenSF__QuantumRandomAssignment</actionName>
+        <actionName>QuantumRandomAssignment</actionName>
         <actionType>apex</actionType>
         <inputParameters>
             <name>recordIds</name>
@@ -105,7 +107,7 @@
         </rules>
     </decisions>
     <description
-    >Route new support cases to agents using quantum-certified random assignment. Triggers when a Case is created in a support queue, gathers available agents, and uses QuantumFair Uniform assignment for provably fair distribution. Results arrive via Quantum_Job_Complete__e Platform Event. Pair with Quantum_Apply_Case_Assignment to auto-update Case owners.</description>
+    >Route new support cases to agents using quantum-certified random assignment. Triggers when a Case is created in a support queue, gathers available agents, and uses QuantumFair Uniform assignment for provably fair distribution. The invocable action only enqueues the job — results arrive asynchronously via the Quantum_Job_Complete__e Platform Event. To auto-update Case owners, build a Platform Event-Triggered Flow on Quantum_Job_Complete__e that reads the resulting Quantum_Assignment__c records.</description>
     <interviewLabel
     >Quantum Case Routing {!$Flow.CurrentDateTime}</interviewLabel>
     <isTemplate>true</isTemplate>

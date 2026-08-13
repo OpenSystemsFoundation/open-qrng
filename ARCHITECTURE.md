@@ -1,13 +1,13 @@
 # QuantumFair — Architecture
 
 **Open-Source Quantum Random Number Generation for Salesforce**
-Apache-2.0 | Free on AppExchange | Zero Infrastructure Cost
+Apache-2.0 | Open Source | Zero Infrastructure Cost
 
 ---
 
 ## Overview
 
-QuantumFair is a managed Salesforce package that provides **certified quantum random number generation** (QRNG) for fair, auditable business process randomization. It uses real quantum hardware to generate true randomness — provable by the laws of physics — and creates immutable fairness certificates linked to every assignment.
+QuantumFair is an open-source Salesforce app — distributed as an unmanaged package / source deploy — that provides **certified quantum random number generation** (QRNG) for fair, auditable business process randomization. It uses real quantum hardware to generate true randomness and creates immutable fairness certificates linked to every assignment.
 
 **Core principle:** The app that uses quantum mechanics to prove your business decisions are fair.
 
@@ -17,8 +17,9 @@ QuantumFair is a managed Salesforce package that provides **certified quantum ra
 | --------------------------- | ------------------------------------------------------------------------------ |
 | No external servers         | Everything runs on Salesforce — Apex, LWC, Platform Events, Custom Objects     |
 | Zero cost to maintain       | No Heroku, no AWS, no middleware. Apex calls IBM Quantum REST API directly     |
-| BYOQ                        | Each org provides their own IBM Quantum API key via Named Credentials          |
-| Open-source                 | Apache-2.0 license, full source on GitHub, free AppExchange listing            |
+| BYOQ                        | Each org provides their own IBM Quantum API key via the in-app Setup tab       |
+| Open-source                 | Apache-2.0 license, full source on GitHub; AppExchange listing planned         |
+| Unmanaged distribution      | No namespace, no InstallHandler — scheduling is automated in-app               |
 | No Python/Qiskit dependency | Apex generates ISA-compliant OpenQASM 3.0 directly (trivial for QRNG circuits) |
 
 ---
@@ -41,12 +42,13 @@ QuantumFair is a managed Salesforce package that provides **certified quantum ra
 │                                                                     │
 │  ┌──────────────────────────────────────────────────────────────┐  │
 │  │                    Custom Objects                             │  │
-│  │  Quantum_Job__c  │  Fairness_Certificate__c  │  QRNG_Log__c │  │
+│  │  Quantum_Job__c │ Fairness_Certificate__c │ Quantum_Assignment__c │
+│  │  Quantum_Provider__c │ Quantum_Backend__c │ Compliance_Event__c  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                     │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │              Named Credential + External Credential           │  │
-│  │              (IBM Quantum API Key — per-org, encrypted)       │  │
+│  │   Protected Custom Setting (IBM API key) + Remote Site        │  │
+│  │   Settings (IBM_IAM, IBM_Quantum_API, IBM_Resource_Controller)│  │
 │  └──────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -97,17 +99,16 @@ Each shot produces N random bits. With 1024 shots on 8 qubits = 8,192 random bit
 
 **Bell-test QRNG circuit** (optional stronger certification):
 
-For Bell-test certification (CHSH inequality violation proves quantum origin), the circuit creates entangled pairs and measures in complementary bases. The decomposition into native gates is still straightforward — `ecr` or `cz` gates for entanglement, `rz`/`sx` for basis rotations.
+For Bell-test certification (CHSH inequality violation as evidence consistent with quantum origin), the circuit creates entangled pairs and measures in complementary bases. The decomposition into native gates is still straightforward — `ecr` or `cz` gates for entanglement, `rz`/`sx` for basis rotations.
 
-### Backend Configuration — `QRNGBackendConfig.cls`
+### Backend Registry — `Quantum_Provider__c` / `Quantum_Backend__c`
 
-Queries the IBM `/backends/{name}/configuration` endpoint to retrieve:
+Provider and backend metadata live in custom objects, synced from the IBM `/backends` and configuration/properties endpoints:
 
-- Native gate set (validates our decomposition)
-- Qubit coupling map (ensures we use connected physical qubits)
-- Number of qubits available
+- `Quantum_Provider__c` — provider registry row (API base URL, auth endpoint, provider class, active flag)
+- `Quantum_Backend__c` — per-backend records (master-detail to provider): qubit count, processor family/revision, calibration data (median gate/readout error, T1/T2), queue length, max shots, simulator flag, and NIST 800-90B entropy-source documentation fields (noise source type, conditioning component, health-test status), plus quantum-verification fields (CHSH job, S-value, verified timestamp)
 
-Caches configuration in `QRNG_Backend_Config__c` (Protected Custom Metadata Type) to avoid repeated callouts. Refreshed on-demand or via scheduled job.
+Backend selection at submission time resolves: request override → settings default → least-busy.
 
 ---
 
@@ -116,42 +117,40 @@ Caches configuration in `QRNG_Backend_Config__c` (Protected Custom Metadata Type
 ### Authentication Flow
 
 ```
-┌──────────┐     ┌──────────────┐     ┌─────────────────────┐
-│ Admin    │────▶│ Named        │────▶│ IBM IAM Token       │
-│ Setup    │     │ Credential   │     │ Exchange            │
-│ (one     │     │ (stores API  │     │ POST iam.cloud.ibm  │
-│  time)   │     │  key encrypted│    │ .com/identity/token │
-└──────────┘     └──────────────┘     └─────────────────────┘
-                                              │
-                                              ▼
-                                      Bearer token cached
-                                      in Org Cache (1hr TTL)
+┌──────────┐     ┌────────────────────┐     ┌─────────────────────┐
+│ Admin    │────▶│ Protected Custom   │────▶│ IBM IAM Token       │
+│ Setup    │     │ Setting            │     │ Exchange            │
+│ tab      │     │ Quantum_Settings__c │    │ POST iam.cloud.ibm  │
+│ (UI)     │     │ .IBM_API_Key__c    │     │ .com/identity/token │
+└──────────┘     └────────────────────┘     └─────────────────────┘
+                                                    │
+                                                    ▼
+                                     Bearer token cached in Platform
+                                     Cache 'local.QuantumFair' (50-min
+                                     TTL), transaction-static fallback
 ```
 
 **`IBMQuantumAuth.cls`**
 
-- Reads IBM API key from Named Credential (never touches raw key in Apex)
-- Exchanges for IAM Bearer token via `POST https://iam.cloud.ibm.com/identity/token`
-- Caches Bearer token in **Platform Cache (Org partition)** with 50-minute TTL (token valid 60 min)
+- Reads the IBM API key from the **Protected custom setting** `Quantum_Settings__c.IBM_API_Key__c` (see Security Architecture for the design tradeoff)
+- Exchanges it for an IAM Bearer token via `POST https://iam.cloud.ibm.com/identity/token`
+- Caches the Bearer token (never the key) in the **Platform Cache partition `local.QuantumFair`** with a 50-minute TTL (tokens are valid 60 minutes); if Platform Cache is unavailable (no capacity, partition undeployed, test context) it degrades gracefully to a transaction-scoped static
 - Automatically refreshes on expiry
 
-**Named Credential setup** (packaged metadata):
+**Callout authorization** — three packaged Remote Site Settings:
 
-```xml
-<!-- ExternalCredential: IBM_Quantum -->
-<!-- Named Credential: IBM_Quantum_Runtime -->
-<!-- Endpoint: https://quantum.cloud.ibm.com -->
-<!-- Auth: Custom header via External Credential -->
-```
-
-Post-install, the admin populates their IBM API key as an Authentication Parameter on the External Credential's Permission Set Mapping. The key is stored encrypted by Salesforce. Package Apex references the Named Credential by name.
+| Remote Site               | URL                                         |
+| ------------------------- | ------------------------------------------- |
+| `IBM_IAM`                 | `https://iam.cloud.ibm.com`                 |
+| `IBM_Quantum_API`         | `https://quantum.cloud.ibm.com`             |
+| `IBM_Resource_Controller` | `https://resource-controller.cloud.ibm.com` |
 
 ### Job Submission — `IBMQuantumService.cls`
 
 ```
 Responsibility: Submit circuits, poll status, retrieve results
 Protocol:       IBM Qiskit Runtime REST API v1
-Base URL:       https://quantum.cloud.ibm.com/api/v1
+Base URL:       https://quantum.cloud.ibm.com/api
 ```
 
 **Submit job:**
@@ -179,41 +178,47 @@ Body:
 
 The job ID is stored in `Quantum_Job__c` and async polling begins.
 
-### Async Polling — Queueable Chain
+### Async Submission & Polling
+
+The pipeline is asynchronous end to end and bulk-safe from Flow:
 
 ```
-┌───────────┐     ┌──────────────┐     ┌──────────────┐
-│ Submit    │────▶│ Queueable    │────▶│ Queueable    │──▶ ...
-│ Job       │     │ Poll #1      │     │ Poll #2      │
-│ (Apex)    │     │ GET /jobs/id │     │ GET /jobs/id │
-└───────────┘     └──────┬───────┘     └──────┬───────┘
-                         │                     │
-                    status:Queued          status:Running
-                                               │
-                                          status:Completed
-                                               │
-                                               ▼
-                                     ┌─────────────────┐
-                                     │ Platform Event   │
-                                     │ Quantum_Job_Complete__e │
-                                     │ + Process Results│
-                                     └─────────────────┘
+Flow / LWC / Apex
+    │  (no callouts in the invocable — trigger-safe)
+    ▼
+Quantum_Job__c rows inserted, Status__c = 'Pending'
+(full request persisted as JSON in Assignment_Request__c)
+    │
+    ▼
+QuantumSubmissionQueueable   — one job per execution, chains itself
+    │  callouts (auth, backend resolve, submit) → THEN update to 'Submitted'
+    ▼
+JobPollScheduler → JobPoller — Schedulable/Queueable hop per poll
+    │  1 min × 5 polls, then 2, 3, 5, 7 min, capped at 10 min
+    │  wall-clock budget: 6 h from Submitted_At__c
+    ▼
+JobProcessor — parse, debias, validate, certify, assign, publish events
 ```
 
-**`JobPoller.cls` (implements Queueable, Database.AllowsCallouts)**
+**`QuantumSubmissionQueueable.cls`** — performs callouts for exactly one pending job per execution (callouts strictly precede DML), updates it to `Submitted`, starts the poll chain, then enqueues itself for the remaining jobs. A submission failure marks that job `Failed`, publishes `Quantum_Job_Failed__e`, and the chain continues.
 
-1. `GET /v1/jobs/{job_id}` — check `state.status`
-2. If `Queued` or `Running` → re-enqueue self with delay (exponential backoff: 5s, 10s, 20s, 40s... capped at 60s)
-3. If `Completed` → `GET /v1/jobs/{job_id}/results` → parse bitstrings → publish `Quantum_Job_Complete__e`
-4. If `Failed` → update `Quantum_Job__c` with error → publish `Quantum_Job_Failed__e`
-5. Send Custom Notification to requesting user on completion/failure
+**`JobPoller.cls` (Queueable, Database.AllowsCallouts, `without sharing`)**
 
-**Governor limit safety:**
+1. `GET /v1/jobs/{job_id}` — check `state.status`; stamp `Last_Polled_At__c`
+2. If still in flight → schedule the next poll via `JobPollScheduler` (the Schedulable hop sidesteps Queueable chain-depth limits) with a stretching backoff: 1 minute for the first 5 polls, then 2, 3, 5, 7 minutes, capped at 10
+3. If `Completed` → fetch results and delegate to `JobProcessor`
+4. If IBM reports a terminal failure → update `Quantum_Job__c`, publish `Quantum_Job_Failed__e`
 
-- Each Queueable execution = 1 transaction with fresh limits
-- No depth limit on chaining — can poll indefinitely
-- Single callout per poll (well within 100 callout limit)
-- Typical quantum job: 10s–120s queue + 2s–30s execution = 3–10 poll cycles
+**Error handling (transient vs terminal):** timeouts, HTTP 429/5xx, IAM failures, and **unknown IBM statuses** are treated as transient — the error is appended to `Error_Message__c`, the status is left unchanged, and polling continues. A job is only terminally failed when (a) IBM reports a terminal state, (b) the 6-hour wall-clock budget from `Submitted_At__c` is exhausted (the failure message notes results may still be recoverable via Retrieve Results — the external job ID is preserved), or (c) 10 consecutive transient errors occur (safety valve).
+
+**`JobSweeper.cls` (Schedulable safety net)** — auto-scheduled on the first successful settings save; each sweep:
+
+- Skips jobs polled within the last 3 minutes (`Last_Polled_At__c`), so it never races an active poll chain
+- Terminally fails `Pending` jobs older than 15 minutes (created but never submitted) and zombie jobs past the 6-hour budget — publishing `Quantum_Job_Failed__e` for every job it fails (publish results checked)
+- Processes at most 3 completed jobs per sweep (bounds heap — full payloads can exceed 1 MB)
+- Never flips a job to `Completed` before processing; a processing throw leaves the job retryable
+
+**`JobProcessor.cls` is idempotent** — it re-checks the job status `FOR UPDATE` at the top of completion processing, so a poller/sweeper/manual-retrieval race double-processes as a no-op. All `EventBus.publish` results are checked everywhere; publish failures are recorded.
 
 ---
 
@@ -238,44 +243,60 @@ IBM Sampler returns measurement results as bitstring samples:
 The parser:
 
 1. Extracts raw bitstrings from the Sampler response
-2. Concatenates into a single random bit pool
-3. Applies **von Neumann debiasing** (pairs of bits: 01→0, 10→1, 00/11→discard) to correct for any hardware bias
+2. Applies **per-qubit von Neumann debiasing**: the interleaved pool is de-interleaved into per-qubit streams (stride N), and each stream is debiased against itself (pairs of bits: 01→0, 10→1, 00/11→discard). Debiasing across different qubits would pair bits with different biases and not debias at all.
+3. For Bell-test jobs, `vonNeumannDebiasBellPairs` uses only the Alice-side qubits — the engineered correlated bits are excluded from the randomness pool
 4. Stores raw + debiased bits in `Quantum_Job__c`
+
+**Oversized configurations are rejected at submission**: any qubit×shot combination whose encoded raw bitstring would exceed the 131,072-character storage field is refused up front. Results are never truncated-and-hashed — a truncated pool would silently break third-party audit replay.
 
 ### Statistical Validation — `RandomnessValidator.cls`
 
-Runs lightweight randomness checks before certifying:
+Runs randomness checks before certifying, all gated at **alpha = 0.01**:
 
-| Test                                | What It Checks                          | Pass Criteria                   |
-| ----------------------------------- | --------------------------------------- | ------------------------------- |
-| **Frequency (monobit)**             | Proportion of 0s vs 1s                  | Within 2σ of 50%                |
-| **Runs test**                       | Length of consecutive identical bits    | Consistent with random sequence |
-| **Chi-squared on distribution**     | Uniformity of N-bit blocks              | p-value > 0.01                  |
-| **CHSH violation** (Bell-test mode) | S parameter from entangled measurements | S > 2.0 (classical limit)       |
+| Test                                | What It Checks                          | Pass Criteria                                            |
+| ----------------------------------- | --------------------------------------- | -------------------------------------------------------- |
+| **Frequency (monobit)**             | Proportion of 0s vs 1s                  | z ≤ 2.576 (two-sided alpha = 0.01)                       |
+| **Runs test**                       | Length of consecutive identical bits    | z ≤ 2.576                                                |
+| **Chi-squared on distribution**     | Uniformity of N-bit blocks              | Exact critical values (e.g. 30.578 at df = 15)           |
+| **CHSH violation** (Bell-test mode) | S parameter from entangled measurements | (S − 2.0) > 2σ_S — significance margin, not a flat S > 2 |
 
-If validation fails, the job is flagged and the certificate is not issued. The user is notified to retry (likely hardware noise issue).
+The CHSH gate computes a standard error σ_S from the per-correlator sample counts; `sigmaS` and `margin` are stored in the validation results. Fewer than 4 correlator pairs throws rather than certifying. A flat `S > 2.0` gate would let classical data pass on noise alone — the 2σ margin makes the claim "consistent with quantum origin (CHSH violated at ≥2σ)", which is the language used throughout docs and UI.
+
+If validation fails, the job is flagged and the certificate is not issued.
+
+### Extended Validation & Revocation — `ValidationRunner.cls`
+
+SP 800-90B extended health tests run **asynchronously after certification** — and can **revoke** it. The suite includes MCV min-entropy **with the SP 800-90B confidence bound**, repetition-count, adaptive-proportion, CUSUM, and longest-run tests. On failure:
+
+- The certificate `Status__c` flips to **`Revoked`** (a dedicated picklist value)
+- The failure is recorded on the job (`Error_Message__c`)
+- A `Quantum_Job_Failed__e` event is published so subscribers learn certification was withdrawn
+
+**Expected behavior for small pools:** because the min-entropy estimate uses the confidence bound, pools under roughly 2,500 bits fail the 0.9 min-entropy threshold even when perfectly balanced. This is by design — small samples cannot statistically support the claim.
 
 ### Fairness Certificate — `FairnessCertificateService.cls`
 
 On successful validation, creates a `Fairness_Certificate__c` record:
 
-| Field                        | Type             | Description                                     |
-| ---------------------------- | ---------------- | ----------------------------------------------- |
-| `Certificate_ID__c`          | Auto-Number      | Unique public identifier                        |
-| `Quantum_Job__c`             | Lookup           | Link to the IBM job record                      |
-| `IBM_Job_ID__c`              | Text             | IBM's job ID (externally verifiable)            |
-| `Backend__c`                 | Text             | QPU used (e.g., `ibm_kingston`)                 |
-| `Circuit_QASM__c`            | Long Text        | Exact OpenQASM submitted                        |
-| `Raw_Bitstring_Hash__c`      | Text             | SHA-256 hash of raw measurement data            |
-| `Debiased_Bitstring_Hash__c` | Text             | SHA-256 hash of processed random values         |
-| `Assignment_Hash__c`         | Text             | SHA-256 hash of the resulting assignment        |
-| `Validation_Results__c`      | Long Text (JSON) | Statistical test results                        |
-| `CHSH_S_Value__c`            | Number           | Bell-test S value (if applicable)               |
-| `Created_By_User__c`         | Lookup(User)     | Who requested the random assignment             |
-| `Purpose__c`                 | Text             | Description of what the randomness was used for |
-| `Status__c`                  | Picklist         | Certified / Failed / Pending                    |
+| Field                                                                  | Type                | Description                                      |
+| ---------------------------------------------------------------------- | ------------------- | ------------------------------------------------ |
+| `Quantum_Job__c`                                                       | Master-Detail       | Link to the quantum job record                   |
+| `External_Job_ID__c`                                                   | Text                | Provider's job ID (externally verifiable)        |
+| `Backend__c`                                                           | Text                | QPU used (e.g., `ibm_kingston`)                  |
+| `Circuit_QASM__c`                                                      | Long Text           | Exact OpenQASM submitted                         |
+| `Raw_Bitstring_Hash__c`                                                | Text                | SHA-256 hash of raw measurement data             |
+| `Debiased_Bitstring_Hash__c`                                           | Text                | SHA-256 hash of the debiased random pool         |
+| `Assignment_Hash__c`                                                   | Text                | SHA-256 hash of the canonical assignment mapping |
+| `Chain_Hash__c` / `Previous_Certificate_Hash__c` / `Chain_Position__c` | Text / Number       | Tamper-evident hash chain across certificates    |
+| `Validation_Results__c`                                                | Long Text (JSON)    | Statistical test results (incl. sigmaS/margin)   |
+| `CHSH_S_Value__c`                                                      | Number              | Bell-test S value (if applicable)                |
+| `Backend_Verified__c` / `Backend_Verified_At__c`                       | Checkbox / DateTime | Backend quantum-verification status              |
+| `Tampered__c` / `Last_Integrity_Check__c`                              | Checkbox / DateTime | Integrity verification outcome                   |
+| `Created_By_User__c`                                                   | Lookup(User)        | Who requested the random assignment              |
+| `Purpose__c`                                                           | Text                | What the randomness was used for                 |
+| `Status__c`                                                            | Picklist            | Certified / Failed / Pending / **Revoked**       |
 
-**Audit chain:** Certificate → links to → Quantum_Job**c (with IBM job ID) → links to → assigned records via `QRNG_Assignment**c` junction object. Any auditor can verify: circuit was run on IBM hardware (job ID verifiable via IBM API), measurements are statistically random, and the assignment follows deterministically from the measurements.
+**Audit chain:** Certificate → links to → `Quantum_Job__c` (with external job ID) → links to → assigned records via `Quantum_Assignment__c`. Any auditor can verify: the circuit was run on IBM hardware (job ID verifiable via IBM API), the measurements are statistically random, and the assignment follows deterministically from the measurements (see Layer 4). `IntegrityVerificationJob` re-hashes certificates nightly and flags tampering.
 
 ---
 
@@ -283,31 +304,23 @@ On successful validation, creates a `Fairness_Certificate__c` record:
 
 ### Random Assignment — `QuantumAssignmentEngine.cls`
 
-Converts quantum random bits into fair assignments for common Salesforce use cases:
+Converts quantum random bits into fair assignments. **All randomness consumption uses rejection sampling — there is no modulo bias anywhere**, and bit consumption is strictly sequential and documented in the class header so auditors can replay every draw.
 
-**Uniform distribution** (e.g., round-robin lead assignment):
+**Rejection rule** (unbiased index in `[0, m)`):
 
-```
-Input:  50 leads, 5 reps, quantum random bits
-Method: For each lead, consume ceil(log2(5)) random bits → mod 5 → assign to rep
-Output: Assignment map with certificate link
-```
+1. Read the next `ceil(log2(m))` bits as an unsigned integer `v`
+2. If `v >= m`, discard the block and read the next one (discarded blocks still advance the pool offset and are recorded in the audit trail)
+3. Repeat until `v < m`
 
-**Weighted distribution** (e.g., leads weighted by rep capacity):
+The pool is never wrapped or reused. If the pool is exhausted before a draw completes, the engine **throws** — it never falls back to biased or pseudo randomness.
 
-```
-Input:  Items, assignees with weights, quantum random bits
-Method: CDF-based selection using quantum random values
-Output: Assignment respecting weight proportions
-```
+**Uniform distribution** (e.g., lead assignment): one rejection-sampled draw in `[0, numAssignees)` per record, in input record order.
 
-**Subset selection** (e.g., audit sampling):
+**Weighted distribution**: exact integer arithmetic — each weight is scaled by 10⁶ and rounded to a Long; a value is drawn in `[0, scaledTotal)` with the rejection rule, then assignees are walked in input order and the first whose cumulative scaled weight exceeds the value (strict `<`) wins.
 
-```
-Input:  Population of N records, sample size K, quantum random bits
-Method: Fisher-Yates shuffle using quantum random bits → take first K
-Output: Unbiased sample with certificate
-```
+**Subset selection** (e.g., audit sampling): Fisher–Yates shuffle with the bit width recomputed per swap (`ceilLog2(i+1)`), consuming draws for positions n−1 down to 1, then take the first K.
+
+**Canonical assignment hash:** after assignments are inserted, the certificate's `Assignment_Hash__c` is set to the SHA-256 of the canonical serialization — one line per assignment formatted `index:recordId:assigneeId` (assigneeId empty for Subset selections), sorted by `Assignment_Index__c`, joined with `\n`. `Random_Value__c` on each assignment stores the exact bits consumed for the deciding draw (rejected blocks included), enabling per-selection third-party verification.
 
 ### Invocable Action — `QuantumRandomAssignment` (Flow-compatible)
 
@@ -323,10 +336,12 @@ Inputs exposed to Flow Builder:
 - `assigneeIds` — List of User/Queue IDs to assign to
 - `assignmentType` — Uniform / Weighted / Subset
 - `weights` — Optional weight values for weighted mode
+- `sampleSize` — Sample size for Subset mode
 - `purpose` — Description for the fairness certificate
 - `useBellTest` — Whether to use stronger Bell-test certification
+- `numQubits` / `backend` — Optional circuit overrides
 
-This makes QuantumFair usable from **Flow Builder** with zero code — admins can drop quantum random assignment into any automation.
+**Bulk-safe and trigger-safe:** the invocable performs no callouts. It validates each request, bulk-inserts `Quantum_Job__c` rows (`Status__c = 'Pending'`, full request persisted as JSON in `Assignment_Request__c`), and enqueues `QuantumSubmissionQueueable`, which performs the callouts one job per execution. This makes the action safe for up to 200 Flow interviews per invocation and for `RecordAfterSave` record-triggered flows. On completion, `JobProcessor` deserializes the persisted request, dispatches to the assignment engine by type, inserts `Quantum_Assignment__c` records (all-or-nothing), and stamps the assignment hash on the certificate.
 
 ---
 
@@ -337,237 +352,194 @@ All components are hand-rolled using the latest LWC features (Spring '26). No th
 ### Component Map
 
 ```
-quantumfair/
-├── quantumFairApp              ← Main app container (tab/utility bar)
-├── qrngSetup                   ← Admin config: Named Credential status, backend picker
-├── qrngRequestForm             ← Request a random assignment (Flow-embeddable)
-├── qrngJobMonitor              ← Real-time job status via empApi (Platform Events)
-├── qrngCircuitVisualizer       ← Canvas 2D rendering of the quantum circuit
-├── qrngResultsVisualizer       ← Bitstring distribution chart (Canvas 2D bar chart)
-├── qrngFairnessCertificate     ← Certificate viewer with validation details
-├── qrngAssignmentTable         ← Results table with record links + certificate
+lwc/
+├── quantumFairApp              ← Main app shell (5-tab layout)
+├── qrngSetup                   ← Admin setup orchestrator
+├── qrngConnectionSetup         ← API key entry + auto-connection test
+├── qrngSettingsPanel           ← Backend, shots, compliance email config
+├── qrngHealthMonitor           ← Backend health with fidelity scoring
+├── qrngBackgroundJobs          ← Scheduler management (self-loads its own state)
+├── qrngJobDashboard            ← Filterable job table with real-time updates
+├── qrngJobMonitor              ← Real-time job status via empApi
+├── qrngJobStatusPanel          ← Job type + status display
+├── qrngQasmViewer              ← Canvas 2D OpenQASM circuit renderer
+├── qrngCircuitVisualizer       ← Legacy circuit diagram
+├── qrngResultsVisualizer       ← Canvas 2D measurement charts
+├── qrngValidationResults       ← Statistical + CHSH results (job-type aware)
+├── qrngRequestForm             ← Assignment request form
+├── qrngFairnessCertificate     ← Certificate document view (@api recordId — works on record pages)
+├── qrngAssignmentTable         ← Results table (DTO-based, jobId targetConfig)
 ├── qrngAuditTrail              ← Timeline of all QRNG jobs with certificates
-└── qrngBellTestIndicator       ← CHSH violation gauge (proves quantum origin)
+├── qrngBellTestIndicator       ← CHSH gauge (CSS conic-gradient)
+├── qrngChshVisualizer          ← CHSH correlator breakdown chart
+├── qrngComplianceExport        ← Framework evidence JSON download
+├── qrngEventSubscription       ← Shared Platform Event subscription utility
+└── qrngUtils                   ← Shared utilities (reduceErrors)
 ```
 
-### `qrngCircuitVisualizer` — Hand-Rolled Circuit Diagram (Canvas 2D)
+Frontend conventions worth noting:
 
-Renders a visual quantum circuit diagram directly in LWC using the Canvas 2D API. No external library.
-
-```
-Design:
-  ┌───┐ ┌─┐
-  ┤ H ├─┤M├──── bit[0]
-  └───┘ └─┘
-  ┌───┐ ┌─┐
-  ┤ H ├─┤M├──── bit[1]
-  └───┘ └─┘
-  ┌───┐ ┌─┐
-  ┤ H ├─┤M├──── bit[2]
-  └───┘ └─┘
-```
-
-**Implementation approach:**
-
-- `<canvas>` element in the LWC template
-- `renderedCallback()` draws the circuit using `ctx.fillRect()`, `ctx.strokeRect()`, `ctx.fillText()`, `ctx.beginPath()`/`ctx.lineTo()`
-- Dynamically scales to the number of qubits in the circuit
-- Animates during job execution: qubits pulse, measurement gates flash
-- Works under LWS (Canvas 2D basic operations are not distorted)
-
-### `qrngResultsVisualizer` — Measurement Distribution Chart (Canvas 2D)
-
-Hand-rolled bar chart showing the distribution of measurement outcomes:
-
-- X-axis: bitstring values (e.g., `000`, `001`, ..., `111`)
-- Y-axis: count/frequency
-- Ideal uniform distribution shown as a dashed overlay line
-- Color-coded bars: green = within expected variance, amber = marginal, red = outlier
-- Tooltip on hover showing exact count and percentage
-- Responsive resize via `ResizeObserver`
-
-For large qubit counts (>6 bits = 64+ bars), switches to a **histogram binning** view or top-N display.
-
-### `qrngJobMonitor` — Real-Time Status via Platform Events
-
-```javascript
-// Subscribe to Platform Events via empApi
-import { subscribe, unsubscribe } from 'lightning/empApi';
-
-// Channel: /event/Quantum_Job_Complete__e
-// On receive: update job status, trigger results fetch, animate UI
-```
-
-**States rendered:**
-
-1. **Submitted** — circuit diagram shown, pulsing animation
-2. **Queued** — position in IBM queue (from job metadata), estimated wait
-3. **Running** — execution progress indicator
-4. **Completed** — results visualization fades in, certificate generated
-5. **Failed** — error details with retry action
-
-No polling from the client. The Queueable chain publishes Platform Events; empApi delivers them to the LWC in real time.
-
-### `qrngFairnessCertificate` — Certificate Viewer
-
-A visually distinct, "document-style" LWC component that renders the Fairness Certificate:
-
-- Certificate ID and QR-code-style visual hash (generated from SHA-256 via Canvas 2D pixel art)
-- IBM Job ID (clickable link to IBM Quantum dashboard if user has access)
-- Backend name and circuit parameters
-- Statistical validation results with pass/fail badges
-- CHSH S-value gauge (for Bell-test certificates): S > 2.0 = quantum certified
-- Linked assignment records (clickable navigation)
-- "Verify" button: re-hashes the stored data and confirms integrity
-
-### `qrngBellTestIndicator` — CHSH Gauge (CSS-only)
-
-A pure CSS gauge component (no Canvas, no JS animation library):
-
-```
-CSS approach:
-- Circular gauge via conic-gradient()
-- Needle rotation via CSS custom property --chsh-value
-- Classical limit (S=2) marked with a red line
-- Quantum region (S>2) shaded in gradient
-- Value set via CSS custom property from JS:
-  this.template.querySelector('.gauge')
-      .style.setProperty('--chsh-value', sValue);
-```
-
-Lightweight, accessible, works perfectly under LWS shadow DOM with CSS custom properties crossing the boundary.
-
-### `qrngSetup` — Admin Configuration Panel
-
-- **Connection status**: Tests Named Credential by calling IBM `/backends` endpoint
-- **Backend picker**: Lists available QPUs from the customer's IBM account, shows status (online/maintenance), qubit count, queue depth
-- **Default settings**: Default shots per circuit, preferred backend, Bell-test on/off
-- **Usage dashboard**: Number of QRNG jobs run, certificates issued, IBM minutes consumed (from job metadata)
+- **DTO contract:** components consume typed DTOs from `SetupController`; raw SObjects are never returned to the client (server-side FLS via `stripInaccessible`/`WITH USER_MODE`)
+- **Wire error handling:** every wire renders a visible error state — errors are never silently swallowed
+- **empApi channels are namespace-free** (`/event/Quantum_Job_Complete__e`)
+- **Canvas renderers handle devicePixelRatio** (crisp on HiDPI displays)
+- **Accessibility:** modals use proper dialog semantics (role, focus management, Escape)
+- **`data-testid` attributes** (60+ across templates) form the selector contract shared with the Playwright E2E suite
 
 ---
 
 ## Data Model
 
 ```
-┌─────────────────────┐     ┌──────────────────────────┐
-│   Quantum_Job__c    │     │ Fairness_Certificate__c  │
-├─────────────────────┤     ├──────────────────────────┤
-│ IBM_Job_ID__c       │◀────│ Quantum_Job__c (Lookup)  │
-│ Backend__c          │     │ Certificate_ID__c        │
-│ Status__c           │     │ IBM_Job_ID__c            │
-│ Circuit_QASM__c     │     │ Raw_Bitstring_Hash__c    │
-│ Shots__c            │     │ Debiased_Hash__c         │
-│ Num_Qubits__c       │     │ Assignment_Hash__c       │
-│ Raw_Results__c      │     │ Validation_Results__c    │
-│ Debiased_Results__c │     │ CHSH_S_Value__c          │
-│ Submitted_At__c     │     │ Purpose__c               │
-│ Completed_At__c     │     │ Status__c                │
-│ Requested_By__c     │     │ Created_By_User__c       │
-│ Error_Message__c    │     └──────────────────────────┘
-│ Execution_Time_ms__c│
-│ Queue_Time_ms__c    │
-└─────────────────────┘
-         │
-         │ 1:N
-         ▼
-┌─────────────────────────┐
-│  Quantum_Assignment__c     │
-├─────────────────────────┤
-│ Quantum_Job__c (Lookup) │
-│ Certificate__c (Lookup) │
-│ Assigned_Record_ID__c   │  ← Polymorphic: any SObject
-│ Assigned_To_ID__c       │  ← User or Queue
-│ Assignment_Index__c     │  ← Position in random sequence
-│ Random_Value__c         │  ← The quantum random bits used
-└─────────────────────────┘
-
-┌─────────────────────────┐
-│ Quantum_Backend_Config__mdt│  ← Protected Custom Metadata
-├─────────────────────────┤
-│ Backend_Name__c         │
-│ Native_Gates__c         │
-│ Coupling_Map__c         │
-│ Num_Qubits__c           │
-│ Last_Refreshed__c       │
-└─────────────────────────┘
+┌───────────────────────────┐      ┌────────────────────────────────┐
+│      Quantum_Job__c       │      │    Fairness_Certificate__c     │
+├───────────────────────────┤      ├────────────────────────────────┤
+│ External_Job_ID__c        │◀─MD──│ Quantum_Job__c                 │
+│ Provider__c / Backend__c  │      │ External_Job_ID__c             │
+│ Status__c (Pending/       │      │ Backend__c / Circuit_QASM__c   │
+│  Submitted/Queued/Running │      │ Raw_Bitstring_Hash__c          │
+│  /Completed/Failed)       │      │ Debiased_Bitstring_Hash__c     │
+│ Job_Type__c / Program_Id__c│     │ Assignment_Hash__c             │
+│ Circuit_QASM__c           │      │ Chain_Hash__c / Chain_Position │
+│ Shots__c / Num_Qubits__c  │      │ Previous_Certificate(_Hash)__c │
+│ Use_Bell_Test__c          │      │ Validation_Results__c          │
+│ Assignment_Type__c        │      │ CHSH_S_Value__c                │
+│ Assignment_Request__c(JSON)│     │ Backend_Verified(_At)__c       │
+│ Raw_Results__c            │      │ Tampered__c                    │
+│ Debiased_Results__c       │      │ Last_Integrity_Check__c        │
+│ Validation_Results__c     │      │ Verified_By__c / Verified_At__c│
+│ Result_Fingerprint__c     │      │ Purpose__c / Created_By_User__c│
+│ Submitted_At__c           │      │ Status__c (Certified/Failed/   │
+│ Completed_At__c           │      │  Pending/Revoked)              │
+│ Last_Polled_At__c         │      └────────────────────────────────┘
+│ Poll_Count__c             │
+│ Requested_By__c           │      ┌────────────────────────────────┐
+│ Error_Message__c          │      │     Quantum_Assignment__c      │
+│ Execution_Time_ms__c      │◀─MD──├────────────────────────────────┤
+│ Queue_Time_ms__c          │      │ Quantum_Job__c (Master-Detail) │
+│ QPU_Time_seconds__c       │      │ Certificate__c (Lookup)        │
+│ Purpose__c                │      │ Assigned_Record_ID__c          │
+└───────────────────────────┘      │ Assigned_To_ID__c              │
+                                   │ Assignment_Index__c            │
+┌───────────────────────────┐      │ Random_Value__c (bits consumed)│
+│    Quantum_Provider__c    │      └────────────────────────────────┘
+├───────────────────────────┤
+│ Provider_Key__c           │      ┌────────────────────────────────┐
+│ Provider_Class__c         │      │      Compliance_Event__c       │
+│ API_Base_URL__c           │      ├────────────────────────────────┤
+│ Auth_Endpoint__c          │      │ Event_Type__c (e.g.            │
+│ Is_Active__c / Status__c  │      │  SETTINGS_CHANGED)             │
+└─────────────┬─────────────┘      │ Actor__c / Severity__c         │
+              │ MD                 │ Detail__c / Detail_Hash__c     │
+              ▼                    │ Related_Job__c                 │
+┌───────────────────────────┐      │ Related_Certificate__c         │
+│     Quantum_Backend__c    │      └────────────────────────────────┘
+├───────────────────────────┤
+│ Backend_Key__c            │      ┌────────────────────────────────┐
+│ Num_Qubits__c/Max_Shots__c│      │  Quantum_Settings__c (Protected │
+│ Processor_Family/Revision │      │  Hierarchy Custom Setting)     │
+│ Median gate/readout error │      ├────────────────────────────────┤
+│ Avg_T1_us__c/Avg_T2_us__c │      │ IBM_API_Key__c / Instance_CRN  │
+│ Queue_Length__c/Status__c │      │ Default_Backend__c/Default_Shots│
+│ Noise_Source_Type__c      │      │ Use_Bell_Test__c/Use_Least_Busy│
+│ Conditioning_Component__c │      │ Poll_Interval_Minutes__c       │
+│ Health_Test_* fields      │      │ Integrity_Check_Hour__c        │
+│ CHSH_* verification fields│      │ Compliance_Email__c            │
+└───────────────────────────┘      └────────────────────────────────┘
 ```
+
+Plus `Compliance_Control__mdt` (24 seed records mapping controls to ISO 27001 / SOC 2 / NIST 800-90B / GDPR / eIDAS) and the Platform Events `Quantum_Job_Complete__e` / `Quantum_Job_Failed__e`.
 
 ---
 
 ## Security Architecture
 
-### API Key Protection
+### API Key Storage — the Real Design and Its Tradeoff
 
-```
-Layer 1: External Credential (encrypted at rest by Salesforce)
-   └─▶ Permission Set Mapping (only assigned users/profiles can access)
-       └─▶ Named Credential (Apex references by name, never sees raw key)
-           └─▶ IAM Bearer Token (cached in Platform Cache, 50min TTL)
-               └─▶ IBM API calls use Bearer token only
-```
+The IBM API key is stored in a **Protected hierarchy custom setting field** (`Quantum_Settings__c.IBM_API_Key__c`), entered by the admin via the Setup tab UI. This is a deliberate choice for an unmanaged, zero-infrastructure distribution — Named/External Credentials cannot be pre-wired with a per-org secret in an unmanaged package without significant manual setup, and earlier versions of this document described a Named Credential design that was never built.
 
-- Raw IBM API key is **never** in Apex code, custom settings, or logs
-- Bearer token in Platform Cache is org-scoped and ephemeral
-- Named Credential is package-protected metadata — subscriber admins control access via Permission Sets
+**Tradeoff, stated honestly:** the key is plaintext at rest in the org. Mitigations:
+
+- The custom setting is **Protected** — invisible to ordinary users and the Setup UI of non-admins
+- The key is **never returned to the client**: `SetupController.getSettings` exposes only a boolean `hasApiKey`
+- The key is **never logged** (settings-change compliance events record which fields changed, never values)
+- The key is only ever transmitted to IBM IAM over TLS during token exchange
+- The IAM **bearer token** (not the key) is cached in the Platform Cache partition `local.QuantumFair` (50-minute TTL) with graceful fallback to a transaction-scoped static
+
+Callouts are authorized by three Remote Site Settings (`IBM_IAM`, `IBM_Quantum_API`, `IBM_Resource_Controller`). Orgs requiring encrypted-at-rest secrets can layer Shield Platform Encryption or migrate the key to their own Named Credential.
+
+### Authorization
+
+- The custom permission **`QuantumFair_Administer`** — granted only in the `QuantumFair_Admin` permission set — gates every privileged `@AuraEnabled` method via `FeatureManagement.checkPermission()`: `saveSettings`, starting/stopping scheduled jobs, backend quantum verification, and compliance evidence export. The System Administrator profile alone is **denied**; admins must hold the permission set.
+- All three permission sets grant `SetupController` class access and read on both Platform Events (required for any of the UI to function).
+- Settings changes are logged to `Compliance_Event__c` as `SETTINGS_CHANGED` events (field names only, never the key value).
 
 ### Data Security
 
-- `Quantum_Job__c` and `Fairness_Certificate__c` have **OWD = Private** with sharing rules
-- `with sharing` enforced on all service classes
-- Raw quantum measurement data stored as hashes on certificates — full data on job records (restricted access)
+- **OWD = Private** on all custom objects — `Quantum_Job__c`, `Quantum_Provider__c`, `Compliance_Event__c` are Private; `Fairness_Certificate__c`, `Quantum_Assignment__c`, `Quantum_Backend__c` are master-detail children (Controlled by Parent, inheriting Private)
+- `with sharing` on service classes; the poller/scheduler are deliberately documented `without sharing` (system maintenance of package-owned job records only)
+- **CRUD/FLS enforced server-side**: controller reads use `WITH USER_MODE` or pass rows through `Security.stripInaccessible(AccessType.READABLE)` before building DTOs — Auditors never receive `Raw_Results__c`/`Debiased_Results__c` even though the DTO shape is shared
+- Regular users receive read-only DTOs; no raw SObjects cross the Apex/LWC boundary
 - No Salesforce data ever leaves the org (only circuit definitions go to IBM — no customer data in circuits)
 
 ### Integrity Verification
 
-The certificate stores three SHA-256 hashes:
+The certificate stores three SHA-256 hashes plus a chain:
 
 1. **Raw bitstring hash** — hash of the exact measurement output from IBM
-2. **Debiased hash** — hash of the post-processed random values
-3. **Assignment hash** — hash of the final assignment mapping
+2. **Debiased hash** — hash of the post-processed random pool
+3. **Assignment hash** — hash of the canonical assignment serialization (`index:recordId:assigneeId` lines sorted by index, joined `\n`)
 
-An auditor can re-derive hash #3 from hash #2 by replaying the deterministic assignment algorithm, and verify hash #1 against IBM's job records (accessible via IBM API with the job ID).
+An auditor can re-derive hash #3 from the certified pool by replaying the documented rejection-sampling rules, and verify hash #1 against IBM's job records (accessible via IBM API with the job ID). `IntegrityVerificationJob` re-hashes nightly and walks the certificate chain to its actual predecessor, setting `Tampered__c` on mismatch.
 
 ---
 
 ## Async Flow — End to End
 
 ```
-User clicks               Apex                    IBM Quantum
-"Generate"            (synchronous)                 (async)
+User / Flow               Apex                     IBM Quantum
     │                      │                          │
-    ├──Request────────────▶│                          │
-    │                      ├──Build OpenQASM──┐       │
+    ├──Request────────────▶│ (invocable: no callouts) │
+    │                      ├──Insert Quantum_Job__c   │
+    │                      │  Status='Pending'         │
+    │                      │  Assignment_Request__c=JSON│
+    │◀── "Queued for       ├──Enqueue                  │
+    │    submission" ──────│  QuantumSubmissionQueueable│
+    │                      │                          │
+    │  Submission Queueable│                          │
+    │  (one job per exec)  ├──Build OpenQASM──┐       │
     │                      │◀─────────────────┘       │
-    │                      ├──Create Quantum_Job__c   │
     │                      ├──POST /v1/jobs──────────▶│
     │                      │◀─── { job_id } ──────────│
-    │                      ├──Enqueue Poller           │
-    │◀── "Submitted" ──────│                          │
+    │                      ├──Status='Submitted'       │
+    │                      ├──Start poll chain, chain  │
+    │                      │  to next pending job      │
     │                      │                          │
-    │    Queueable #1      │                          │
-    │                      ├──GET /v1/jobs/id────────▶│
-    │                      │◀─── status: Queued ──────│
-    │                      ├──Re-enqueue (backoff)     │
+    │  Poll #1..5 (1 min)  ├──GET /v1/jobs/id────────▶│
+    │  then 2,3,5,7 min    │◀─── status: Queued ──────│
+    │  capped 10 min,      ├──Schedule next poll       │
+    │  budget 6h           │  (transient errors retry) │
     │                      │                          │
-    │    Queueable #N      │                          │
-    │                      ├──GET /v1/jobs/id────────▶│
+    │  Poll #N             ├──GET /v1/jobs/id────────▶│
     │                      │◀─── status: Completed ───│
     │                      ├──GET /v1/jobs/id/results─▶│
     │                      │◀─── { bitstrings } ──────│
-    │                      ├──Parse + Debias           │
-    │                      ├──Validate (stats tests)   │
-    │                      ├──Create Certificate__c    │
-    │                      ├──Run Assignment Engine     │
-    │                      ├──Create Assignment__c recs │
-    │                      ├──Publish Quantum_Job_Complete__e  │
-    │                      ├──Send Custom Notification  │
-    │                      │                          │
+    │   JobProcessor       ├──FOR UPDATE idempotency   │
+    │   (idempotent)       │  re-check                 │
+    │                      ├──Parse + per-qubit debias │
+    │                      ├──Validate (alpha=0.01,    │
+    │                      │  CHSH 2σ margin)          │
+    │                      ├──Create Certificate       │
+    │                      ├──Assignment engine        │
+    │                      │  (rejection sampling)     │
+    │                      ├──Insert Quantum_Assignment__c
+    │                      ├──Stamp Assignment_Hash__c │
+    │                      ├──Publish Quantum_Job_Complete__e
+    │                      │  (SaveResult checked)     │
+    │                      ├──Enqueue ValidationRunner │
+    │                      │  (SP 800-90B; can REVOKE) │
     │◀── Platform Event ───│                          │
     │    (empApi in LWC)   │                          │
-    │                      │                          │
-    ├──Fetch results───────▶│                          │
-    │◀── Certificate +     │                          │
-    │    Assignments        │                          │
 ```
 
 ---
@@ -576,69 +548,53 @@ User clicks               Apex                    IBM Quantum
 
 ```
 force-app/main/default/
-├── classes/
-│   ├── CircuitBuilder.cls          — OpenQASM 3.0 generation (ISA-compliant)
-│   ├── CircuitBuilder_Test.cls
-│   ├── IBMQuantumAuth.cls              — IAM token exchange + caching
-│   ├── IBMQuantumAuth_Test.cls
-│   ├── IBMQuantumService.cls           — REST API client (submit, poll, results)
-│   ├── IBMQuantumService_Test.cls
-│   ├── JobPoller.cls               — Queueable chain for async polling
-│   ├── JobPoller_Test.cls
-│   ├── ResultParser.cls            — Bitstring extraction + von Neumann debiasing
-│   ├── ResultParser_Test.cls
-│   ├── RandomnessValidator.cls               — Statistical randomness tests
-│   ├── RandomnessValidator_Test.cls
-│   ├── FairnessCertificateService.cls  — Certificate creation + hashing
-│   ├── FairnessCertificateService_Test.cls
-│   ├── QuantumAssignmentEngine.cls     — Random assignment algorithms
-│   ├── QuantumAssignmentEngine_Test.cls
-│   ├── QuantumRandomAssignment.cls     — @InvocableMethod for Flow Builder
-│   ├── QuantumRandomAssignment_Test.cls
-│   ├── SetupController.cls         — LWC controller for admin setup
-│   └── SetupController_Test.cls
+├── classes/                         — flat directory, tests alongside sources
+│   ├── CircuitBuilder.cls               — OpenQASM 3.0 generation (ISA-compliant)
+│   ├── IBMQuantumAuth.cls               — IAM token exchange + Platform Cache
+│   ├── IBMQuantumService.cls            — REST API client (submit, poll, results, backends)
+│   ├── IBMQuantumProvider.cls           — QuantumProvider implementation for IBM
+│   ├── IBMResponseParser.cls            — IBM response shape parsing
+│   ├── QuantumSubmissionQueueable.cls   — async, chained job submission (callout-safe)
+│   ├── JobPoller.cls                    — Queueable poll chain (backoff, transient retry)
+│   ├── JobPollScheduler.cls             — Schedulable hop between polls
+│   ├── JobProcessor.cls                 — idempotent completion processing
+│   ├── JobSweeper.cls                   — scheduled safety net for stuck jobs
+│   ├── ResultParser.cls                 — bitstring extraction + per-qubit von Neumann
+│   ├── RandomnessValidator.cls          — statistical tests (alpha=0.01) + CHSH margin
+│   ├── ValidationRunner.cls             — async SP 800-90B suite (can revoke)
+│   ├── QuantumAssignmentEngine.cls      — rejection-sampled assignment algorithms
+│   ├── QuantumRandomAssignment.cls      — @InvocableMethod for Flow (bulk-safe)
+│   ├── FairnessCertificateService.cls   — certificate creation + hash chaining
+│   ├── IntegrityVerificationJob.cls     — nightly certificate re-hash verification
+│   ├── ComplianceEventLogger.cls        — audit event creation + hashing
+│   ├── ComplianceDigestJob.cls          — daily hash digest email (06:00)
+│   ├── ComplianceSummaryJob.cls         — aggregate compliance summary
+│   ├── ComplianceEvidenceExporter.cls   — framework evidence JSON export
+│   ├── ComplianceControlService.cls     — control-to-framework mapping queries
+│   ├── SetupController.cls              — single LWC controller (permission-gated)
+│   ├── QuantumProvider.cls              — provider interface
+│   ├── QuantumProviderFactory.cls       — provider factory
+│   ├── QuantumConsumer.cls              — extension interface (see Extensibility)
+│   ├── QuantumException.cls             — package exception type
+│   └── *_Test.cls / *Test.cls           — 30 test classes, ~480 test methods
 │
-├── lwc/
-│   ├── quantumFairApp/                 — Main app shell
-│   ├── qrngSetup/                      — Admin config panel
-│   ├── qrngRequestForm/               — Assignment request form
-│   ├── qrngJobMonitor/                — Real-time job status (empApi)
-│   ├── qrngCircuitVisualizer/         — Canvas 2D circuit diagram
-│   ├── qrngResultsVisualizer/         — Canvas 2D measurement charts
-│   ├── qrngFairnessCertificate/       — Certificate document view
-│   ├── qrngAssignmentTable/           — Results table
-│   ├── qrngAuditTrail/               — Historical job/certificate timeline
-│   └── qrngBellTestIndicator/        — CSS gauge for CHSH value
-│
-├── objects/
-│   ├── Quantum_Job__c/
-│   ├── Fairness_Certificate__c/
-│   ├── Quantum_Assignment__c/
-│   └── Quantum_Backend_Config__mdt/
-│
-├── platformEventChannelMembers/
-│   ├── Quantum_Job_Complete__e/
-│   └── Quantum_Job_Failed__e/
-│
-├── customNotificationTypes/
-│   └── Quantum_Job_Notification.notiftype
-│
-├── namedCredentials/
-│   ├── IBM_Quantum_Runtime.namedCredential-meta.xml
-│   └── IBM_Quantum.externalCredential-meta.xml
-│
-├── permissionsets/
-│   ├── QuantumFair_Admin.permissionset
-│   └── QuantumFair_User.permissionset
-│
-├── tabs/
-│   └── QuantumFair.tab
-│
-├── flexipages/
-│   └── QuantumFair_App_Page.flexipage
-│
-└── flows/
-    └── Quantum_Random_Lead_Assignment.flow  — Sample flow using the invocable action
+├── lwc/                             — 22 components (see Layer 5)
+├── objects/                         — Quantum_Job__c, Fairness_Certificate__c,
+│                                      Quantum_Assignment__c, Quantum_Provider__c,
+│                                      Quantum_Backend__c, Compliance_Event__c,
+│                                      Quantum_Settings__c, Compliance_Control__mdt,
+│                                      Quantum_Job_Complete__e, Quantum_Job_Failed__e
+├── customMetadata/                  — 24 Compliance_Control seed records
+├── customPermissions/               — QuantumFair_Administer
+├── remoteSiteSettings/              — IBM_IAM, IBM_Quantum_API, IBM_Resource_Controller
+├── cachePartitions/                 — QuantumFair (IAM bearer token cache)
+├── permissionsets/                  — QuantumFair_Admin, QuantumFair_User, QuantumFair_Auditor
+├── applications/ + tabs/            — QuantumFair app + object tabs
+├── flexipages/                      — app page, utility bar, record pages
+├── notificationtypes/               — Quantum_Job_Notification
+├── layouts/                         — page layouts for all custom objects
+└── flows/                           — sample flows (lead round robin, case routing,
+                                       opportunity review, account rebalance, generic)
 ```
 
 ---
@@ -650,7 +606,7 @@ force-app/main/default/
 **Purpose:** Fast generation of quantum random bits
 **Circuit:** Hadamard on each qubit → measure
 **Qubits:** 8–127 (configurable, more qubits = more bits per shot)
-**Shots:** 1024–8192 (configurable)
+**Shots:** 1024–8192 (configurable; oversized qubit×shot combinations are rejected at submission)
 **Output:** `qubits × shots` random bits
 **Certification level:** Standard (statistical validation only)
 
@@ -661,23 +617,23 @@ ISA decomposition (per qubit):
 
 ### 2. Bell-Test QRNG (Strong Certification)
 
-**Purpose:** Provably quantum randomness via CHSH inequality violation
-**Circuit:** Bell pairs (H + CNOT) → random basis measurement
+**Purpose:** Randomness with evidence consistent with quantum origin via CHSH inequality violation
+**Circuit:** Bell pairs (H + ECR) → complementary basis measurement
 **Qubits:** Pairs (2N qubits for N Bell pairs)
-**Shots:** 4096+ (need statistical significance for CHSH)
-**Output:** Fewer random bits, but with physics-backed proof of quantum origin
-**Certification level:** Bell-certified (CHSH S > 2.0)
+**Shots:** 4096+ (needed for CHSH statistical significance)
+**Output:** Fewer random bits (only Alice-side qubits feed the pool; correlated bits are excluded), but with a physics-backed significance test
+**Certification level:** Bell-certified — requires (S − 2.0) > 2σ_S, i.e. the classical bound violated by at least two standard errors
 
 ```
 ISA decomposition (per Bell pair):
   Qubit A: rz(π/2) → sx → rz(π/2)          [Hadamard]
   Qubit B: (identity)
   Entangle: ecr $A, $B                       [native 2Q gate]
-  Basis choice: random rz rotation on each
+  Basis choice: rz rotation on each
   Measure both
 ```
 
-The CHSH S-value is computed from correlations across four measurement basis combinations. S > 2 is impossible classically — it proves the randomness came from quantum mechanics.
+The CHSH S-value is computed from correlations across four measurement basis combinations. S > 2 with statistical significance is impossible to explain classically under the test's assumptions — the certificate records the S-value, its standard error, and the margin.
 
 ### 3. Randomness Expansion (Future)
 
@@ -687,16 +643,17 @@ For orgs needing high-volume randomness without burning IBM minutes on every req
 
 ## Governor Limit Budget
 
-| Operation                    | Limit           | Usage                                      |
-| ---------------------------- | --------------- | ------------------------------------------ |
-| Callouts per transaction     | 100             | 2 per poll cycle (auth check + status)     |
-| Callout timeout              | 120s            | IBM API responds in <5s typically          |
-| Heap size (async)            | 12 MB           | Results for 8192 shots × 127 qubits ≈ 1 MB |
-| Queueable chain depth        | Unlimited       | ~3–10 polls per job                        |
-| Platform Events published/tx | 250             | 1 per job completion                       |
-| SOQL queries per tx          | 100             | ~5 per poll cycle                          |
-| DML rows per tx              | 10,000          | Certificate + assignments well within      |
-| Platform Cache (Org)         | 10 MB (default) | Bearer token ≈ 2 KB                        |
+| Operation                    | Limit           | Usage                                                                          |
+| ---------------------------- | --------------- | ------------------------------------------------------------------------------ |
+| Callouts per transaction     | 100             | Submission queueable: ≤5; poller: 2; sweeper: ~14 worst case                   |
+| Callout timeout              | 120s            | IBM API responds in <5s typically                                              |
+| Heap size (async)            | 12 MB           | Sweeper bounded to 3 completions/sweep (payloads can exceed 1 MB)              |
+| Queueable chain depth        | n/a             | Poll chain hops through Schedulable (no depth limit applies)                   |
+| Scheduled jobs per org       | 100             | One CronTrigger per in-flight poll; schedule failures fall back to the sweeper |
+| Platform Events published/tx | 250             | 1 per job completion/failure (SaveResults checked)                             |
+| SOQL queries per tx          | 100             | ~5 per poll cycle                                                              |
+| DML rows per tx              | 10,000          | Certificate + assignments well within                                          |
+| Platform Cache               | partition-based | `local.QuantumFair` partition; bearer token ≈ 2 KB                             |
 
 ---
 
@@ -711,25 +668,26 @@ public interface QuantumConsumer {
 }
 ```
 
-Developers in the subscriber org can implement this interface and register their class in a Custom Metadata record. The assignment engine calls all registered consumers when randomness is ready — enabling custom use cases beyond the built-in assignment types.
+Since QuantumFair deploys as source, developers can implement this interface for custom randomness use cases beyond the built-in assignment types. Note: automatic dispatch to registered consumers is not yet wired — today the interface is a contract for custom code that subscribes to the Platform Events below.
 
-### Platform Event — `Quantum_Job_Complete__e`
+### Platform Events — `Quantum_Job_Complete__e` / `Quantum_Job_Failed__e`
 
-Any subscriber-org automation (Flow, Apex trigger, external system via CometD) can listen for this event and react to completed QRNG jobs. Fields:
+Any org automation (Flow, Apex trigger, external system via CometD) can listen for these events. `Quantum_Job_Complete__e` fields:
 
-- `Job_Id__c` — Quantum_Job\_\_c record ID
-- `Certificate_Id__c` — Fairness_Certificate\_\_c record ID
+- `Job_Id__c` — `Quantum_Job__c` record ID
+- `Certificate_Id__c` — `Fairness_Certificate__c` record ID
 - `Num_Random_Bits__c` — Number of debiased random bits available
-- `Status__c` — Certified / Failed
+
+`Quantum_Job_Failed__e` carries `Job_Id__c` and `Error_Message__c` — and is also published when SP 800-90B extended validation revokes a certificate.
 
 ### Flow Builder Integration
 
 The `QuantumRandomAssignment` invocable action can be used in:
 
-- Record-Triggered Flows (e.g., auto-assign new leads)
+- Record-Triggered Flows (e.g., auto-assign new leads) — including bulk inserts, since submission is async
 - Screen Flows (e.g., admin-initiated audit sampling)
 - Scheduled Flows (e.g., weekly fair rotation)
-- Platform Event-Triggered Flows (chained from QRNG_Complete\_\_e)
+- Platform Event–Triggered Flows (chained from `Quantum_Job_Complete__e`)
 
 ---
 
@@ -747,33 +705,33 @@ The `QuantumRandomAssignment` invocable action can be used in:
 | End-to-end integration tests       | ~5 min      | Full Salesforce → IBM → results flow           |
 | **Total development**              | **~15 min** | QRNG circuits are trivial for quantum hardware |
 
-The remaining budget (185 min) is available for the QuantumPareto optimizer (C₁) or future features.
-
 ---
 
 ## Deployment
 
-### AppExchange Listing
+### Distribution — Unmanaged / Open Source
 
-- **Price:** Free
-- **License:** Apache-2.0 (source on GitHub)
-- **Category:** Utilities / Data Quality
-- **Editions:** Enterprise, Unlimited, Developer
-- **Requirements:** IBM Quantum account (free Open Plan is sufficient)
+QuantumFair ships as an **unmanaged package / source deploy** under Apache-2.0. There is no namespace (the former `OpenSF` namespace was removed) and no InstallHandler (unsupported for unmanaged packages) — background-job scheduling is automated in-app:
+
+- Saving a working API key auto-schedules `JobSweeper` and `IntegrityVerificationJob`
+- Saving a compliance email auto-schedules `ComplianceDigestJob` (daily 06:00 org time); clearing it unschedules the digest
+
+An AppExchange listing is planned. **Editions:** Enterprise, Unlimited, Developer. **Requirements:** IBM Quantum account (free Open Plan is sufficient).
 
 ### Post-Install Setup (Admin)
 
-1. Assign `QuantumFair_Admin` permission set to admin user
-2. Navigate to QuantumFair Setup tab
-3. Enter IBM Quantum API key into the External Credential (guided wizard in LWC)
-4. Select preferred backend (wizard shows available QPUs)
-5. Run test circuit (1 qubit, 100 shots) to verify connectivity
-6. Assign `QuantumFair_User` permission set to users who can request random assignments
+1. Deploy the source (`sf project deploy start`) or install the unmanaged package
+2. Assign the `QuantumFair_Admin` permission set to the admin user (required — privileged actions check the `QuantumFair_Administer` custom permission, which only this permission set grants)
+3. Navigate to the QuantumFair Setup tab (`/lightning/n/QuantumFair`)
+4. Enter the IBM Quantum API key and save (sweeper + integrity job schedule automatically)
+5. Optionally set a compliance email (daily digest schedules automatically)
+6. Test the connection from the Setup tab
+7. Assign `QuantumFair_User` / `QuantumFair_Auditor` to other users
 
 ### For Developers / Contributors
 
 ```bash
-git clone https://github.com/{org}/open-qrng.git
+git clone https://github.com/OpenSystemsFoundation/open-qrng.git
 cd open-qrng
 sf org create scratch -f config/project-scratch-def.json -a qrng-dev
 sf project deploy start

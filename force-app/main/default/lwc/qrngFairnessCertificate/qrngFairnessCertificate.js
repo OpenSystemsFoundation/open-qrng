@@ -1,17 +1,51 @@
 import { LightningElement, api, wire, track } from 'lwc';
 import getCertificateDTO from '@salesforce/apex/SetupController.getCertificateDTO';
 import verifyCertificate from '@salesforce/apex/SetupController.verifyCertificate';
+import { reduceErrors, setupHiDpiCanvas } from 'c/qrngUtils';
+
+const HASH_CANVAS_SIZE = 128;
 
 export default class QrngFairnessCertificate extends LightningElement {
-    @api certificateId;
     @track certificate;
     @track validationResults;
     @track verificationResult;
     @track isVerifying = false;
+    @track loadError;
 
-    @wire(getCertificateDTO, { certificateId: '$certificateId' })
-    wiredCert({ data }) {
+    // Effective certificate id — recordId (record page) wins over
+    // certificateId (explicit binding from parent components).
+    @track _certId;
+    _recordId;
+    _certificateId;
+
+    /** Record-page support: flexipages inject the record id here. */
+    @api
+    get recordId() {
+        return this._recordId;
+    }
+    set recordId(value) {
+        this._recordId = value;
+        this._updateCertId();
+    }
+
+    /** Explicit certificate id binding (parent components). */
+    @api
+    get certificateId() {
+        return this._certificateId;
+    }
+    set certificateId(value) {
+        this._certificateId = value;
+        this._updateCertId();
+    }
+
+    _updateCertId() {
+        this._certId = this._recordId || this._certificateId;
+    }
+
+    @wire(getCertificateDTO, { certificateId: '$_certId' })
+    wiredCert({ data, error }) {
         if (data) {
+            this.loadError = undefined;
             this.certificate = data;
             if (data.validationResults) {
                 try {
@@ -21,6 +55,10 @@ export default class QrngFairnessCertificate extends LightningElement {
                 }
             }
             this.drawVisualHash();
+        } else if (error) {
+            this.certificate = undefined;
+            this.validationResults = null;
+            this.loadError = reduceErrors(error);
         }
     }
 
@@ -30,9 +68,12 @@ export default class QrngFairnessCertificate extends LightningElement {
         }
     }
 
-    get formattedDate() {
-        if (!this.certificate || !this.certificate.createdDate) return '';
-        return new Date(this.certificate.createdDate).toLocaleString();
+    get hasCertId() {
+        return !!this._certId;
+    }
+
+    get isLoading() {
+        return this.hasCertId && !this.certificate && !this.loadError;
     }
 
     get hasCHSH() {
@@ -58,11 +99,6 @@ export default class QrngFairnessCertificate extends LightningElement {
         return this.certificate.backendVerified
             ? 'slds-badge slds-theme_success'
             : 'slds-badge slds-theme_default';
-    }
-
-    get backendVerifiedAtFormatted() {
-        if (!this.certificate?.backendVerifiedAt) return null;
-        return new Date(this.certificate.backendVerifiedAt).toLocaleString();
     }
 
     get isTampered() {
@@ -165,6 +201,10 @@ export default class QrngFairnessCertificate extends LightningElement {
 
     get verificationClass() {
         if (!this.verificationResult) return '';
+        if (this.verificationResult.error) {
+            // Transient error — neutral styling, NOT a tamper alarm
+            return 'slds-m-top_small slds-text-color_weak';
+        }
         return (
             'slds-m-top_small ' +
             (this.verificationResult.integrityVerified
@@ -175,6 +215,9 @@ export default class QrngFairnessCertificate extends LightningElement {
 
     get verificationMessage() {
         if (!this.verificationResult) return '';
+        if (this.verificationResult.error) {
+            return 'Verification could not be completed. Try again.';
+        }
         return this.verificationResult.integrityVerified
             ? 'Integrity verified - all hashes match'
             : 'Integrity check failed - data may have been modified';
@@ -184,10 +227,12 @@ export default class QrngFairnessCertificate extends LightningElement {
         this.isVerifying = true;
         try {
             this.verificationResult = await verifyCertificate({
-                certificateId: this.certificateId
+                certificateId: this._certId
             });
-        } catch {
-            this.verificationResult = { integrityVerified: false };
+        } catch (error) {
+            // A failed callout is NOT evidence of tampering — surface it
+            // as an inconclusive verification, never as a tamper alarm.
+            this.verificationResult = { error: reduceErrors(error) };
         } finally {
             this.isVerifying = false;
         }
@@ -197,9 +242,10 @@ export default class QrngFairnessCertificate extends LightningElement {
         const canvas = this.refs.hashCanvas;
         if (!canvas || !this.certificate?.rawBitstringHash) return;
 
-        const ctx = canvas.getContext('2d');
+        const size = HASH_CANVAS_SIZE;
+        const ctx = setupHiDpiCanvas(canvas, size, size);
+        if (!ctx) return;
         const hash = this.certificate.rawBitstringHash;
-        const size = 128;
         const cellSize = size / 8;
 
         ctx.clearRect(0, 0, size, size);

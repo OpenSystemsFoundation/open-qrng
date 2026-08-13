@@ -398,4 +398,392 @@ private class JobProcessor_Test {
         System.assertEquals('Completed', pr.status);
         System.assertEquals(2.61, pr.chshSValue);
     }
+
+    // ── Assignment engine wiring (B1) ───────────────────────────────
+
+    /**
+     * 64-bit target debiased pool that passes all validation gates:
+     * each 4-bit nibble value appears exactly once (chi-squared = 0),
+     * 32 ones (frequency z = 0), 33 runs (runs-test z = 0).
+     */
+    private static final String GOOD_DEBIASED =
+        '0110100100111100' +
+        '0101101000001111' +
+        '0001111001001011' +
+        '0010110101111000';
+
+    /**
+     * Build raw bits whose von Neumann debiasing yields exactly the
+     * given target: 0 → '01', 1 → '10' (no discarded pairs).
+     */
+    private static String expandDebiased(String debiased) {
+        String raw = '';
+        for (Integer i = 0; i < debiased.length(); i++) {
+            raw += debiased.substring(i, i + 1) == '0' ? '01' : '10';
+        }
+        return raw;
+    }
+
+    private static String buildSamplerJson(String rawBits, Integer numQubits) {
+        List<String> samples = new List<String>();
+        for (Integer i = 0; i + numQubits <= rawBits.length(); i += numQubits) {
+            samples.add('"' + rawBits.substring(i, i + numQubits) + '"');
+        }
+        return '{"results":[{"data":{"meas":{"samples":[' +
+            String.join(samples, ',') +
+            ']}}}]}';
+    }
+
+    private static Quantum_Job__c insertAssignmentJob(
+        String assignmentType,
+        QuantumRandomAssignment.AssignmentRequestData data
+    ) {
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'job_assign_' + assignmentType,
+            Backend__c = 'test_backend',
+            Status__c = 'Submitted',
+            Shots__c = 16,
+            Num_Qubits__c = 8,
+            Use_Bell_Test__c = false,
+            Submitted_At__c = DateTime.now(),
+            Assignment_Type__c = assignmentType,
+            Assignment_Request__c = JSON.serialize(data)
+        );
+        insert job;
+        return job;
+    }
+
+    @IsTest
+    static void testSamplerCompletionCreatesUniformAssignments() {
+        QuantumRandomAssignment.AssignmentRequestData data = new QuantumRandomAssignment.AssignmentRequestData();
+        data.recordIds = new List<String>{
+            '001000000000001',
+            '001000000000002',
+            '001000000000003'
+        };
+        data.assigneeIds = new List<String>{
+            '005000000000001',
+            '005000000000002'
+        };
+        data.assignmentType = 'Uniform';
+        data.purpose = 'Wiring test';
+        Quantum_Job__c job = insertAssignmentJob('Uniform', data);
+
+        String resultsJson = buildSamplerJson(expandDebiased(GOOD_DEBIASED), 8);
+
+        Test.startTest();
+        JobProcessor.ProcessingResult result = JobProcessor.processSamplerCompletion(
+            job,
+            resultsJson,
+            null
+        );
+        Test.stopTest();
+
+        System.assertEquals('Completed', result.status);
+        System.assertNotEquals(null, result.certificateId);
+
+        List<Quantum_Assignment__c> assignments = [
+            SELECT
+                Assignment_Index__c,
+                Assigned_Record_ID__c,
+                Assigned_To_ID__c,
+                Random_Value__c,
+                Certificate__c
+            FROM Quantum_Assignment__c
+            WHERE Quantum_Job__c = :job.Id
+            ORDER BY Assignment_Index__c
+        ];
+        System.assertEquals(3, assignments.size());
+        // Per-qubit debiased pool starts '000...' → 1-bit draws select 0, 0, 0
+        System.assertEquals(
+            '005000000000001',
+            assignments[0].Assigned_To_ID__c
+        );
+        System.assertEquals(
+            '005000000000001',
+            assignments[1].Assigned_To_ID__c
+        );
+        System.assertEquals(
+            '005000000000001',
+            assignments[2].Assigned_To_ID__c
+        );
+        System.assertEquals('0', assignments[0].Random_Value__c);
+        for (Quantum_Assignment__c a : assignments) {
+            System.assertEquals(result.certificateId, a.Certificate__c);
+        }
+
+        // Canonical assignment hash stamped on the certificate
+        String canonical =
+            '0:001000000000001:005000000000001\n' +
+            '1:001000000000002:005000000000001\n' +
+            '2:001000000000003:005000000000001';
+        Fairness_Certificate__c cert = [
+            SELECT Assignment_Hash__c, Status__c
+            FROM Fairness_Certificate__c
+            WHERE Id = :result.certificateId
+        ];
+        System.assertEquals('Certified', cert.Status__c);
+        System.assertEquals(
+            FairnessCertificateService.computeSHA256(canonical),
+            cert.Assignment_Hash__c
+        );
+    }
+
+    @IsTest
+    static void testSamplerCompletionCreatesSubsetAssignments() {
+        QuantumRandomAssignment.AssignmentRequestData data = new QuantumRandomAssignment.AssignmentRequestData();
+        data.recordIds = new List<String>{ 'R1', 'R2', 'R3', 'R4' };
+        data.sampleSize = 2;
+        data.assignmentType = 'Subset';
+        data.purpose = 'Subset wiring test';
+        Quantum_Job__c job = insertAssignmentJob('Subset', data);
+
+        String resultsJson = buildSamplerJson(expandDebiased(GOOD_DEBIASED), 8);
+
+        Test.startTest();
+        JobProcessor.ProcessingResult result = JobProcessor.processSamplerCompletion(
+            job,
+            resultsJson,
+            null
+        );
+        Test.stopTest();
+
+        System.assertEquals('Completed', result.status);
+
+        List<Quantum_Assignment__c> assignments = [
+            SELECT Assignment_Index__c, Assigned_Record_ID__c, Assigned_To_ID__c
+            FROM Quantum_Assignment__c
+            WHERE Quantum_Job__c = :job.Id
+            ORDER BY Assignment_Index__c
+        ];
+        System.assertEquals(2, assignments.size());
+        // Per-qubit pool '000000...': i=3 draw '00'=0 → swap(3,0) →
+        // [R4,R2,R3,R1]; i=2 draw '00'=0 → swap(2,0) → [R3,R2,R4,R1];
+        // i=1 draw '0'=0 → swap(1,0) → [R2,R3,R4,R1]; take first 2
+        System.assertEquals('R2', assignments[0].Assigned_Record_ID__c);
+        System.assertEquals('R3', assignments[1].Assigned_Record_ID__c);
+        System.assertEquals(null, assignments[0].Assigned_To_ID__c);
+
+        // Canonical string uses an empty assignee segment for subsets
+        Fairness_Certificate__c cert = [
+            SELECT Assignment_Hash__c
+            FROM Fairness_Certificate__c
+            WHERE Id = :result.certificateId
+        ];
+        System.assertEquals(
+            FairnessCertificateService.computeSHA256('0:R2:\n1:R3:'),
+            cert.Assignment_Hash__c
+        );
+    }
+
+    @IsTest
+    static void testAssignmentFailureKeepsCertificate() {
+        // Weighted request with missing weights → engine throws; the
+        // certificate must survive and no partial assignments remain
+        QuantumRandomAssignment.AssignmentRequestData data = new QuantumRandomAssignment.AssignmentRequestData();
+        data.recordIds = new List<String>{ '001000000000001' };
+        data.assigneeIds = new List<String>{ '005000000000001' };
+        data.assignmentType = 'Weighted';
+        data.purpose = 'Failure test';
+        // weights intentionally null
+        Quantum_Job__c job = insertAssignmentJob('Weighted', data);
+
+        String resultsJson = buildSamplerJson(expandDebiased(GOOD_DEBIASED), 8);
+
+        Test.startTest();
+        JobProcessor.ProcessingResult result = JobProcessor.processSamplerCompletion(
+            job,
+            resultsJson,
+            null
+        );
+        Test.stopTest();
+
+        System.assertEquals('Completed', result.status);
+        System.assertNotEquals(
+            null,
+            result.certificateId,
+            'Certificate must survive assignment failure'
+        );
+        System.assertEquals(
+            0,
+            [
+                SELECT COUNT()
+                FROM Quantum_Assignment__c
+                WHERE Quantum_Job__c = :job.Id
+            ],
+            'No partial assignments'
+        );
+
+        Quantum_Job__c updated = [
+            SELECT Error_Message__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assert(
+            updated.Error_Message__c != null &&
+            updated.Error_Message__c.contains('Assignment failed'),
+            'Failure must be logged on the job: ' + updated.Error_Message__c
+        );
+    }
+
+    // ── Idempotency ─────────────────────────────────────────────────
+
+    @IsTest
+    static void testDoubleCompletionIsIdempotent() {
+        QuantumRandomAssignment.AssignmentRequestData data = new QuantumRandomAssignment.AssignmentRequestData();
+        data.recordIds = new List<String>{
+            '001000000000001',
+            '001000000000002',
+            '001000000000003'
+        };
+        data.assigneeIds = new List<String>{
+            '005000000000001',
+            '005000000000002'
+        };
+        data.assignmentType = 'Uniform';
+        data.purpose = 'Idempotency test';
+        Quantum_Job__c job = insertAssignmentJob('Uniform', data);
+
+        String resultsJson = buildSamplerJson(expandDebiased(GOOD_DEBIASED), 8);
+
+        Test.startTest();
+        JobProcessor.ProcessingResult first = JobProcessor.processSamplerCompletion(
+            job,
+            resultsJson,
+            null
+        );
+        Integer eventsAfterFirst = Limits.getPublishImmediateDML();
+
+        // Simulate a duplicate completion signal (poller + sweeper racing)
+        Quantum_Job__c requeried = [
+            SELECT
+                Id,
+                Status__c,
+                Num_Qubits__c,
+                Use_Bell_Test__c,
+                Submitted_At__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        JobProcessor.ProcessingResult second = JobProcessor.processSamplerCompletion(
+            requeried,
+            resultsJson,
+            null
+        );
+        Integer eventsAfterSecond = Limits.getPublishImmediateDML();
+        Test.stopTest();
+
+        System.assertEquals('Completed', second.status);
+        System.assertEquals(first.certificateId, second.certificateId);
+        System.assertEquals(
+            null,
+            second.rawBitsLength,
+            'Second call must not reprocess results'
+        );
+        System.assertEquals(
+            eventsAfterFirst,
+            eventsAfterSecond,
+            'Second call must not publish another event'
+        );
+        System.assertEquals(
+            1,
+            [
+                SELECT COUNT()
+                FROM Fairness_Certificate__c
+                WHERE Quantum_Job__c = :job.Id
+            ],
+            'Only one certificate'
+        );
+        System.assertEquals(
+            3,
+            [
+                SELECT COUNT()
+                FROM Quantum_Assignment__c
+                WHERE Quantum_Job__c = :job.Id
+            ],
+            'No duplicate assignments'
+        );
+    }
+
+    // ── Truncation guard (H-R3) ─────────────────────────────────────
+
+    @IsTest
+    static void testOversizedResultFailsInsteadOfTruncating() {
+        JobProcessor.maxStoredResultChars = 10;
+
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'job_trunc',
+            Backend__c = 'test_backend',
+            Status__c = 'Submitted',
+            Shots__c = 8,
+            Num_Qubits__c = 8,
+            Use_Bell_Test__c = false,
+            Submitted_At__c = DateTime.now()
+        );
+        insert job;
+
+        String resultsJson = '{"results":[{"data":{"meas":{"samples":["0x66","0x99","0xe3","0x35","0xaa","0x55","0xcc","0x3c"]}}}]}';
+
+        Test.startTest();
+        JobProcessor.ProcessingResult result = JobProcessor.processSamplerCompletion(
+            job,
+            resultsJson,
+            null
+        );
+        Test.stopTest();
+
+        System.assertEquals('Failed', result.status);
+        System.assertEquals(null, result.certificateId);
+
+        Quantum_Job__c updated = [
+            SELECT Status__c, Error_Message__c, Raw_Results__c
+            FROM Quantum_Job__c
+            WHERE Id = :job.Id
+        ];
+        System.assertEquals('Failed', updated.Status__c);
+        System.assert(
+            updated.Error_Message__c.contains('truncation'),
+            'Error must explain the size limit: ' + updated.Error_Message__c
+        );
+        System.assertEquals(
+            null,
+            updated.Raw_Results__c,
+            'No truncated results may be stored'
+        );
+        System.assertEquals(
+            0,
+            [
+                SELECT COUNT()
+                FROM Fairness_Certificate__c
+                WHERE Quantum_Job__c = :job.Id
+            ],
+            'No certificate for unstorable results'
+        );
+    }
+
+    // ── canonicalAssignmentString ───────────────────────────────────
+
+    @IsTest
+    static void testCanonicalAssignmentStringSortsByIndex() {
+        List<Quantum_Assignment__c> unsorted = new List<Quantum_Assignment__c>{
+            new Quantum_Assignment__c(
+                Assignment_Index__c = 2,
+                Assigned_Record_ID__c = 'R3',
+                Assigned_To_ID__c = 'U1'
+            ),
+            new Quantum_Assignment__c(
+                Assignment_Index__c = 0,
+                Assigned_Record_ID__c = 'R1',
+                Assigned_To_ID__c = 'U2'
+            ),
+            new Quantum_Assignment__c(
+                Assignment_Index__c = 1,
+                Assigned_Record_ID__c = 'R2'
+            )
+        };
+
+        String canonical = JobProcessor.canonicalAssignmentString(unsorted);
+
+        System.assertEquals('0:R1:U2\n1:R2:\n2:R3:U1', canonical);
+    }
 }

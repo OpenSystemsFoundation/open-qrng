@@ -32,11 +32,18 @@ public with sharing class IBMResponseParser {
 
     /**
      * Normalize an IBM status string to the internal Salesforce status values.
-     * Maps case-insensitive IBM statuses to: Completed, Running, Queued, Failed, Submitted.
+     * Maps case-insensitive IBM statuses to: Completed, Running, Queued,
+     * Failed, Submitted.
+     *
+     * Unrecognized (or missing) statuses return 'Unknown' — NOT a job
+     * Status__c picklist value. Callers must never write 'Unknown' to
+     * Status__c: JobPoller treats it as a transient condition (retry,
+     * counted toward the consecutive-transient cap) and JobSweeper keeps
+     * the job in its current pending status until budget exhaustion.
      */
     public static String normalizeStatus(String ibmStatus) {
         if (ibmStatus == null) {
-            return 'Submitted';
+            return 'Unknown';
         }
         String lower = ibmStatus.toLowerCase();
         if (lower == 'completed' || lower == 'result_ready') {
@@ -51,7 +58,10 @@ public with sharing class IBMResponseParser {
         if (lower == 'failed' || lower == 'cancelled' || lower == 'canceled') {
             return 'Failed';
         }
-        return 'Submitted';
+        if (lower == 'submitted') {
+            return 'Submitted';
+        }
+        return 'Unknown';
     }
 
     /**

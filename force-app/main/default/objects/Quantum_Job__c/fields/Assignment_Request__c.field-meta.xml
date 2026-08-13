@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Native_Gates__c</fullName>
-    <label>Native Gates</label>
+    <fullName>Assignment_Request__c</fullName>
+    <label>Assignment Request</label>
     <length>32768</length>
     <type>LongTextArea</type>
-    <visibleLines>3</visibleLines>
+    <visibleLines>10</visibleLines>
 </CustomField>

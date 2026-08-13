@@ -236,10 +236,26 @@
             </template>
 
             <template if:false={hasRecord}>
-                <lightning-spinner
-                    alternative-text="Loading..."
-                    size="medium"
-                ></lightning-spinner>
+                <template if:true={wireError}>
+                    <div
+                        class="slds-scoped-notification slds-media slds-media_center slds-theme_error slds-p-around_small"
+                        role="status"
+                        data-testid="job-status-error"
+                    >
+                        <div class="slds-media__body">
+                            <p>
+                                Could not load job status:
+                                {wireError}
+                            </p>
+                        </div>
+                    </div>
+                </template>
+                <template if:false={wireError}>
+                    <lightning-spinner
+                        alternative-text="Loading..."
+                        size="medium"
+                    ></lightning-spinner>
+                </template>
             </template>
         </div>
     </lightning-card>

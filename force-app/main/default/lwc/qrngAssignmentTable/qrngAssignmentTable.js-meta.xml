@@ -10,9 +10,23 @@
     </targets>
     <targetConfigs>
         <targetConfig targets="lightning__RecordPage">
+            <property
+                name="jobId"
+                type="String"
+                label="Quantum Job Id"
+                description="Id of the Quantum Job whose assignments should be shown. Defaults to the current record when left blank."
+            />
             <objects>
                 <object>Quantum_Job__c</object>
             </objects>
+        </targetConfig>
+        <targetConfig targets="lightning__AppPage,lightning__HomePage">
+            <property
+                name="jobId"
+                type="String"
+                label="Quantum Job Id"
+                description="Id of the Quantum Job whose assignments should be shown."
+            />
         </targetConfig>
     </targetConfigs>
 </LightningComponentBundle>

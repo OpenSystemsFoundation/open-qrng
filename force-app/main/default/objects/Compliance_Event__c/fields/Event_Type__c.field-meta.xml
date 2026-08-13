@@ -53,6 +53,16 @@
                 <default>false</default>
                 <label>EVIDENCE_EXPORTED</label>
             </value>
+            <value>
+                <fullName>SETTINGS_CHANGED</fullName>
+                <default>false</default>
+                <label>SETTINGS_CHANGED</label>
+            </value>
+            <value>
+                <fullName>SCHEDULING_FAILED</fullName>
+                <default>false</default>
+                <label>SCHEDULING_FAILED</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

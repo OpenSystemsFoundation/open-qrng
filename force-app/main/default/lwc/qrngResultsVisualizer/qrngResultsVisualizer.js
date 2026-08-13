@@ -1,4 +1,5 @@
 import { LightningElement, api } from 'lwc';
+import { setupHiDpiCanvas } from 'c/qrngUtils';
 
 const MIN_BAR_WIDTH = 14;
 const BAR_GAP = 2;
@@ -149,10 +150,8 @@ export default class QrngResultsVisualizer extends LightningElement {
         );
         const height = Math.max(300, 200 + qubits * 6);
 
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
+        const ctx = setupHiDpiCanvas(canvas, width, height);
+        if (!ctx) return;
         ctx.clearRect(0, 0, width, height);
 
         const chartWidth = width - marginLeft - marginRight;

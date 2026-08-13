@@ -48,6 +48,15 @@ $RECYCLE.BIN/
 # Playwright screenshots
 scripts/playwright/*.png
 
+# Playwright & test output
+playwright-report/
+test-results/
+apex-results/
+jest-results.json
+*-output.txt
+e2e-output.txt
+.auth/
+
 # Python Salesforce Functions
 **/__pycache__/
 **/.venv/

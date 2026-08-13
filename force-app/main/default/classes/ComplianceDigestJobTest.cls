@@ -144,4 +144,51 @@ private class ComplianceDigestJobTest {
             'Body should show position 0 when no chain head'
         );
     }
+
+    @IsTest
+    static void testScheduleDefaultAndUnschedule() {
+        System.assertEquals(
+            false,
+            ComplianceDigestJob.isScheduled(),
+            'Digest should not be scheduled initially'
+        );
+
+        ComplianceDigestJob.scheduleDefault();
+
+        System.assertEquals(
+            true,
+            ComplianceDigestJob.isScheduled(),
+            'Digest should be scheduled after scheduleDefault'
+        );
+        List<CronTrigger> triggers = [
+            SELECT CronExpression
+            FROM CronTrigger
+            WHERE CronJobDetail.Name = :ComplianceDigestJob.JOB_NAME
+        ];
+        System.assertEquals(1, triggers.size(), 'Exactly one schedule');
+        System.assertEquals(
+            '0 0 6 * * ?',
+            triggers[0].CronExpression,
+            'Digest should run daily at 06:00 org time'
+        );
+
+        // scheduleDefault is idempotent — re-scheduling must not duplicate
+        ComplianceDigestJob.scheduleDefault();
+        System.assertEquals(
+            1,
+            [
+                SELECT COUNT()
+                FROM CronTrigger
+                WHERE CronJobDetail.Name = :ComplianceDigestJob.JOB_NAME
+            ],
+            'Re-scheduling must not create duplicates'
+        );
+
+        ComplianceDigestJob.unschedule();
+        System.assertEquals(
+            false,
+            ComplianceDigestJob.isScheduled(),
+            'Digest should be unscheduled after unschedule'
+        );
+    }
 }

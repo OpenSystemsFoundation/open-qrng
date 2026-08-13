@@ -41,16 +41,16 @@ jest.mock(
     { virtual: true }
 );
 
-jest.mock(
-    'c/qrngEventSubscription',
-    () => ({
-        subscribeToQuantumEvents: jest
-            .fn()
-            .mockReturnValue({ complete: null, failed: null }),
-        unsubscribeFromQuantumEvents: jest.fn()
-    }),
-    { virtual: true }
-);
+// NOTE: c/qrngEventSubscription is a real module — do NOT pass
+// { virtual: true } here. Virtual mocks are skipped once another suite
+// in the same worker has resolved the real module, which made these
+// tests order-dependent.
+jest.mock('c/qrngEventSubscription', () => ({
+    subscribeToQuantumEvents: jest
+        .fn()
+        .mockReturnValue({ complete: null, failed: null }),
+    unsubscribeFromQuantumEvents: jest.fn()
+}));
 
 function flushPromises() {
     return new Promise((resolve) => setTimeout(resolve, 0));
@@ -159,6 +159,18 @@ const MOCK_JOBS = [
 ];
 
 describe('c-qrng-job-dashboard', () => {
+    beforeEach(() => {
+        // Re-establish shared mock state so tests are order-independent
+        // (clearMocks/clearAllMocks does not restore return values set here)
+        subscribeToQuantumEvents.mockReturnValue({
+            complete: null,
+            failed: null
+        });
+        unsubscribeFromQuantumEvents.mockReturnValue(undefined);
+        const { refreshApex } = require('@salesforce/apex');
+        refreshApex.mockResolvedValue(undefined);
+    });
+
     afterEach(() => {
         while (document.body.firstChild) {
             document.body.removeChild(document.body.firstChild);

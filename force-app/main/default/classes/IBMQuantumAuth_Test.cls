@@ -13,6 +13,11 @@ private class IBMQuantumAuth_Test {
                 e.getMessage().contains('not configured'),
                 'Should indicate missing config'
             );
+            System.assert(
+                e.getMessage().contains('QuantumFair Setup tab'),
+                'Should point at the Setup tab (not the raw custom setting): ' +
+                e.getMessage()
+            );
         }
     }
 
@@ -154,6 +159,69 @@ private class IBMQuantumAuth_Test {
             token,
             'Should return token from IAM exchange'
         );
+    }
+
+    /**
+     * Counting mock so tests can assert how many token exchanges happened.
+     */
+    private class MockCountingTokenExchange implements HttpCalloutMock {
+        public HttpResponse respond(HttpRequest req) {
+            calloutCount++;
+            HttpResponse res = new HttpResponse();
+            res.setStatusCode(200);
+            res.setBody(
+                '{"access_token":"counted-token","token_type":"Bearer","expires_in":3600}'
+            );
+            return res;
+        }
+    }
+    private static Integer calloutCount = 0;
+
+    @IsTest
+    static void testPlatformCacheUnavailableGracefulFallback() {
+        // No 'QuantumFair' Platform Cache partition exists in the test org,
+        // so every Cache.Org call throws internally. Token acquisition must
+        // still work end-to-end via the transaction-static fallback.
+        Test.setMock(HttpCalloutMock.class, new MockCountingTokenExchange());
+        Quantum_Settings__c s = new Quantum_Settings__c(
+            SetupOwnerId = UserInfo.getOrganizationId(),
+            IBM_API_Key__c = 'test-api-key'
+        );
+        upsert s;
+        IBMQuantumAuth.clearCache();
+
+        Test.startTest();
+        String first = IBMQuantumAuth.getAccessToken();
+        String second = IBMQuantumAuth.getAccessToken();
+        Test.stopTest();
+
+        System.assertEquals(
+            'counted-token',
+            first,
+            'Token exchange must succeed even without Platform Cache'
+        );
+        System.assertEquals(
+            'counted-token',
+            second,
+            'Second call should hit the transaction-static cache'
+        );
+        System.assertEquals(
+            1,
+            calloutCount,
+            'The static fast path must prevent a second exchange in-transaction'
+        );
+    }
+
+    @IsTest
+    static void testClearCacheWithoutPlatformCacheDoesNotThrow() {
+        IBMQuantumAuth.cachedToken = 'some-token';
+        IBMQuantumAuth.tokenExpiry = DateTime.now().addMinutes(10);
+
+        // Must not throw even though the cache partition is unavailable
+        IBMQuantumAuth.clearCache();
+
+        System.assertEquals(null, IBMQuantumAuth.cachedToken);
+        System.assertEquals(null, IBMQuantumAuth.tokenExpiry);
     }
 
     @IsTest

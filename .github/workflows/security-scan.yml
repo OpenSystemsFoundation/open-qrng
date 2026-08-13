@@ -4,9 +4,14 @@ on:
     pull_request:
         branches: [master]
 
+# pull-requests: write — PR comments
 permissions:
     contents: read
     pull-requests: write
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 
 jobs:
     code-analyzer:
@@ -40,6 +45,14 @@ jobs:
                   path: scan-results/
                   retention-days: 30
 
+            - name: Fail if Code Analyzer found violations
+              if: always()
+              run: |
+                  if [ "${{ steps.scan.outcome }}" != "success" ]; then
+                    echo "::error::Salesforce Code Analyzer reported violations at or above the severity threshold. See the uploaded report."
+                    exit 1
+                  fi
+
     js-vulnerability-scan:
         name: JS Vulnerability Scan
         runs-on: ubuntu-latest
@@ -56,9 +69,11 @@ jobs:
             - name: Install dependencies
               run: npm ci
 
+            # All npm dependencies are dev-only (the package ships no npm
+            # runtime code), so audit the full dev tree at high severity.
             - name: Audit npm dependencies
               id: audit
-              run: npm audit --omit=dev 2>&1 | tee audit-output.txt
+              run: npm audit --audit-level=high 2>&1 | tee audit-output.txt
               continue-on-error: true
 
             - name: Build comment
@@ -83,8 +98,11 @@ jobs:
                   *Security Scan • $(date -u +%Y-%m-%dT%H:%M:%SZ)*
                   MDEOF
 
+            # Comment step never gates the run: skipped for fork PRs (read-only
+            # token would 403) and tolerates API failures.
             - name: Comment on PR
-              if: always() && github.event_name == 'pull_request'
+              if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+              continue-on-error: true
               uses: actions/github-script@v7
               with:
                   script: |
@@ -113,3 +131,11 @@ jobs:
                           body
                         });
                       }
+
+            - name: Fail if npm audit found high-severity vulnerabilities
+              if: always()
+              run: |
+                  if [ "${{ steps.audit.outcome }}" != "success" ]; then
+                    echo "::error::npm audit reported high-severity vulnerabilities. See audit output above."
+                    exit 1
+                  fi

@@ -2,6 +2,7 @@ import { LightningElement, track, wire } from 'lwc';
 import getSettings from '@salesforce/apex/SetupController.getSettings';
 import submitQuantumJob from '@salesforce/apex/SetupController.submitQuantumJob';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { reduceErrors } from 'c/qrngUtils';
 
 const DEFAULT_MAX_QUBITS = 127;
 const DEFAULT_MAX_SHOTS = 8192;
@@ -16,13 +17,19 @@ export default class QrngRequestForm extends LightningElement {
     @track useBellTest = false;
     @track isSubmitting = false;
     @track showPreview = true;
+    @track settingsError;
 
     backendOptions = [];
     _backendsMap = {};
 
     @wire(getSettings)
-    wiredSettings({ data }) {
+    wiredSettings({ data, error }) {
+        if (error) {
+            this.settingsError = reduceErrors(error);
+            return;
+        }
         if (data) {
+            this.settingsError = undefined;
             this.shots = data.defaultShots || 1024;
             this.useBellTest = data.useBellTest || false;
 
@@ -202,11 +209,17 @@ export default class QrngRequestForm extends LightningElement {
     }
 
     handleQubitsChange(event) {
-        this.numQubits = parseInt(event.target.value, 10);
+        const value = parseInt(event.target.value, 10);
+        if (!isNaN(value)) {
+            this.numQubits = value;
+        }
     }
 
     handleShotsChange(event) {
-        this.shots = parseInt(event.target.value, 10);
+        const value = parseInt(event.target.value, 10);
+        if (!isNaN(value)) {
+            this.shots = value;
+        }
     }
 
     handlePurposeChange(event) {
@@ -254,10 +267,7 @@ export default class QrngRequestForm extends LightningElement {
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Submission Failed',
-                    message:
-                        error?.body?.message ||
-                        error?.message ||
-                        'Unknown error',
+                    message: reduceErrors(error),
                     variant: 'error'
                 })
             );

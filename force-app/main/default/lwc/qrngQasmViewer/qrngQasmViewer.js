@@ -7,6 +7,7 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { getRecord, getFieldValue } from 'lightning/uiRecordApi';
 import CIRCUIT_QASM_FIELD from '@salesforce/schema/Quantum_Job__c.Circuit_QASM__c';
+import { reduceErrors, setupHiDpiCanvas } from 'c/qrngUtils';
 
 // Gate display configuration
 const GATE_CONFIG = {
@@ -46,6 +47,7 @@ export default class QrngQasmViewer extends LightningElement {
     @track parsedCircuit = null;
     @track currentCircuitIndex = 0;
     @track totalCircuits = 1;
+    @track recordError;
 
     _resizeObserver;
     _lastQasm = '';
@@ -64,13 +66,21 @@ export default class QrngQasmViewer extends LightningElement {
         recordId: '$recordId',
         fields: [CIRCUIT_QASM_FIELD]
     })
-    wiredRecord({ data }) {
+    wiredRecord({ data, error }) {
         if (data) {
+            this.recordError = undefined;
             const qasmFromRecord = getFieldValue(data, CIRCUIT_QASM_FIELD);
             if (qasmFromRecord) {
                 this._qasm = qasmFromRecord;
             }
+        } else if (error) {
+            this.recordError = reduceErrors(error);
         }
+    }
+
+    get circuitAriaLabel() {
+        const qubits = this.parsedCircuit?.numQubits || 0;
+        return `Quantum circuit diagram, ${qubits} qubit${qubits === 1 ? '' : 's'}`;
     }
 
     get hasMultipleCircuits() {
@@ -299,10 +309,7 @@ export default class QrngQasmViewer extends LightningElement {
         const GAP = 14;
         const height = PAD_TOP + numQubits * ROW_H + PAD_BOTTOM;
 
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
+        const ctx = setupHiDpiCanvas(canvas, width, height);
         if (!ctx) return;
         ctx.clearRect(0, 0, width, height);
 

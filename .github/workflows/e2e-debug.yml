@@ -8,11 +8,13 @@ on:
         branches-ignore:
             - master
 
+# contents: write — commit comments on push
 permissions:
     contents: write
-    pull-requests: write
-    issues: write
-    checks: write
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 
 jobs:
     e2e-tests:
@@ -40,8 +42,10 @@ jobs:
 
             - name: Run Playwright E2E tests
               id: e2e
+              # Reporters come from playwright.config.ts — its CI branch writes
+              # playwright-report/results.json consumed by the parse step.
               run: |
-                  npx playwright test --reporter=json,github,html 2>&1 | tee e2e-output.txt
+                  npx playwright test 2>&1 | tee e2e-output.txt
                   echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
               continue-on-error: true
 
@@ -118,8 +122,11 @@ jobs:
                     echo '\n```\n' >> e2e-comment.md
                   fi
 
+            # Comment step never gates the run — the "Fail if tests failed"
+            # step below is the real gate.
             - name: Comment on commit with E2E results
-              if: always()
+              if: always() && github.event_name == 'push'
+              continue-on-error: true
               uses: actions/github-script@v7
               with:
                   script: |

@@ -4,6 +4,7 @@ import getAllBackendHealth from '@salesforce/apex/SetupController.getAllBackendH
 import refreshAllBackendHealth from '@salesforce/apex/SetupController.refreshAllBackendHealth';
 import verifyBackendQuantum from '@salesforce/apex/SetupController.verifyBackendQuantum';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { reduceErrors } from 'c/qrngUtils';
 
 export default class QrngHealthMonitor extends NavigationMixin(
     LightningElement
@@ -57,7 +58,7 @@ export default class QrngHealthMonitor extends NavigationMixin(
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Health Check Failed',
-                    message: this.reduceErrors(error),
+                    message: reduceErrors(error),
                     variant: 'error'
                 })
             );
@@ -83,7 +84,7 @@ export default class QrngHealthMonitor extends NavigationMixin(
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Verification Failed',
-                    message: this.reduceErrors(error),
+                    message: reduceErrors(error),
                     variant: 'error'
                 })
             );
@@ -119,11 +120,21 @@ export default class QrngHealthMonitor extends NavigationMixin(
         if (succeeded.length > 0) {
             this.verificationJobId = succeeded[succeeded.length - 1];
         }
+        // "Submitted 0 of N" is a failure, not a success; partial is a warning
+        const variant =
+            succeeded.length === 0
+                ? 'error'
+                : succeeded.length < backends.length
+                  ? 'warning'
+                  : 'success';
         this.dispatchEvent(
             new ShowToastEvent({
-                title: 'Verification Submitted',
+                title:
+                    succeeded.length === 0
+                        ? 'Verification Failed'
+                        : 'Verification Submitted',
                 message: `Submitted ${succeeded.length} of ${backends.length} backend verification jobs.`,
-                variant: 'success'
+                variant
             })
         );
     }
@@ -272,12 +283,5 @@ export default class QrngHealthMonitor extends NavigationMixin(
         const n = Number(val);
         if (isNaN(n)) return '\u2014';
         return (n * 100).toFixed(3) + '%';
-    }
-
-    reduceErrors(error) {
-        if (typeof error === 'string') return error;
-        if (error?.body?.message) return error.body.message;
-        if (error?.message) return error.message;
-        return JSON.stringify(error);
     }
 }

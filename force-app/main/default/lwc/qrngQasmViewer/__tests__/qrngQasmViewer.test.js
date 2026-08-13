@@ -99,6 +99,51 @@ describe('c-qrng-qasm-viewer', () => {
 
     // ── DOM tests ──
 
+    it('renders inline error when the record wire errors', async () => {
+        const { getRecord } = require('lightning/uiRecordApi');
+        const element = createComponent();
+        element.recordId = 'a03xx000001234AAA';
+
+        getRecord.error({ message: 'record gone' });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        const errorBox = element.shadowRoot.querySelector(
+            '[data-testid="qasm-viewer-error"]'
+        );
+        expect(errorBox).not.toBeNull();
+        expect(errorBox.textContent).toContain('record gone');
+    });
+
+    it('canvas has role="img" and a meaningful aria-label', async () => {
+        const element = createComponent();
+        element.qasm = SIMPLE_QASM;
+        await Promise.resolve();
+        await Promise.resolve();
+
+        const canvas = element.shadowRoot.querySelector('canvas');
+        expect(canvas).not.toBeNull();
+        expect(canvas.getAttribute('role')).toBe('img');
+        expect(canvas.getAttribute('aria-label')).toContain(
+            'Quantum circuit diagram'
+        );
+        expect(canvas.getAttribute('aria-label')).toContain('2 qubits');
+    });
+
+    it('scales the canvas backing store by devicePixelRatio', async () => {
+        window.devicePixelRatio = 2;
+        const element = createComponent();
+        element.qasm = SIMPLE_QASM;
+        await Promise.resolve();
+        await Promise.resolve();
+
+        const canvas = element.shadowRoot.querySelector('canvas');
+        // Container clientWidth is 0 in jsdom → fallback width 700
+        expect(canvas.width).toBe(1400);
+        expect(canvas.style.width).toBe('700px');
+        delete window.devicePixelRatio;
+    });
+
     it('renders empty state when no QASM provided', () => {
         const element = createComponent();
         const emptyMsg = element.shadowRoot.querySelector(

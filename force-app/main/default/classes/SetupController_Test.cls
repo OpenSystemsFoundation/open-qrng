@@ -72,8 +72,40 @@ private class SetupController_Test {
         System.assertEquals(false, settings.get('hasApiKey'));
     }
 
+    /**
+     * Create a user with no QuantumFair permissions (Standard User profile:
+     * no custom-object CRUD, no custom-field FLS, no custom permission).
+     * User DML is wrapped in runAs to avoid mixed-DML with test data.
+     */
+    private static User createRestrictedUser() {
+        Profile p = [
+            SELECT Id
+            FROM Profile
+            WHERE Name = 'Standard User'
+            LIMIT 1
+        ];
+        User u = new User(
+            Alias = 'qfrstr',
+            Email = 'qf.restricted@example.com',
+            EmailEncodingKey = 'UTF-8',
+            LastName = 'Restricted',
+            LanguageLocaleKey = 'en_US',
+            LocaleSidKey = 'en_US',
+            ProfileId = p.Id,
+            TimeZoneSidKey = 'America/Los_Angeles',
+            Username = 'qf.restricted.' +
+                DateTime.now().getTime() +
+                '@example.com.qrngtest'
+        );
+        System.runAs(new User(Id = UserInfo.getUserId())) {
+            insert u;
+        }
+        return u;
+    }
+
     @IsTest
     static void testSaveSettings() {
+        SetupController.adminOverrideForTests = true;
         SetupController.saveSettings(
             'test-key',
             'crn:v1:bluemix:public:quantum-computing:us-east:a/123:456::',
@@ -176,6 +208,7 @@ private class SetupController_Test {
 
     @IsTest
     static void testGetSettingsWithSavedData() {
+        SetupController.adminOverrideForTests = true;
         SetupController.saveSettings(
             'key',
             'crn:test',
@@ -348,6 +381,7 @@ private class SetupController_Test {
         );
         upsert s;
 
+        SetupController.adminOverrideForTests = true;
         Test.startTest();
         List<Map<String, String>> instances = SetupController.discoverInstances();
         Test.stopTest();
@@ -383,6 +417,7 @@ private class SetupController_Test {
         );
         upsert s;
 
+        SetupController.adminOverrideForTests = true;
         Test.startTest();
         List<Map<String, Object>> backends = SetupController.getAvailableBackends();
         Test.stopTest();
@@ -659,6 +694,7 @@ private class SetupController_Test {
         );
         insert backend;
 
+        SetupController.adminOverrideForTests = true;
         Test.startTest();
         Id jobId = SetupController.verifyBackendQuantum('test_backend');
         Test.stopTest();
@@ -891,7 +927,7 @@ private class SetupController_Test {
             Backend__c = 'test_backend',
             Status__c = 'Completed',
             Shots__c = 1024,
-            Num_Qubits__c = 4,
+            Num_Qubits__c = 8,
             Debiased_Results__c = '0x66a5a5a5',
             Raw_Results__c = '0110100111100011',
             Use_Bell_Test__c = true
@@ -1080,6 +1116,7 @@ private class SetupController_Test {
 
     @IsTest
     static void testIntegrityCheckControls() {
+        SetupController.adminOverrideForTests = true;
         Test.startTest();
         SetupController.startIntegrityCheck();
         Test.stopTest();
@@ -1093,6 +1130,7 @@ private class SetupController_Test {
 
     @IsTest
     static void testSaveSettingsPartialUpdate() {
+        SetupController.adminOverrideForTests = true;
         // First save
         SetupController.saveSettings(
             'key1',
@@ -1128,5 +1166,395 @@ private class SetupController_Test {
             settings.Default_Backend__c,
             'Backend should be updated'
         );
+    }
+
+    // ── Authorization gates (B6) ────────────────────────────────────
+    // Denial tests run as a bare Standard User (no permission sets), so
+    // FeatureManagement.checkPermission('QuantumFair_Administer') is
+    // false and the gated calls must throw AuraHandledException.
+
+    @IsTest
+    static void testSaveSettingsDeniedWithoutAdminPermission() {
+        User restricted = createRestrictedUser();
+        System.runAs(restricted) {
+            try {
+                SetupController.saveSettings(
+                    'key',
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+                );
+                System.assert(false, 'Should have thrown AuraHandledException');
+            } catch (AuraHandledException e) {
+                System.assert(true, 'Non-admin correctly denied');
+            }
+            System.assertEquals(
+                null,
+                Quantum_Settings__c.getOrgDefaults().IBM_API_Key__c,
+                'Settings must not be written when denied'
+            );
+        }
+    }
+
+    @IsTest
+    static void testStartSweeperDeniedWithoutAdminPermission() {
+        User restricted = createRestrictedUser();
+        System.runAs(restricted) {
+            try {
+                SetupController.startSweeper();
+                System.assert(false, 'Should have thrown AuraHandledException');
+            } catch (AuraHandledException e) {
+                System.assert(true, 'Non-admin correctly denied');
+            }
+            System.assertEquals(
+                false,
+                JobSweeper.isScheduled(),
+                'Sweeper must not be scheduled when denied'
+            );
+        }
+    }
+
+    @IsTest
+    static void testStopIntegrityCheckDeniedWithoutAdminPermission() {
+        User restricted = createRestrictedUser();
+        System.runAs(restricted) {
+            try {
+                SetupController.stopIntegrityCheck();
+                System.assert(false, 'Should have thrown AuraHandledException');
+            } catch (AuraHandledException e) {
+                System.assert(true, 'Non-admin correctly denied');
+            }
+        }
+    }
+
+    @IsTest
+    static void testExportComplianceEvidenceDeniedWithoutAdminPermission() {
+        User restricted = createRestrictedUser();
+        System.runAs(restricted) {
+            try {
+                SetupController.exportComplianceEvidence(
+                    'SOC2',
+                    '2026-01-01',
+                    '2026-01-31'
+                );
+                System.assert(false, 'Should have thrown AuraHandledException');
+            } catch (AuraHandledException e) {
+                System.assert(true, 'Non-admin correctly denied');
+            }
+        }
+    }
+
+    @IsTest
+    static void testVerifyBackendQuantumDeniedWithoutAdminPermission() {
+        User restricted = createRestrictedUser();
+        System.runAs(restricted) {
+            try {
+                SetupController.verifyBackendQuantum('test_backend');
+                System.assert(false, 'Should have thrown AuraHandledException');
+            } catch (AuraHandledException e) {
+                System.assert(true, 'Non-admin correctly denied');
+            }
+        }
+    }
+
+    @IsTest
+    static void testGetAvailableBackendsDeniedWithoutAdminPermission() {
+        try {
+            SetupController.getAvailableBackends();
+            System.assert(false, 'Should have thrown AuraHandledException');
+        } catch (AuraHandledException e) {
+            System.assert(true, 'Non-admin correctly denied');
+        }
+    }
+
+    // ── Auto-scheduling on saveSettings (B7) ────────────────────────
+
+    @IsTest
+    static void testSaveSettingsAutoSchedulesBackgroundJobs() {
+        SetupController.adminOverrideForTests = true;
+
+        SetupController.saveSettings(
+            'test-key',
+            'crn:test',
+            'test_backend',
+            1024,
+            false,
+            false,
+            5,
+            'compliance@example.com'
+        );
+
+        System.assertEquals(
+            1,
+            [
+                SELECT COUNT()
+                FROM CronTrigger
+                WHERE CronJobDetail.Name = :JobSweeper.JOB_NAME
+            ],
+            'Sweeper should be auto-scheduled once an API key is saved'
+        );
+        System.assertEquals(
+            1,
+            [
+                SELECT COUNT()
+                FROM CronTrigger
+                WHERE CronJobDetail.Name = :IntegrityVerificationJob.JOB_NAME
+            ],
+            'Integrity check should be auto-scheduled once an API key is saved'
+        );
+        System.assertEquals(
+            1,
+            [
+                SELECT COUNT()
+                FROM CronTrigger
+                WHERE CronJobDetail.Name = :ComplianceDigestJob.JOB_NAME
+            ],
+            'Digest should be auto-scheduled when a compliance email is saved'
+        );
+
+        // Idempotent: saving again must not double-schedule
+        SetupController.saveSettings(
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+        System.assertEquals(
+            1,
+            [
+                SELECT COUNT()
+                FROM CronTrigger
+                WHERE CronJobDetail.Name = :JobSweeper.JOB_NAME
+            ],
+            'Re-saving settings must not create duplicate schedules'
+        );
+    }
+
+    @IsTest
+    static void testSaveSettingsClearingEmailUnschedulesDigest() {
+        SetupController.adminOverrideForTests = true;
+
+        SetupController.saveSettings(
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            'compliance@example.com'
+        );
+        System.assertEquals(
+            true,
+            ComplianceDigestJob.isScheduled(),
+            'Digest should be scheduled while a compliance email is set'
+        );
+
+        SetupController.saveSettings(
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            ''
+        );
+        System.assertEquals(
+            false,
+            ComplianceDigestJob.isScheduled(),
+            'Digest should be unscheduled when the compliance email is cleared'
+        );
+    }
+
+    // ── Compliance logging on settings changes (B6) ─────────────────
+
+    @IsTest
+    static void testSaveSettingsLogsComplianceEvent() {
+        SetupController.adminOverrideForTests = true;
+
+        SetupController.saveSettings(
+            'super-secret-key',
+            null,
+            'backend1',
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+
+        List<Compliance_Event__c> events = [
+            SELECT Event_Type__c, Severity__c, Actor__c, Detail__c
+            FROM Compliance_Event__c
+            WHERE Event_Type__c = 'SETTINGS_CHANGED'
+        ];
+        System.assertEquals(
+            1,
+            events.size(),
+            'A SETTINGS_CHANGED compliance event should be logged'
+        );
+        System.assertEquals('INFO', events[0].Severity__c);
+        System.assertEquals(
+            UserInfo.getUserId(),
+            events[0].Actor__c,
+            'The acting user should be recorded'
+        );
+        System.assert(
+            events[0].Detail__c.contains('API key updated'),
+            'Detail should note that the API key was updated'
+        );
+        System.assert(
+            events[0].Detail__c.contains('Default_Backend__c'),
+            'Detail should list the changed fields'
+        );
+        System.assert(
+            !events[0].Detail__c.contains('super-secret-key'),
+            'The API key value must never be logged'
+        );
+    }
+
+    // ── getAssignmentsDTO ───────────────────────────────────────────
+
+    @IsTest
+    static void testGetAssignmentsDTO() {
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'dto_assign_job',
+            Backend__c = 'test_backend',
+            Status__c = 'Completed',
+            Shots__c = 1024,
+            Num_Qubits__c = 8
+        );
+        insert job;
+
+        Quantum_Assignment__c assignment = new Quantum_Assignment__c(
+            Quantum_Job__c = job.Id,
+            Assignment_Index__c = 0,
+            Assigned_Record_ID__c = '001000000000001AAA',
+            Assigned_To_ID__c = '005000000000001AAA',
+            Random_Value__c = '0.4213'
+        );
+        insert assignment;
+
+        List<Map<String, Object>> result = SetupController.getAssignmentsDTO(
+            job.Id
+        );
+        System.assertEquals(1, result.size(), 'Should return one assignment');
+        Map<String, Object> row = result[0];
+        System.assertEquals(assignment.Id, row.get('id'));
+        System.assert(row.containsKey('name'), 'Should expose name');
+        System.assertEquals(
+            0,
+            ((Decimal) row.get('index')).intValue(),
+            'index should map Assignment_Index__c'
+        );
+        System.assertEquals(
+            '001000000000001AAA',
+            row.get('recordId'),
+            'recordId should map Assigned_Record_ID__c'
+        );
+        System.assertEquals(
+            '005000000000001AAA',
+            row.get('assigneeId'),
+            'assigneeId should map Assigned_To_ID__c'
+        );
+        System.assertEquals(
+            '0.4213',
+            row.get('randomValue'),
+            'randomValue should map Random_Value__c'
+        );
+    }
+
+    @IsTest
+    static void testGetAssignmentsDTOEmpty() {
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'dto_assign_empty',
+            Backend__c = 'test_backend',
+            Status__c = 'Completed'
+        );
+        insert job;
+
+        List<Map<String, Object>> result = SetupController.getAssignmentsDTO(
+            job.Id
+        );
+        System.assertEquals(0, result.size(), 'Should return an empty list');
+    }
+
+    // ── FLS enforcement via stripInaccessible (H-S2) ────────────────
+
+    @IsTest
+    static void testGetJobStatusDTOStripsFieldsForRestrictedUser() {
+        User restricted = createRestrictedUser();
+        // The Auditor permission set grants object read (viewAllRecords)
+        // but deliberately excludes Raw_Results__c/Debiased_Results__c FLS,
+        // so stripInaccessible must null those fields out.
+        PermissionSet auditorPs = [
+            SELECT Id
+            FROM PermissionSet
+            WHERE Name = 'QuantumFair_Auditor'
+            LIMIT 1
+        ];
+        System.runAs(new User(Id = UserInfo.getUserId())) {
+            insert new PermissionSetAssignment(
+                AssigneeId = restricted.Id,
+                PermissionSetId = auditorPs.Id
+            );
+        }
+
+        Quantum_Job__c job = new Quantum_Job__c(
+            External_Job_ID__c = 'strip_test',
+            Backend__c = 'test_backend',
+            Status__c = 'Completed',
+            Raw_Results__c = '0x66',
+            Debiased_Results__c = '0x6'
+        );
+        insert job;
+
+        System.runAs(restricted) {
+            SetupController.JobStatusDTO dto = SetupController.getJobStatusDTO(
+                job.Id
+            );
+            System.assertNotEquals(null, dto, 'DTO should still be returned');
+            System.assertEquals(
+                null,
+                dto.rawResults,
+                'Raw results must be stripped for users without FLS'
+            );
+            System.assertEquals(
+                null,
+                dto.debiasedResults,
+                'Debiased results must be stripped for users without FLS'
+            );
+        }
+    }
+
+    @IsTest
+    static void testRunValidationTestsDeniedForReadOnlyUser() {
+        User restricted = createRestrictedUser();
+
+        System.runAs(restricted) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'readonly_val',
+                Backend__c = 'test_backend',
+                Status__c = 'Completed',
+                Debiased_Results__c = '0x66a5a5a5'
+            );
+            insert job;
+
+            try {
+                SetupController.runValidationTests(job.Id);
+                System.assert(false, 'Should have thrown AuraHandledException');
+            } catch (AuraHandledException e) {
+                System.assert(true, 'Read-only user correctly denied');
+            }
+        }
     }
 }

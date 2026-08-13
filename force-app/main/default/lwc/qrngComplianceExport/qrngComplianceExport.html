@@ -27,6 +27,7 @@
                         options={frameworkOptions}
                         onchange={handleFrameworkChange}
                         placeholder="Select framework"
+                        data-testid="framework-select"
                     >
                     </lightning-combobox>
                 </div>
@@ -36,6 +37,7 @@
                         label="Start Date"
                         value={startDate}
                         onchange={handleStartDateChange}
+                        data-testid="start-date-input"
                     >
                     </lightning-input>
                 </div>
@@ -45,6 +47,7 @@
                         label="End Date"
                         value={endDate}
                         onchange={handleEndDateChange}
+                        data-testid="end-date-input"
                     >
                     </lightning-input>
                 </div>
@@ -56,6 +59,7 @@
                 disabled={isExporting}
                 icon-name="utility:download"
                 class="slds-m-top_small"
+                data-testid="export-btn"
             >
             </lightning-button>
             <template if:true={isExporting}>

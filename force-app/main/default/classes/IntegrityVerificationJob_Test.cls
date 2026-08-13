@@ -337,6 +337,8 @@ private class IntegrityVerificationJob_Test {
 
     @IsTest
     static void testControllerStartStop() {
+        // start/stopIntegrityCheck are gated on QuantumFair_Administer (B6)
+        SetupController.adminOverrideForTests = true;
         Test.startTest();
         SetupController.startIntegrityCheck();
         Test.stopTest();

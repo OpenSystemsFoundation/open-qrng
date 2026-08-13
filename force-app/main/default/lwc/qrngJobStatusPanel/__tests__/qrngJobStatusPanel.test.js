@@ -273,11 +273,9 @@ describe('c-qrng-job-status-panel', () => {
 
         expect(subscribe).toHaveBeenCalledTimes(2);
         expect(subscribe.mock.calls[0][0]).toBe(
-            '/event/OpenSF__Quantum_Job_Complete__e'
+            '/event/Quantum_Job_Complete__e'
         );
-        expect(subscribe.mock.calls[1][0]).toBe(
-            '/event/OpenSF__Quantum_Job_Failed__e'
-        );
+        expect(subscribe.mock.calls[1][0]).toBe('/event/Quantum_Job_Failed__e');
     });
 
     it('handles complete event for matching job id', async () => {
@@ -295,8 +293,8 @@ describe('c-qrng-job-status-panel', () => {
         completeCallback({
             data: {
                 payload: {
-                    OpenSF__Job_Id__c: 'a03xx000001234AAA',
-                    OpenSF__Certificate_Id__c: 'cert-123'
+                    Job_Id__c: 'a03xx000001234AAA',
+                    Certificate_Id__c: 'cert-123'
                 }
             }
         });
@@ -323,8 +321,8 @@ describe('c-qrng-job-status-panel', () => {
         completeCallback({
             data: {
                 payload: {
-                    OpenSF__Job_Id__c: 'different-job-id',
-                    OpenSF__Certificate_Id__c: 'cert-999'
+                    Job_Id__c: 'different-job-id',
+                    Certificate_Id__c: 'cert-999'
                 }
             }
         });
@@ -347,8 +345,8 @@ describe('c-qrng-job-status-panel', () => {
         failedCallback({
             data: {
                 payload: {
-                    OpenSF__Job_Id__c: 'a03xx000001234AAA',
-                    OpenSF__Error_Message__c: 'Backend error'
+                    Job_Id__c: 'a03xx000001234AAA',
+                    Error_Message__c: 'Backend error'
                 }
             }
         });
@@ -373,8 +371,8 @@ describe('c-qrng-job-status-panel', () => {
         failedCallback({
             data: {
                 payload: {
-                    OpenSF__Job_Id__c: 'a03xx000001234AAA',
-                    OpenSF__Error_Message__c: null
+                    Job_Id__c: 'a03xx000001234AAA',
+                    Error_Message__c: null
                 }
             }
         });
@@ -399,14 +397,31 @@ describe('c-qrng-job-status-panel', () => {
         failedCallback({
             data: {
                 payload: {
-                    OpenSF__Job_Id__c: 'other-id',
-                    OpenSF__Error_Message__c: 'err'
+                    Job_Id__c: 'other-id',
+                    Error_Message__c: 'err'
                 }
             }
         });
         await flushPromises();
 
         expect(toastHandler).not.toHaveBeenCalled();
+    });
+
+    it('renders inline error instead of eternal spinner when wire errors', async () => {
+        const element = createComponent();
+        await flushPromises();
+
+        getJobStatusDTO.error({ message: 'No such job' });
+        await flushPromises();
+
+        const errorBox = element.shadowRoot.querySelector(
+            '[data-testid="job-status-error"]'
+        );
+        expect(errorBox).not.toBeNull();
+        expect(errorBox.textContent).toContain('No such job');
+        expect(
+            element.shadowRoot.querySelector('lightning-spinner')
+        ).toBeNull();
     });
 
     // ── DTO field accessor getters (lines 117-177) ──────────────
@@ -635,7 +650,7 @@ describe('c-qrng-job-status-panel', () => {
         await flushPromises();
 
         expect(toastHandler.mock.calls[0][0].detail.message).toBe(
-            'Unknown error'
+            'An unexpected error occurred.'
         );
     });
 
@@ -745,7 +760,7 @@ describe('c-qrng-job-status-panel', () => {
         await flushPromises();
 
         expect(toastHandler.mock.calls[0][0].detail.message).toBe(
-            'Unknown error'
+            'An unexpected error occurred.'
         );
     });
 

@@ -4,6 +4,20 @@
         icon-name="standard:settings"
     >
         <div class="slds-p-around_medium">
+            <template if:true={settingsError}>
+                <div
+                    class="slds-scoped-notification slds-media slds-media_center slds-theme_error slds-p-around_small slds-m-bottom_small"
+                    role="status"
+                    data-testid="setup-settings-error"
+                >
+                    <div class="slds-media__body">
+                        <p>
+                            Could not load settings:
+                            {settingsError}
+                        </p>
+                    </div>
+                </div>
+            </template>
             <c-qrng-connection-setup
                 has-api-key={hasApiKey}
                 instance-c-r-n={instanceCRN}
@@ -30,6 +44,15 @@
                     >
                 </h3>
                 <div class="slds-section__content">
+                    <template if:true={statsError}>
+                        <p
+                            class="slds-text-color_error slds-text-body_small slds-m-bottom_x-small"
+                            data-testid="setup-stats-error"
+                        >
+                            Could not load usage stats:
+                            {statsError}
+                        </p>
+                    </template>
                     <div
                         class="slds-grid slds-wrap slds-gutters"
                     >

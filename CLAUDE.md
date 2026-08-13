@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-QuantumFair is an open-source (Apache-2.0) Salesforce managed package that provides certified quantum random number generation (QRNG) for fair, auditable business process randomization. It uses IBM Quantum hardware to generate true randomness and creates immutable fairness certificates linked to every assignment.
+QuantumFair is an open-source (Apache-2.0) Salesforce app — distributed as an unmanaged package / source deploy — that provides certified quantum random number generation (QRNG) for fair, auditable business process randomization. It uses IBM Quantum hardware to generate true randomness and creates immutable fairness certificates linked to every assignment.
 
 **Core principle:** The app that uses quantum mechanics to prove your business decisions are fair.
 
@@ -11,9 +11,10 @@ QuantumFair is an open-source (Apache-2.0) Salesforce managed package that provi
 Read [ARCHITECTURE.md](ARCHITECTURE.md) for the full system design. Key points:
 
 - **No external servers** — everything runs on Salesforce (Apex, LWC, Platform Events, Custom Objects)
-- **BYOQ** — each org provides their own IBM Quantum API key via Named Credentials
+- **BYOQ** — each org provides their own IBM Quantum API key via the in-app Setup tab (Protected custom setting; callouts authorized via Remote Site Settings)
 - **No Python/Qiskit** — Apex generates ISA-compliant OpenQASM 3.0 directly (trivial for QRNG circuits)
-- **Async flow** — submit circuit to IBM, poll via Queueable chain, deliver results via Platform Events
+- **Async flow** — invocable inserts Pending jobs, `QuantumSubmissionQueueable` submits to IBM, poll via Queueable/Schedulable chain, deliver results via Platform Events
+- **Unmanaged distribution** — the `OpenSF` namespace was **removed** from `sfdx-project.json`; all metadata is un-namespaced. Scratch orgs are created non-namespaced, and the app URL is `/lightning/n/QuantumFair`.
 
 ## Agent Definitions
 
@@ -21,16 +22,16 @@ See [AGENTS.md](AGENTS.md) for detailed agent roles, conventions, and quality ga
 
 ## Tech Stack
 
-| Layer          | Technology                              |
-| -------------- | --------------------------------------- |
-| Backend        | Apex (API v66.0, Spring '26)            |
-| Frontend       | Lightning Web Components (LWS)          |
-| Visualizations | Canvas 2D (hand-rolled, no libs)        |
-| Quantum        | IBM Quantum REST API (Heron r2)         |
-| Testing        | Apex Tests + sfdx-lwc-jest + Playwright |
-| Linting        | ESLint + Prettier (with Apex plugin)    |
-| CI             | GitHub Actions + Salesforce CLI         |
-| Package        | 2GP Managed Package                     |
+| Layer          | Technology                                    |
+| -------------- | --------------------------------------------- |
+| Backend        | Apex (API v66.0, Spring '26)                  |
+| Frontend       | Lightning Web Components (LWS)                |
+| Visualizations | Canvas 2D (hand-rolled, no libs)              |
+| Quantum        | IBM Quantum REST API (Heron r2)               |
+| Testing        | Apex Tests + sfdx-lwc-jest + Playwright       |
+| Linting        | ESLint + Prettier (with Apex plugin)          |
+| CI             | GitHub Actions + Salesforce CLI               |
+| Distribution   | Unmanaged package / open-source source deploy |
 
 ## Project Structure
 
@@ -42,25 +43,31 @@ open-qrng/
 ├── e2e/                  ← Playwright E2E tests
 │   ├── fixtures/         ← Mock HTML fixture for local E2E
 │   ├── pages/            ← Page Object Models
-│   └── *.spec.ts         ← Test suites (7 files, ~90 tests)
+│   └── *.spec.ts         ← Test suites (9 files, 147 tests)
 ├── force-app/main/default/
-│   ├── classes/          ← Apex classes + tests
-│   ├── lwc/              ← Lightning Web Components
-│   ├── objects/          ← Custom object definitions
-│   ├── platformEventChannelMembers/
-│   ├── namedCredentials/
-│   ├── permissionsets/
-│   ├── tabs/
-│   ├── flexipages/
-│   └── flows/
+│   ├── classes/          ← Apex classes + tests (flat directory)
+│   ├── lwc/              ← Lightning Web Components (22 components)
+│   ├── objects/          ← Quantum_Job__c, Fairness_Certificate__c,
+│   │                       Quantum_Assignment__c, Quantum_Provider__c,
+│   │                       Quantum_Backend__c, Compliance_Event__c,
+│   │                       Quantum_Settings__c, Compliance_Control__mdt,
+│   │                       Quantum_Job_Complete__e, Quantum_Job_Failed__e
+│   ├── customMetadata/   ← Compliance control seed records
+│   ├── customPermissions/ ← QuantumFair_Administer
+│   ├── remoteSiteSettings/ ← IBM_IAM, IBM_Quantum_API, IBM_Resource_Controller
+│   ├── cachePartitions/  ← QuantumFair (IAM token cache)
+│   ├── permissionsets/   ← QuantumFair_Admin / _User / _Auditor
+│   ├── applications/, tabs/, layouts/, flexipages/, notificationtypes/
+│   └── flows/            ← Sample assignment flows
 ├── config/               ← Scratch org definition
-├── manifest/             ← package.xml
+├── manifest/             ← package.xml (regenerated from source)
 ├── scripts/
 │   └── session-setup.sh  ← Auto scratch org setup (SessionStart hook)
+├── docs/                 ← Production readiness review, tutorials, internal docs
 ├── ARCHITECTURE.md       ← System design (source of truth)
 ├── AGENTS.md             ← AI agent role definitions
 ├── playwright.config.ts  ← Playwright E2E config
-└── sfdx-project.json     ← SFDX project config
+└── sfdx-project.json     ← SFDX project config (no namespace — unmanaged)
 ```
 
 ## Commands
@@ -68,7 +75,7 @@ open-qrng/
 ```bash
 # ── Quick tests (no scratch org needed) ───────────
 npm install                          # Install dependencies
-npm run test:unit                    # Run 314 LWC Jest tests
+npm run test:unit                    # Run 445 LWC Jest tests
 npm run test:unit:coverage           # Jest with coverage report
 npm run lint                         # ESLint
 npm run prettier:verify              # Format check
@@ -83,7 +90,7 @@ npm run test:e2e:report              # View HTML report
 # ── Scratch org (auto-provisioned on web sessions) ─
 sf project deploy start --target-org qrng-dev   # Deploy changes
 sf apex run test --target-org qrng-dev \
-  --code-coverage --result-format human --wait 10  # Apex tests
+  --code-coverage --result-format human --wait 10  # Apex tests (~480 test methods)
 
 # ── Manual scratch org setup (if not using session hook) ─
 sf org create scratch -f config/project-scratch-def.json -a qrng-dev
@@ -91,6 +98,8 @@ sf project deploy start --target-org qrng-dev
 sf org assign permset -n QuantumFair_Admin --target-org qrng-dev
 sf org assign permset -n QuantumFair_User --target-org qrng-dev
 ```
+
+The QuantumFair app page in a deployed org is at `/lightning/n/QuantumFair` (no namespace prefix).
 
 ## Claude Code on the Web — Development Cycle
 
@@ -122,7 +131,7 @@ The `scripts/session-setup.sh` hook runs automatically and:
 
 1. Installs npm dependencies
 2. Authenticates the DevHub using `SFDX_AUTH_URL`
-3. Creates a scratch org (or reuses an existing one)
+3. Creates a scratch org (or reuses an existing one) — non-namespaced, since the project has no namespace
 4. Deploys all source metadata to the scratch org
 5. Assigns `QuantumFair_Admin` and `QuantumFair_User` permission sets
 6. Persists `SF_INSTANCE_URL` and `SF_ACCESS_TOKEN` as session env vars
@@ -143,7 +152,7 @@ Each feature branch follows this cycle, entirely from Claude Code on the web:
 │     └─ Deploy changes: sf project deploy start      │
 ├─────────────────────────────────────────────────────┤
 │  3. TEST LOCALLY (in session)                       │
-│     └─ npm run test:unit        (314 Jest tests)    │
+│     └─ npm run test:unit        (445 Jest tests)    │
 │     └─ npm run lint             (ESLint)            │
 │     └─ npm run prettier:verify  (formatting)        │
 │     └─ sf apex run test         (Apex in scratch)   │
@@ -201,10 +210,10 @@ gh api repos/OWNER/REPO/issues/PR_NUMBER/comments
 ## Development Rules
 
 1. **Always read ARCHITECTURE.md** before making structural changes
-2. **Apex:** `with sharing` on all classes, Named Credentials for all external calls, 90%+ test coverage per class
+2. **Apex:** `with sharing` on all classes (documented `without sharing` only for system-maintenance async workers), 90%+ test coverage per class
 3. **LWC:** No third-party JS libs, Canvas 2D for visuals, empApi for real-time events, Jest tests for every component
-4. **Security:** No raw API keys in code, no customer data in circuits, no PII in logs, OWD = Private
-5. **Determinism:** Same quantum bits must always produce the same assignment (audit verifiable)
+4. **Security:** No raw API keys in code, key never returned to the client or logged, no customer data in circuits, no PII in logs, OWD = Private, privileged methods gated by the `QuantumFair_Administer` custom permission
+5. **Determinism:** Same quantum bits must always produce the same assignment (audit verifiable); rejection sampling only — never modulo, never pseudo-random fallback
 6. **Governor limits:** Document callout/SOQL/DML budget in class-level comments for heavy classes
 7. **Formatting:** Prettier on save, ESLint zero errors/warnings before commit
-8. **Git:** Husky pre-commit hook runs lint-staged (prettier + eslint + jest on changed files)
+8. **Git:** No pre-commit hooks — commits are never blocked locally. CI enforces lint, formatting, and tests; fix forward on the next commit.

@@ -1,6 +1,7 @@
 import { LightningElement, track, wire } from 'lwc';
 import getSettings from '@salesforce/apex/SetupController.getSettings';
 import getUsageStats from '@salesforce/apex/SetupController.getUsageStats';
+import { reduceErrors } from 'c/qrngUtils';
 
 export default class QrngSetup extends LightningElement {
     @track hasApiKey = false;
@@ -9,14 +10,17 @@ export default class QrngSetup extends LightningElement {
     @track totalJobs = 0;
     @track completedJobs = 0;
     @track totalCertificates = 0;
+    @track settingsError;
+    @track statsError;
 
     _settingsData = null;
     _childrenInitialized = false;
     _autoConnected = false;
 
     @wire(getSettings)
-    wiredSettings({ data }) {
+    wiredSettings({ data, error }) {
         if (data) {
+            this.settingsError = undefined;
             this.hasApiKey = data.hasApiKey || false;
             if (data.hasCRN) {
                 this.instanceCRN = data.crnValue || '';
@@ -29,15 +33,20 @@ export default class QrngSetup extends LightningElement {
             }
 
             this._settingsData = data;
+        } else if (error) {
+            this.settingsError = reduceErrors(error);
         }
     }
 
     @wire(getUsageStats)
-    wiredStats({ data }) {
+    wiredStats({ data, error }) {
         if (data) {
+            this.statsError = undefined;
             this.totalJobs = data.totalJobs || 0;
             this.completedJobs = data.completedJobs || 0;
             this.totalCertificates = data.totalCertificates || 0;
+        } else if (error) {
+            this.statsError = reduceErrors(error);
         }
     }
 

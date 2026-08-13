@@ -4,26 +4,31 @@ import { NavigationMixin } from 'lightning/navigation';
 import getJobStatusDTO from '@salesforce/apex/SetupController.getJobStatusDTO';
 import getCertificateByJobId from '@salesforce/apex/SetupController.getCertificateByJobId';
 import { refreshApex } from '@salesforce/apex';
+import { reduceErrors } from 'c/qrngUtils';
 
-const COMPLETE_CHANNEL = '/event/OpenSF__Quantum_Job_Complete__e';
-const FAILED_CHANNEL = '/event/OpenSF__Quantum_Job_Failed__e';
+const COMPLETE_CHANNEL = '/event/Quantum_Job_Complete__e';
+const FAILED_CHANNEL = '/event/Quantum_Job_Failed__e';
 const POLL_INTERVAL_MS = 5000;
 
 export default class QrngJobMonitor extends NavigationMixin(LightningElement) {
     @api jobId;
     @track job;
     @track certificateId;
+    @track wireError;
 
     _completeSubscription;
     _failedSubscription;
     _wiredJobResult;
     _pollTimer;
+    _disconnected = false;
 
     @wire(getJobStatusDTO, { jobId: '$jobId' })
     wiredJob(result) {
         this._wiredJobResult = result;
-        if (result.data) {
-            this.job = result.data;
+        const { data, error } = result;
+        if (data) {
+            this.wireError = undefined;
+            this.job = data;
             if (this.job.status === 'Completed') {
                 this.stopPolling();
                 this.loadCertificate();
@@ -32,14 +37,21 @@ export default class QrngJobMonitor extends NavigationMixin(LightningElement) {
             } else {
                 this.startPolling();
             }
+        } else if (error) {
+            this.wireError = reduceErrors(error);
+            // Stop the 5s refresh loop — polling a broken wire only
+            // hammers the server. It resumes on the next successful emit.
+            this.stopPolling();
         }
     }
 
     connectedCallback() {
+        this._disconnected = false;
         this.subscribeToEvents();
     }
 
     disconnectedCallback() {
+        this._disconnected = true;
         this.unsubscribeFromEvents();
         this.stopPolling();
     }
@@ -70,20 +82,26 @@ export default class QrngJobMonitor extends NavigationMixin(LightningElement) {
 
     async subscribeToEvents() {
         try {
-            this._completeSubscription = await subscribe(
+            const completeSub = await subscribe(
                 COMPLETE_CHANNEL,
                 -1,
                 (message) => {
                     this.handleCompleteEvent(message);
                 }
             );
-            this._failedSubscription = await subscribe(
-                FAILED_CHANNEL,
-                -1,
-                (message) => {
-                    this.handleFailedEvent(message);
-                }
-            );
+            if (this._disconnected) {
+                unsubscribe(completeSub);
+            } else {
+                this._completeSubscription = completeSub;
+            }
+            const failedSub = await subscribe(FAILED_CHANNEL, -1, (message) => {
+                this.handleFailedEvent(message);
+            });
+            if (this._disconnected) {
+                unsubscribe(failedSub);
+            } else {
+                this._failedSubscription = failedSub;
+            }
         } catch (error) {
             console.error('Error subscribing to events:', error);
         }
@@ -96,18 +114,20 @@ export default class QrngJobMonitor extends NavigationMixin(LightningElement) {
     unsubscribeFromEvents() {
         if (this._completeSubscription) {
             unsubscribe(this._completeSubscription);
+            this._completeSubscription = null;
         }
         if (this._failedSubscription) {
             unsubscribe(this._failedSubscription);
+            this._failedSubscription = null;
         }
     }
 
     handleCompleteEvent(message) {
         const payload = message.data.payload;
-        const eventJobId = payload.OpenSF__Job_Id__c;
+        const eventJobId = payload.Job_Id__c;
 
         if (eventJobId === this.jobId) {
-            this.certificateId = payload.OpenSF__Certificate_Id__c;
+            this.certificateId = payload.Certificate_Id__c;
             this.stopPolling();
             refreshApex(this._wiredJobResult);
 
@@ -116,7 +136,7 @@ export default class QrngJobMonitor extends NavigationMixin(LightningElement) {
                     detail: {
                         jobId: this.jobId,
                         certificateId: this.certificateId,
-                        status: payload.OpenSF__Status__c
+                        status: payload.Status__c
                     }
                 })
             );
@@ -125,7 +145,7 @@ export default class QrngJobMonitor extends NavigationMixin(LightningElement) {
 
     handleFailedEvent(message) {
         const payload = message.data.payload;
-        const eventJobId = payload.OpenSF__Job_Id__c;
+        const eventJobId = payload.Job_Id__c;
 
         if (eventJobId === this.jobId) {
             this.stopPolling();
@@ -160,12 +180,13 @@ export default class QrngJobMonitor extends NavigationMixin(LightningElement) {
         return this.job && this.job.status === 'Completed';
     }
 
-    handleNavigateToJob() {
+    handleNavigateToJob(event) {
+        event.preventDefault();
         this[NavigationMixin.Navigate]({
             type: 'standard__recordPage',
             attributes: {
                 recordId: this.jobId,
-                objectApiName: 'OpenSF__Quantum_Job__c',
+                objectApiName: 'Quantum_Job__c',
                 actionName: 'view'
             }
         });

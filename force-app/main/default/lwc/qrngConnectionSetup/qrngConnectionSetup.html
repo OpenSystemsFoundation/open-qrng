@@ -23,6 +23,7 @@
                             onchange={handleApiKeyChange}
                             placeholder="Enter your IBM Quantum API key"
                             autocomplete="off"
+                            data-testid="api-key-input"
                         >
                         </lightning-input>
                     </div>
@@ -30,6 +31,7 @@
                         <lightning-button
                             label="Save Key"
                             variant="brand"
+                            data-testid="save-key-btn"
                             onclick={handleSaveApiKey}
                             disabled={isSavingKey}
                             icon-name="utility:save"
@@ -55,6 +57,7 @@
                         <lightning-badge
                             label={connectionStatusLabel}
                             class={connectionBadgeClass}
+                            data-testid="connection-badge"
                         >
                         </lightning-badge>
                     </div>
@@ -64,6 +67,7 @@
                         <lightning-button
                             label="Test Connection"
                             variant="neutral"
+                            data-testid="test-connection-btn"
                             onclick={handleTestConnection}
                             disabled={isTestingConnection}
                         >
@@ -90,10 +94,12 @@
                         <lightning-badge
                             label="Configured"
                             class="slds-badge slds-theme_success slds-m-right_small"
+                            data-testid="api-key-configured"
                         ></lightning-badge>
                         <lightning-button
                             label="Change"
                             variant="neutral"
+                            data-testid="change-key-btn"
                             onclick={handleChangeApiKey}
                             icon-name="utility:edit"
                         ></lightning-button>
@@ -109,6 +115,7 @@
                             value={instanceCRN}
                             onchange={handleCRNChange}
                             placeholder="crn:v1:bluemix:public:quantum-computing:..."
+                            data-testid="crn-input"
                             field-level-help="Find this in your IBM Cloud dashboard under your Quantum service instance"
                             autocomplete="off"
                         >
@@ -120,6 +127,7 @@
                         <lightning-button
                             label="Auto-detect"
                             variant="neutral"
+                            data-testid="auto-detect-btn"
                             onclick={handleDiscoverCRN}
                             disabled={isDiscoveringCRN}
                             icon-name="utility:search"

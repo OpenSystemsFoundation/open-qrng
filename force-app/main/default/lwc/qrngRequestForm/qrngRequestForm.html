@@ -4,6 +4,20 @@
         icon-name="standard:crypto_transaction"
     >
         <div class="slds-p-around_medium">
+            <template if:true={settingsError}>
+                <div
+                    class="slds-scoped-notification slds-media slds-media_center slds-theme_error slds-p-around_small slds-m-bottom_small"
+                    role="status"
+                    data-testid="request-form-error"
+                >
+                    <div class="slds-media__body">
+                        <p>
+                            Could not load settings:
+                            {settingsError}
+                        </p>
+                    </div>
+                </div>
+            </template>
             <div class="slds-grid slds-gutters">
                 <!-- Parameters (left column) -->
                 <div class="slds-col slds-size_1-of-2">
@@ -15,6 +29,7 @@
                         onchange={handleBackendChange}
                         field-level-help="The IBM Quantum processor that will execute your circuit. Each backend has different qubit counts, queue lengths, and error rates."
                         class="slds-m-bottom_small"
+                        data-testid="backend-select"
                     >
                     </lightning-combobox>
                     <template if:true={selectedBackendInfo}>
@@ -82,6 +97,7 @@
                         message-when-range-overflow={qubitsOverflowMessage}
                         message-when-step-mismatch={qubitsStepMessage}
                         class="slds-m-bottom_x-small"
+                        data-testid="qubits-input"
                     >
                     </lightning-input>
                     <p
@@ -102,6 +118,7 @@
                         field-level-help="Number of times the circuit is executed. More shots = more random bits and better statistical accuracy, but longer queue times."
                         message-when-range-overflow={shotsOverflowMessage}
                         class="slds-m-bottom_x-small"
+                        data-testid="shots-input"
                     >
                     </lightning-input>
                     <p
@@ -133,6 +150,7 @@
                         max-length="255"
                         field-level-help="Recorded on the fairness certificate for audit purposes. Describes what decision this randomness supports."
                         class="slds-m-bottom_small"
+                        data-testid="purpose-input"
                     >
                     </lightning-textarea>
                 </div>
@@ -157,6 +175,7 @@
                     onclick={handleSubmit}
                     disabled={isSubmitting}
                     icon-name="utility:sparkle"
+                    data-testid="submit-btn"
                 >
                 </lightning-button>
             </div>
