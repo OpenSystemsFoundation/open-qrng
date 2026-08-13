@@ -8,7 +8,12 @@
                 class="canvas-container"
                 lwc:ref="canvasContainer"
             >
-                <canvas lwc:ref="circuitCanvas"></canvas>
+                <canvas
+                    lwc:ref="circuitCanvas"
+                    role="img"
+                    aria-label={circuitAriaLabel}
+                    data-testid="circuit-canvas"
+                ></canvas>
             </div>
             <div
                 class="slds-text-body_small slds-text-color_weak slds-m-top_x-small"

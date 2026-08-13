@@ -1,18 +1,52 @@
 import { LightningElement, api, track } from 'lwc';
+import getSettings from '@salesforce/apex/SetupController.getSettings';
 import startSweeper from '@salesforce/apex/SetupController.startSweeper';
 import stopSweeper from '@salesforce/apex/SetupController.stopSweeper';
 import startIntegrityCheck from '@salesforce/apex/SetupController.startIntegrityCheck';
 import stopIntegrityCheck from '@salesforce/apex/SetupController.stopIntegrityCheck';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { reduceErrors } from 'c/qrngUtils';
 
 export default class QrngBackgroundJobs extends LightningElement {
     @track sweeperActive = false;
     @track pollIntervalMinutes = 5;
     @track integrityCheckActive = false;
     @track integrityCheckHour = 2;
+    @track loadError;
 
+    _statusLoaded = false;
+
+    connectedCallback() {
+        // Load our own state so the component is correct even when it is
+        // rendered lazily (e.g. inside a lightning-tab that activates late).
+        this._loadStatus();
+    }
+
+    async _loadStatus() {
+        try {
+            const data = await getSettings();
+            if (data) {
+                this._statusLoaded = true;
+                this.loadError = undefined;
+                this._applySettings(data);
+            }
+        } catch (error) {
+            this.loadError = reduceErrors(error);
+        }
+    }
+
+    /**
+     * Backward-compatible push API. Internal loading is authoritative:
+     * once the component has loaded its own status, pushed settings are
+     * ignored so a stale parent snapshot cannot overwrite fresh state.
+     */
     @api
     initSettings(data) {
+        if (this._statusLoaded) return;
+        this._applySettings(data);
+    }
+
+    _applySettings(data) {
         this.sweeperActive = data.sweeperActive || false;
         this.pollIntervalMinutes = data.pollIntervalMinutes || 5;
         this.integrityCheckActive = data.integrityCheckActive || false;
@@ -41,7 +75,10 @@ export default class QrngBackgroundJobs extends LightningElement {
     }
 
     handlePollIntervalChange(event) {
-        this.pollIntervalMinutes = parseInt(event.target.value, 10);
+        const value = parseInt(event.target.value, 10);
+        if (!isNaN(value)) {
+            this.pollIntervalMinutes = value;
+        }
     }
 
     async handleToggleSweeper() {
@@ -71,7 +108,7 @@ export default class QrngBackgroundJobs extends LightningElement {
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Sweeper Error',
-                    message: this.reduceErrors(error),
+                    message: reduceErrors(error),
                     variant: 'error'
                 })
             );
@@ -101,7 +138,10 @@ export default class QrngBackgroundJobs extends LightningElement {
     }
 
     handleIntegrityHourChange(event) {
-        this.integrityCheckHour = parseInt(event.detail.value, 10);
+        const value = parseInt(event.detail.value, 10);
+        if (!isNaN(value)) {
+            this.integrityCheckHour = value;
+        }
     }
 
     async handleToggleIntegrityCheck() {
@@ -132,17 +172,10 @@ export default class QrngBackgroundJobs extends LightningElement {
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Integrity Check Error',
-                    message: this.reduceErrors(error),
+                    message: reduceErrors(error),
                     variant: 'error'
                 })
             );
         }
-    }
-
-    reduceErrors(error) {
-        if (typeof error === 'string') return error;
-        if (error?.body?.message) return error.body.message;
-        if (error?.message) return error.message;
-        return JSON.stringify(error);
     }
 }

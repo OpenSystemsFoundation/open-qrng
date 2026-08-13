@@ -9,10 +9,14 @@
                 icon-name="utility:refresh"
                 variant="neutral"
                 onclick={handleRefresh}
+                data-testid="refresh-jobs-btn"
             ></lightning-button>
         </div>
 
-        <div class="slds-p-around_medium">
+        <div
+            class="slds-p-around_medium"
+            data-testid="job-dashboard"
+        >
             <!-- Summary counters -->
             <div
                 class="slds-grid slds-gutters slds-m-bottom_medium"
@@ -65,6 +69,7 @@
                     options={filterOptions}
                     onchange={handleFilterChange}
                     variant="label-hidden"
+                    data-testid="job-filter"
                 ></lightning-combobox>
             </div>
 
@@ -73,6 +78,7 @@
                 <div class="slds-scrollable_x">
                     <table
                         class="slds-table slds-table_cell-buffer slds-table_bordered slds-table_striped slds-table_fixed-layout"
+                        data-testid="jobs-table"
                     >
                         <thead>
                             <tr>
@@ -111,7 +117,10 @@
                                 for:each={filteredJobs}
                                 for:item="job"
                             >
-                                <tr key={job.id}>
+                                <tr
+                                    key={job.id}
+                                    data-testid="job-row"
+                                >
                                     <td>
                                         <a
                                             data-jobid={job.id}

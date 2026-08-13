@@ -197,11 +197,9 @@ describe('c-qrng-job-monitor', () => {
 
         expect(subscribe).toHaveBeenCalledTimes(2);
         expect(subscribe.mock.calls[0][0]).toBe(
-            '/event/OpenSF__Quantum_Job_Complete__e'
+            '/event/Quantum_Job_Complete__e'
         );
-        expect(subscribe.mock.calls[1][0]).toBe(
-            '/event/OpenSF__Quantum_Job_Failed__e'
-        );
+        expect(subscribe.mock.calls[1][0]).toBe('/event/Quantum_Job_Failed__e');
         expect(onError).toHaveBeenCalledTimes(1);
     });
 
@@ -326,9 +324,9 @@ describe('c-qrng-job-monitor', () => {
         completeCallback({
             data: {
                 payload: {
-                    OpenSF__Job_Id__c: '001xx000003DGb1',
-                    OpenSF__Certificate_Id__c: 'cert-456',
-                    OpenSF__Status__c: 'Completed'
+                    Job_Id__c: '001xx000003DGb1',
+                    Certificate_Id__c: 'cert-456',
+                    Status__c: 'Completed'
                 }
             }
         });
@@ -354,9 +352,9 @@ describe('c-qrng-job-monitor', () => {
         completeCallback({
             data: {
                 payload: {
-                    OpenSF__Job_Id__c: 'other-job-id',
-                    OpenSF__Certificate_Id__c: 'cert-999',
-                    OpenSF__Status__c: 'Completed'
+                    Job_Id__c: 'other-job-id',
+                    Certificate_Id__c: 'cert-999',
+                    Status__c: 'Completed'
                 }
             }
         });
@@ -376,8 +374,8 @@ describe('c-qrng-job-monitor', () => {
         failedCallback({
             data: {
                 payload: {
-                    OpenSF__Job_Id__c: '001xx000003DGb1',
-                    OpenSF__Error_Message__c: 'Backend error'
+                    Job_Id__c: '001xx000003DGb1',
+                    Error_Message__c: 'Backend error'
                 }
             }
         });
@@ -399,8 +397,8 @@ describe('c-qrng-job-monitor', () => {
         failedCallback({
             data: {
                 payload: {
-                    OpenSF__Job_Id__c: 'other-job-id',
-                    OpenSF__Error_Message__c: 'err'
+                    Job_Id__c: 'other-job-id',
+                    Error_Message__c: 'err'
                 }
             }
         });
@@ -473,6 +471,75 @@ describe('c-qrng-job-monitor', () => {
             'c-qrng-fairness-certificate'
         );
         expect(cert).not.toBeNull();
+    });
+
+    it('renders inline error and stops polling when the wire errors', async () => {
+        jest.useFakeTimers();
+        const element = createComponent({ jobId: '001xx000003DGb1' });
+
+        // First the job is in progress, so polling starts
+        getJobStatusDTO.emit(MOCK_JOB_SUBMITTED);
+        jest.advanceTimersByTime(0);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        // Then the wire errors
+        getJobStatusDTO.error({ message: 'Session expired' });
+        jest.advanceTimersByTime(0);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        refreshApex.mockClear();
+
+        // Advance well past several poll intervals — no more polling
+        jest.advanceTimersByTime(30000);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(refreshApex).not.toHaveBeenCalled();
+
+        // Inline error is visible
+        const errorBox = element.shadowRoot.querySelector(
+            '[data-testid="job-monitor-error"]'
+        );
+        expect(errorBox).not.toBeNull();
+        expect(errorBox.textContent).toContain('Session expired');
+    });
+
+    it('resumes polling after a successful wire emit follows an error', async () => {
+        jest.useFakeTimers();
+        createComponent({ jobId: '001xx000003DGb1' });
+
+        getJobStatusDTO.error({ message: 'blip' });
+        jest.advanceTimersByTime(0);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        // Wire recovers with an in-progress job
+        getJobStatusDTO.emit(MOCK_JOB_SUBMITTED);
+        jest.advanceTimersByTime(0);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        refreshApex.mockClear();
+        jest.advanceTimersByTime(5000);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(refreshApex).toHaveBeenCalled();
+    });
+
+    it('job name renders as a button, not an href="#" link', async () => {
+        const element = createComponent({ jobId: '001xx000003DGb1' });
+
+        getJobStatusDTO.emit(MOCK_JOB_RUNNING);
+        await flushPromises();
+
+        const link = element.shadowRoot.querySelector('a[href="#"]');
+        expect(link).toBeNull();
+        const btn = element.shadowRoot.querySelector(
+            'button.slds-button_reset'
+        );
+        expect(btn).not.toBeNull();
+        expect(btn.textContent).toContain('QJ-0001');
     });
 
     it('subscribe error is handled gracefully', async () => {

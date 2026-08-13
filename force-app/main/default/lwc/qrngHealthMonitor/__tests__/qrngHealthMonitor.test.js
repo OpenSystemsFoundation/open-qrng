@@ -340,10 +340,70 @@ describe('c-qrng-health-monitor', () => {
         expect(proto.formatPercent('abc')).toBe('\u2014');
     });
 
-    it('reduceErrors handles different formats', () => {
-        expect(proto.reduceErrors('plain')).toBe('plain');
-        expect(proto.reduceErrors({ body: { message: 'body' } })).toBe('body');
-        expect(proto.reduceErrors({ message: 'msg' })).toBe('msg');
-        expect(proto.reduceErrors({ code: 500 })).toBe('{"code":500}');
+    it('Verify All toast is error when 0 of N succeeded', async () => {
+        getAllBackendHealth.mockResolvedValue([MOCK_BACKENDS[0]]);
+        verifyBackendQuantum.mockRejectedValue(new Error('quota exceeded'));
+        const consoleSpy = jest
+            .spyOn(console, 'warn')
+            .mockImplementation(() => {});
+        const element = createComponent();
+        await flushPromises();
+
+        const toastHandler = jest.fn();
+        element.addEventListener('lightning__showtoast', toastHandler);
+
+        findButton(element.shadowRoot, 'Verify All Backends').click();
+        await flushPromises();
+
+        expect(toastHandler).toHaveBeenCalled();
+        const detail = toastHandler.mock.calls[0][0].detail;
+        expect(detail.variant).toBe('error');
+        expect(detail.title).toBe('Verification Failed');
+        expect(detail.message).toContain('0 of 1');
+        consoleSpy.mockRestore();
+    });
+
+    it('Verify All toast is warning when partially succeeded', async () => {
+        const twoOnline = [
+            MOCK_BACKENDS[0],
+            { ...MOCK_BACKENDS[0], id: 'b3', name: 'ibm_kyiv' }
+        ];
+        getAllBackendHealth.mockResolvedValue(twoOnline);
+        verifyBackendQuantum
+            .mockResolvedValueOnce('job-ok')
+            .mockRejectedValueOnce(new Error('boom'));
+        const consoleSpy = jest
+            .spyOn(console, 'warn')
+            .mockImplementation(() => {});
+        const element = createComponent();
+        await flushPromises();
+
+        const toastHandler = jest.fn();
+        element.addEventListener('lightning__showtoast', toastHandler);
+
+        findButton(element.shadowRoot, 'Verify All Backends').click();
+        await flushPromises();
+
+        const detail = toastHandler.mock.calls[0][0].detail;
+        expect(detail.variant).toBe('warning');
+        expect(detail.message).toContain('1 of 2');
+        consoleSpy.mockRestore();
+    });
+
+    it('Verify All toast is success when all succeeded', async () => {
+        getAllBackendHealth.mockResolvedValue([MOCK_BACKENDS[0]]);
+        verifyBackendQuantum.mockResolvedValue('job-ok');
+        const element = createComponent();
+        await flushPromises();
+
+        const toastHandler = jest.fn();
+        element.addEventListener('lightning__showtoast', toastHandler);
+
+        findButton(element.shadowRoot, 'Verify All Backends').click();
+        await flushPromises();
+
+        const detail = toastHandler.mock.calls[0][0].detail;
+        expect(detail.variant).toBe('success');
+        expect(detail.title).toBe('Verification Submitted');
     });
 });

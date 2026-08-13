@@ -1,6 +1,7 @@
 import { LightningElement, api, track } from 'lwc';
 import saveSettings from '@salesforce/apex/SetupController.saveSettings';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { reduceErrors } from 'c/qrngUtils';
 
 export default class QrngSettingsPanel extends LightningElement {
     @api backendOptions = [];
@@ -40,7 +41,10 @@ export default class QrngSettingsPanel extends LightningElement {
     }
 
     handleShotsChange(event) {
-        this.defaultShots = parseInt(event.target.value, 10);
+        const value = parseInt(event.target.value, 10);
+        if (!isNaN(value)) {
+            this.defaultShots = value;
+        }
     }
 
     handleComplianceEmailChange(event) {
@@ -62,7 +66,9 @@ export default class QrngSettingsPanel extends LightningElement {
                 instanceCRN: null,
                 defaultBackend: this.useLeastBusy ? '' : this.defaultBackend,
                 defaultShots: this.defaultShots,
-                useBellTest: false,
+                // This panel has no Bell-test control — null means
+                // "no change" server-side (never reset the org value).
+                useBellTest: null,
                 useLeastBusy: this.useLeastBusy,
                 pollIntervalMinutes: this.pollIntervalMinutes,
                 complianceEmail: this.complianceEmail
@@ -79,17 +85,10 @@ export default class QrngSettingsPanel extends LightningElement {
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Error',
-                    message: this.reduceErrors(error),
+                    message: reduceErrors(error),
                     variant: 'error'
                 })
             );
         }
-    }
-
-    reduceErrors(error) {
-        if (typeof error === 'string') return error;
-        if (error?.body?.message) return error.body.message;
-        if (error?.message) return error.message;
-        return JSON.stringify(error);
     }
 }

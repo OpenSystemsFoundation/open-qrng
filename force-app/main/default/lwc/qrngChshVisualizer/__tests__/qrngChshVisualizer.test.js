@@ -230,4 +230,20 @@ describe('c-qrng-chsh-visualizer', () => {
 
         expect(element.shadowRoot.querySelector('.result-badge')).toBeNull();
     });
+
+    it('invalidates the parse cache when validationResults changes (no stale S-value)', async () => {
+        const element = createComponent({
+            validationResults: JSON.stringify(MOCK_RESULTS)
+        });
+        await flushPromises();
+
+        expect(element.shadowRoot.textContent).toContain('2.6543');
+
+        // Re-run produces a new S-value — the gauge must update
+        element.validationResults = JSON.stringify(MOCK_RESULTS_FAILED);
+        await flushPromises();
+
+        expect(element.shadowRoot.textContent).toContain('1.8000');
+        expect(element.shadowRoot.textContent).not.toContain('2.6543');
+    });
 });

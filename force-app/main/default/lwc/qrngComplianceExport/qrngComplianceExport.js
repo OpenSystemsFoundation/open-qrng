@@ -1,6 +1,15 @@
 import { LightningElement, track } from 'lwc';
 import exportComplianceEvidence from '@salesforce/apex/SetupController.exportComplianceEvidence';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { reduceErrors } from 'c/qrngUtils';
+
+/** Format a Date as YYYY-MM-DD in the user's local time zone. */
+function toLocalDateString(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
 
 export default class QrngComplianceExport extends LightningElement {
     @track selectedFramework = 'ALL';
@@ -18,13 +27,14 @@ export default class QrngComplianceExport extends LightningElement {
     ];
 
     connectedCallback() {
-        // Default to last 30 days
+        // Default to last 30 days, computed in the user's local time zone
+        // (toISOString shifts the date near midnight for non-UTC users)
         const now = new Date();
         const thirtyDaysAgo = new Date(
             now.getTime() - 30 * 24 * 60 * 60 * 1000
         );
-        this.endDate = now.toISOString().split('T')[0];
-        this.startDate = thirtyDaysAgo.toISOString().split('T')[0];
+        this.endDate = toLocalDateString(now);
+        this.startDate = toLocalDateString(thirtyDaysAgo);
     }
 
     handleFrameworkChange(event) {
@@ -73,7 +83,7 @@ export default class QrngComplianceExport extends LightningElement {
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Export Failed',
-                    message: this.reduceErrors(error),
+                    message: reduceErrors(error),
                     variant: 'error'
                 })
             );
@@ -92,12 +102,5 @@ export default class QrngComplianceExport extends LightningElement {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    }
-
-    reduceErrors(error) {
-        if (typeof error === 'string') return error;
-        if (error?.body?.message) return error.body.message;
-        if (error?.message) return error.message;
-        return JSON.stringify(error);
     }
 }

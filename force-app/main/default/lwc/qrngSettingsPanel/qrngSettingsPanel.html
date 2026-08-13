@@ -16,6 +16,7 @@
                 options={backendOptions}
                 onchange={handleBackendChange}
                 class="slds-m-bottom_small"
+                data-testid="settings-backend-select"
             ></lightning-combobox>
 
             <lightning-input
@@ -26,6 +27,7 @@
                 max="8192"
                 onchange={handleShotsChange}
                 class="slds-m-bottom_small"
+                data-testid="settings-shots-input"
             ></lightning-input>
 
             <lightning-input
@@ -36,12 +38,14 @@
                 field-level-help="Daily hash digest emails will be sent to this address for out-of-band audit verification"
                 onchange={handleComplianceEmailChange}
                 class="slds-m-bottom_small"
+                data-testid="compliance-email-input"
             ></lightning-input>
 
             <lightning-button
                 label="Save Settings"
                 variant="brand"
                 onclick={handleSaveSettings}
+                data-testid="save-settings-btn"
             ></lightning-button>
         </div>
     </div>

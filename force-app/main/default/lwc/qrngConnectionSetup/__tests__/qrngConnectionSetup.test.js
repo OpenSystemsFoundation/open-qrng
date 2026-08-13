@@ -44,8 +44,6 @@ function findInputByType(root, type) {
     );
 }
 
-const proto = QrngConnectionSetup.prototype;
-
 describe('c-qrng-connection-setup', () => {
     afterEach(() => {
         while (document.body.firstChild) {
@@ -298,11 +296,15 @@ describe('c-qrng-connection-setup', () => {
 
     // ── Prototype tests ──
 
-    it('reduceErrors handles different formats', () => {
-        expect(proto.reduceErrors('plain')).toBe('plain');
-        expect(proto.reduceErrors({ body: { message: 'body' } })).toBe('body');
-        expect(proto.reduceErrors({ message: 'msg' })).toBe('msg');
-        expect(proto.reduceErrors({ code: 500 })).toBe('{"code":500}');
+    it('exposes key setup testids for the E2E selector contract', async () => {
+        const el = createComponent();
+        await flushPromises();
+        expect(
+            el.shadowRoot.querySelector('[data-testid="api-key-input"]')
+        ).not.toBeNull();
+        expect(
+            el.shadowRoot.querySelector('[data-testid="save-key-btn"]')
+        ).not.toBeNull();
     });
 
     // ── Connection testing edge cases ──

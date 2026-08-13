@@ -364,7 +364,7 @@ describe('c-qrng-validation-results', () => {
         await flushPromises();
 
         const toastDetail = toastHandler.mock.calls[0][0].detail;
-        expect(toastDetail.message).toBe('Unknown error');
+        expect(toastDetail.message).toBe('An unexpected error occurred.');
     });
 
     it('handleViewCircuit and handleCloseCircuit toggle modal', async () => {
@@ -397,6 +397,68 @@ describe('c-qrng-validation-results', () => {
         // Modal should disappear
         modal = element.shadowRoot.querySelector('.slds-modal');
         expect(modal).toBeNull();
+    });
+
+    it('modal has dialog semantics, focuses close button, and Escape closes it', async () => {
+        const element = createComponent();
+        getValidationResults.emit(MOCK_BELL_RESULTS);
+        await flushPromises();
+
+        const viewBtn = Array.from(
+            element.shadowRoot.querySelectorAll('lightning-button')
+        ).find((b) => b.label === 'View Circuit');
+        viewBtn.click();
+        await flushPromises();
+
+        const modal = element.shadowRoot.querySelector('.slds-modal');
+        expect(modal).not.toBeNull();
+        expect(modal.getAttribute('role')).toBe('dialog');
+        expect(modal.getAttribute('aria-modal')).toBe('true');
+        expect(modal.getAttribute('aria-labelledby')).toBeTruthy();
+        const heading = element.shadowRoot.querySelector('.slds-modal__title');
+        expect(heading.getAttribute('id')).toBeTruthy();
+
+        // Focus moved to close button
+        const closeBtn = element.shadowRoot.querySelector('[data-modal-close]');
+        expect(closeBtn).not.toBeNull();
+
+        // Escape closes the modal
+        modal.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+        );
+        await flushPromises();
+        expect(element.shadowRoot.querySelector('.slds-modal')).toBeNull();
+    });
+
+    it('circuit modal binds the real qubit count (numPairs * 2), not a hardcoded 8', async () => {
+        const element = createComponent();
+        getValidationResults.emit({ ...MOCK_BELL_RESULTS, numPairs: 6 });
+        await flushPromises();
+
+        const viewBtn = Array.from(
+            element.shadowRoot.querySelectorAll('lightning-button')
+        ).find((b) => b.label === 'View Circuit');
+        viewBtn.click();
+        await flushPromises();
+
+        const visualizer = element.shadowRoot.querySelector(
+            'c-qrng-circuit-visualizer'
+        );
+        expect(visualizer).not.toBeNull();
+        expect(visualizer.numQubits).toBe(12);
+    });
+
+    it('renders inline error when the wire errors', async () => {
+        const element = createComponent();
+
+        getValidationResults.error({ message: 'validation boom' });
+        await flushPromises();
+
+        const errorBox = element.shadowRoot.querySelector(
+            '[data-testid="validation-results-error"]'
+        );
+        expect(errorBox).not.toBeNull();
+        expect(errorBox.textContent).toContain('validation boom');
     });
 
     it('hasCircuit returns true when circuitQasm present', async () => {

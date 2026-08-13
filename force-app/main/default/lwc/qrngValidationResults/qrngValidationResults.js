@@ -3,6 +3,7 @@ import { refreshApex } from '@salesforce/apex';
 import getValidationResults from '@salesforce/apex/SetupController.getValidationResults';
 import runValidationTests from '@salesforce/apex/SetupController.runValidationTests';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { reduceErrors } from 'c/qrngUtils';
 
 const CRITICAL_TESTS = [
     {
@@ -85,14 +86,20 @@ const BELL_TESTS = [
 export default class QrngValidationResults extends LightningElement {
     @api recordId;
     @track isRunning = false;
+    @track loadError;
     _wiredResult;
     _results;
+    _modalFocused = false;
 
     @wire(getValidationResults, { jobId: '$recordId' })
     wiredResults(result) {
         this._wiredResult = result;
-        if (result.data) {
-            this._results = result.data;
+        const { data, error } = result;
+        if (data) {
+            this.loadError = undefined;
+            this._results = data;
+        } else if (error) {
+            this.loadError = reduceErrors(error);
         }
     }
 
@@ -119,10 +126,30 @@ export default class QrngValidationResults extends LightningElement {
 
     handleViewCircuit() {
         this.showCircuitModal = true;
+        this._modalFocused = false;
     }
 
     handleCloseCircuit() {
         this.showCircuitModal = false;
+        this._modalFocused = false;
+    }
+
+    handleModalKeydown(event) {
+        if (event.key === 'Escape') {
+            event.stopPropagation();
+            this.handleCloseCircuit();
+        }
+    }
+
+    renderedCallback() {
+        // Move focus to the close button when the modal opens
+        if (this.showCircuitModal && !this._modalFocused) {
+            const closeBtn = this.template.querySelector('[data-modal-close]');
+            if (closeBtn) {
+                this._modalFocused = true;
+                closeBtn.focus();
+            }
+        }
     }
 
     get showCriticalTests() {
@@ -261,10 +288,7 @@ export default class QrngValidationResults extends LightningElement {
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Validation Failed',
-                    message:
-                        error?.body?.message ||
-                        error?.message ||
-                        'Unknown error',
+                    message: reduceErrors(error),
                     variant: 'error'
                 })
             );

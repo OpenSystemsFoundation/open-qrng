@@ -2,6 +2,9 @@ const { jestConfig } = require('@salesforce/sfdx-lwc-jest/config');
 
 module.exports = {
     ...jestConfig,
+    // Clear mock calls/instances before every test so shared mock state
+    // cannot make tests order-dependent (implementations are preserved)
+    clearMocks: true,
     modulePathIgnorePatterns: ['<rootDir>/.localdevserver'],
     testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/'],
     moduleNameMapper: {

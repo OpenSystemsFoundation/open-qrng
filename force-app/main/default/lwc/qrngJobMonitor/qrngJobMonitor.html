@@ -18,11 +18,12 @@
                             <dd
                                 class="slds-dl_horizontal__detail"
                             >
-                                <a
-                                    href="#"
+                                <button
+                                    class="slds-button slds-button_reset slds-text-link"
                                     onclick={handleNavigateToJob}
-                                    >{job.name}</a
                                 >
+                                    {job.name}
+                                </button>
                             </dd>
                             <dt
                                 class="slds-dl_horizontal__label"
@@ -59,7 +60,10 @@
                     <div
                         class="slds-col slds-size_1-of-2 slds-text-align_center"
                     >
-                        <div class={statusClass}>
+                        <div
+                            class={statusClass}
+                            data-testid="job-status-badge"
+                        >
                             <p class="status-label">
                                 {job.status}
                             </p>
@@ -120,15 +124,33 @@
                 </template>
             </template>
 
-            <template if:false={job}>
+            <!-- Wire error -->
+            <template if:true={wireError}>
                 <div
-                    class="slds-illustration slds-illustration_small slds-text-align_center"
+                    class="slds-scoped-notification slds-media slds-media_center slds-theme_error slds-p-around_small slds-m-top_small"
+                    role="status"
+                    data-testid="job-monitor-error"
                 >
-                    <p class="slds-text-body_regular">
-                        No active job. Submit a quantum
-                        circuit to get started.
-                    </p>
+                    <div class="slds-media__body">
+                        <p>
+                            Could not load job status:
+                            {wireError}
+                        </p>
+                    </div>
                 </div>
+            </template>
+
+            <template if:false={job}>
+                <template if:false={wireError}>
+                    <div
+                        class="slds-illustration slds-illustration_small slds-text-align_center"
+                    >
+                        <p class="slds-text-body_regular">
+                            No active job. Submit a quantum
+                            circuit to get started.
+                        </p>
+                    </div>
+                </template>
             </template>
         </div>
     </lightning-card>

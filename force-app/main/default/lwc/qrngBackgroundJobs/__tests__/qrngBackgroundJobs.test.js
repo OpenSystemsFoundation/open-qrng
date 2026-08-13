@@ -1,10 +1,16 @@
 import { createElement } from '@lwc/engine-dom';
 import QrngBackgroundJobs from 'c/qrngBackgroundJobs';
+import getSettings from '@salesforce/apex/SetupController.getSettings';
 import startSweeper from '@salesforce/apex/SetupController.startSweeper';
 import stopSweeper from '@salesforce/apex/SetupController.stopSweeper';
 import startIntegrityCheck from '@salesforce/apex/SetupController.startIntegrityCheck';
 import stopIntegrityCheck from '@salesforce/apex/SetupController.stopIntegrityCheck';
 
+jest.mock(
+    '@salesforce/apex/SetupController.getSettings',
+    () => ({ default: jest.fn() }),
+    { virtual: true }
+);
 jest.mock(
     '@salesforce/apex/SetupController.startSweeper',
     () => ({ default: jest.fn() }),
@@ -37,9 +43,33 @@ function findButton(root, label) {
     );
 }
 
+function badgeLabels(root) {
+    return Array.from(root.querySelectorAll('lightning-badge')).map(
+        (b) => b.label
+    );
+}
+
 const proto = QrngBackgroundJobs.prototype;
 
+const INACTIVE_SETTINGS = {
+    sweeperActive: false,
+    pollIntervalMinutes: 5,
+    integrityCheckActive: false,
+    integrityCheckHour: 2
+};
+
+const ACTIVE_SETTINGS = {
+    sweeperActive: true,
+    pollIntervalMinutes: 10,
+    integrityCheckActive: true,
+    integrityCheckHour: 4
+};
+
 describe('c-qrng-background-jobs', () => {
+    beforeEach(() => {
+        getSettings.mockResolvedValue(INACTIVE_SETTINGS);
+    });
+
     afterEach(() => {
         while (document.body.firstChild) {
             document.body.removeChild(document.body.firstChild);
@@ -72,6 +102,70 @@ describe('c-qrng-background-jobs', () => {
         expect(
             el.shadowRoot.querySelectorAll('lightning-input').length
         ).toBeGreaterThanOrEqual(2);
+    });
+
+    it('loads its own status on connect (self-wiring)', async () => {
+        getSettings.mockResolvedValue(ACTIVE_SETTINGS);
+        const el = createComponent();
+        await flushPromises();
+
+        expect(getSettings).toHaveBeenCalled();
+        const labels = badgeLabels(el.shadowRoot);
+        expect(labels).toEqual(['Active', 'Active']);
+        expect(findButton(el.shadowRoot, 'Stop Job Sweeper')).toBeTruthy();
+        expect(findButton(el.shadowRoot, 'Stop Integrity Check')).toBeTruthy();
+    });
+
+    it('lazy-tab scenario: component mounted late still shows correct state', async () => {
+        // Simulate: settings already exist in the org, the Operations tab
+        // renders long after the app shell loaded. Nobody pushes settings
+        // into the component — it must load them itself.
+        getSettings.mockResolvedValue(ACTIVE_SETTINGS);
+        await flushPromises(); // time passes before the tab activates
+
+        const el = createComponent(); // tab finally renders
+        await flushPromises();
+
+        const labels = badgeLabels(el.shadowRoot);
+        expect(labels).toEqual(['Active', 'Active']);
+        // Interval input reflects loaded settings
+        const inputs = el.shadowRoot.querySelectorAll('lightning-input');
+        expect(inputs[0].value).toBe(10);
+        expect(inputs[1].value).toBe(4);
+    });
+
+    it('shows inline error when self-load fails', async () => {
+        getSettings.mockRejectedValue({ body: { message: 'no access' } });
+        const el = createComponent();
+        await flushPromises();
+
+        const errorBox = el.shadowRoot.querySelector(
+            '[data-testid="background-jobs-error"]'
+        );
+        expect(errorBox).not.toBeNull();
+        expect(errorBox.textContent).toContain('no access');
+    });
+
+    it('internal loading is authoritative over pushed initSettings', async () => {
+        getSettings.mockResolvedValue(ACTIVE_SETTINGS);
+        const el = createComponent();
+        await flushPromises(); // internal load completes
+
+        // A stale parent snapshot arrives late — must be ignored
+        el.initSettings(INACTIVE_SETTINGS);
+        await flushPromises();
+
+        expect(badgeLabels(el.shadowRoot)).toEqual(['Active', 'Active']);
+    });
+
+    it('initSettings still applies before internal load resolves (backward compat)', async () => {
+        // Internal load never resolves in this test
+        getSettings.mockReturnValue(new Promise(() => {}));
+        const el = createComponent();
+        el.initSettings(ACTIVE_SETTINGS);
+        await flushPromises();
+
+        expect(badgeLabels(el.shadowRoot)).toEqual(['Active', 'Active']);
     });
 
     it('Start Job Sweeper button starts sweeper', async () => {
@@ -183,29 +277,16 @@ describe('c-qrng-background-jobs', () => {
         expect(th).toHaveBeenCalled();
     });
 
-    it('initSettings is callable as public API', async () => {
-        const el = createComponent();
-        await flushPromises();
-        el.initSettings({
-            sweeperActive: true,
-            pollIntervalMinutes: 10,
-            integrityCheckActive: true,
-            integrityCheckHour: 4
-        });
-        await flushPromises();
-        const badges = el.shadowRoot.querySelectorAll('lightning-badge');
-        const labels = Array.from(badges).map((b) => b.label);
-        expect(labels).toContain('Active');
-    });
-
     // ── Prototype tests ──
 
-    it('initSettings sets values', () => {
+    it('initSettings sets values when status not yet loaded', () => {
         const ctx = {
+            _statusLoaded: false,
             sweeperActive: false,
             pollIntervalMinutes: 5,
             integrityCheckActive: false,
-            integrityCheckHour: 2
+            integrityCheckHour: 2,
+            _applySettings: proto._applySettings
         };
         proto.initSettings.call(ctx, {
             sweeperActive: true,
@@ -221,10 +302,12 @@ describe('c-qrng-background-jobs', () => {
 
     it('initSettings handles empty object', () => {
         const ctx = {
+            _statusLoaded: false,
             sweeperActive: false,
             pollIntervalMinutes: 5,
             integrityCheckActive: false,
-            integrityCheckHour: 2
+            integrityCheckHour: 2,
+            _applySettings: proto._applySettings
         };
         proto.initSettings.call(ctx, {});
         expect(ctx.sweeperActive).toBe(false);
@@ -232,7 +315,11 @@ describe('c-qrng-background-jobs', () => {
     });
 
     it('initSettings handles integrityCheckHour of 0', () => {
-        const ctx = { integrityCheckHour: 2 };
+        const ctx = {
+            _statusLoaded: false,
+            integrityCheckHour: 2,
+            _applySettings: proto._applySettings
+        };
         proto.initSettings.call(ctx, { integrityCheckHour: 0 });
         expect(ctx.integrityCheckHour).toBe(0);
     });
@@ -243,16 +330,21 @@ describe('c-qrng-background-jobs', () => {
         expect(ctx.pollIntervalMinutes).toBe(15);
     });
 
+    it('handlePollIntervalChange keeps previous value on NaN', () => {
+        const ctx = { pollIntervalMinutes: 5 };
+        proto.handlePollIntervalChange.call(ctx, { target: { value: '' } });
+        expect(ctx.pollIntervalMinutes).toBe(5);
+    });
+
     it('handleIntegrityHourChange updates hour', () => {
         const ctx = { integrityCheckHour: 2 };
         proto.handleIntegrityHourChange.call(ctx, { detail: { value: '6' } });
         expect(ctx.integrityCheckHour).toBe(6);
     });
 
-    it('reduceErrors handles different formats', () => {
-        expect(proto.reduceErrors('plain')).toBe('plain');
-        expect(proto.reduceErrors({ body: { message: 'b' } })).toBe('b');
-        expect(proto.reduceErrors({ message: 'm' })).toBe('m');
-        expect(proto.reduceErrors({ x: 1 })).toBe('{"x":1}');
+    it('handleIntegrityHourChange keeps previous value on NaN', () => {
+        const ctx = { integrityCheckHour: 2 };
+        proto.handleIntegrityHourChange.call(ctx, { detail: { value: 'x' } });
+        expect(ctx.integrityCheckHour).toBe(2);
     });
 });

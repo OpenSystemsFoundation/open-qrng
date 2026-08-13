@@ -199,6 +199,32 @@ describe('c-qrng-setup', () => {
         expect(connectionSetup.hasApiKey).toBe(false);
     });
 
+    it('renders inline error when settings wire errors', async () => {
+        const element = createComponent();
+
+        getSettings.error({ message: 'settings boom' });
+        await flushPromises();
+
+        const errorBox = element.shadowRoot.querySelector(
+            '[data-testid="setup-settings-error"]'
+        );
+        expect(errorBox).not.toBeNull();
+        expect(errorBox.textContent).toContain('settings boom');
+    });
+
+    it('renders inline error when usage stats wire errors', async () => {
+        const element = createComponent();
+
+        getUsageStats.error({ message: 'stats boom' });
+        await flushPromises();
+
+        const errorMsg = element.shadowRoot.querySelector(
+            '[data-testid="setup-stats-error"]'
+        );
+        expect(errorMsg).not.toBeNull();
+        expect(errorMsg.textContent).toContain('stats boom');
+    });
+
     it('handles crnchange event from connection setup', async () => {
         const element = createComponent();
         await flushPromises();

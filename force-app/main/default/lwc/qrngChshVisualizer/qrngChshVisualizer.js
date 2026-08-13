@@ -5,18 +5,28 @@ const QUANTUM_BOUND = 2 * Math.sqrt(2); // 2√2 ≈ 2.828
 const SCALE_MAX = 3.0;
 
 export default class QrngChshVisualizer extends LightningElement {
-    @api validationResults = '';
-
+    _validationResults = '';
     _parsed = null;
 
+    @api
+    get validationResults() {
+        return this._validationResults;
+    }
+    set validationResults(value) {
+        this._validationResults = value;
+        // Invalidate the parse cache whenever the input changes so a
+        // re-run never shows a stale S-value gauge.
+        this._parsed = null;
+    }
+
     get results() {
-        if (!this.validationResults) return null;
+        if (!this._validationResults) return null;
         if (this._parsed) return this._parsed;
         try {
             this._parsed =
-                typeof this.validationResults === 'string'
-                    ? JSON.parse(this.validationResults)
-                    : this.validationResults;
+                typeof this._validationResults === 'string'
+                    ? JSON.parse(this._validationResults)
+                    : this._validationResults;
         } catch {
             this._parsed = null;
         }

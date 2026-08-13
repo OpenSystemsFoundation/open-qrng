@@ -6,29 +6,36 @@ import getCertificateByJobId from '@salesforce/apex/SetupController.getCertifica
 import refreshJobStatus from '@salesforce/apex/SetupController.refreshJobStatus';
 import retrieveJobResults from '@salesforce/apex/SetupController.retrieveJobResults';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { reduceErrors } from 'c/qrngUtils';
 
-const COMPLETE_CHANNEL = '/event/OpenSF__Quantum_Job_Complete__e';
-const FAILED_CHANNEL = '/event/OpenSF__Quantum_Job_Failed__e';
+const COMPLETE_CHANNEL = '/event/Quantum_Job_Complete__e';
+const FAILED_CHANNEL = '/event/Quantum_Job_Failed__e';
 
 export default class QrngJobStatusPanel extends LightningElement {
     @api recordId;
     @track isRefreshing = false;
     @track isRetrieving = false;
     @track certificateId;
+    @track wireError;
 
     _wiredResult;
     _dto;
     _completeSubscription;
     _failedSubscription;
+    _disconnected = false;
 
     @wire(getJobStatusDTO, { jobId: '$recordId' })
     wiredJobStatus(result) {
         this._wiredResult = result;
-        if (result.data) {
-            this._dto = result.data;
+        const { data, error } = result;
+        if (data) {
+            this.wireError = undefined;
+            this._dto = data;
             if (this._dto.status === 'Completed' && !this.certificateId) {
                 this.loadCertificate();
             }
+        } else if (error) {
+            this.wireError = reduceErrors(error);
         }
     }
 
@@ -46,23 +53,25 @@ export default class QrngJobStatusPanel extends LightningElement {
     }
 
     connectedCallback() {
+        this._disconnected = false;
         this.subscribeToEvents();
     }
 
     disconnectedCallback() {
+        this._disconnected = true;
         this.unsubscribeFromEvents();
     }
 
     async subscribeToEvents() {
         try {
-            this._completeSubscription = await subscribe(
+            const completeSub = await subscribe(
                 COMPLETE_CHANNEL,
                 -1,
                 (message) => {
-                    const eventJobId = message.data.payload.OpenSF__Job_Id__c;
+                    const eventJobId = message.data.payload.Job_Id__c;
                     if (eventJobId === this.recordId) {
                         this.certificateId =
-                            message.data.payload.OpenSF__Certificate_Id__c;
+                            message.data.payload.Certificate_Id__c;
                         refreshApex(this._wiredResult);
                         this.dispatchEvent(
                             new ShowToastEvent({
@@ -75,26 +84,31 @@ export default class QrngJobStatusPanel extends LightningElement {
                     }
                 }
             );
-            this._failedSubscription = await subscribe(
-                FAILED_CHANNEL,
-                -1,
-                (message) => {
-                    const eventJobId = message.data.payload.OpenSF__Job_Id__c;
-                    if (eventJobId === this.recordId) {
-                        refreshApex(this._wiredResult);
-                        this.dispatchEvent(
-                            new ShowToastEvent({
-                                title: 'Job Failed',
-                                message:
-                                    message.data.payload
-                                        .OpenSF__Error_Message__c ||
-                                    'Unknown error',
-                                variant: 'error'
-                            })
-                        );
-                    }
+            if (this._disconnected) {
+                unsubscribe(completeSub);
+            } else {
+                this._completeSubscription = completeSub;
+            }
+            const failedSub = await subscribe(FAILED_CHANNEL, -1, (message) => {
+                const eventJobId = message.data.payload.Job_Id__c;
+                if (eventJobId === this.recordId) {
+                    refreshApex(this._wiredResult);
+                    this.dispatchEvent(
+                        new ShowToastEvent({
+                            title: 'Job Failed',
+                            message:
+                                message.data.payload.Error_Message__c ||
+                                'Unknown error',
+                            variant: 'error'
+                        })
+                    );
                 }
-            );
+            });
+            if (this._disconnected) {
+                unsubscribe(failedSub);
+            } else {
+                this._failedSubscription = failedSub;
+            }
         } catch (error) {
             console.error('Error subscribing to events:', error);
         }
@@ -106,9 +120,11 @@ export default class QrngJobStatusPanel extends LightningElement {
     unsubscribeFromEvents() {
         if (this._completeSubscription) {
             unsubscribe(this._completeSubscription);
+            this._completeSubscription = null;
         }
         if (this._failedSubscription) {
             unsubscribe(this._failedSubscription);
+            this._failedSubscription = null;
         }
     }
 
@@ -275,10 +291,7 @@ export default class QrngJobStatusPanel extends LightningElement {
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Refresh Failed',
-                    message:
-                        error?.body?.message ||
-                        error?.message ||
-                        'Unknown error',
+                    message: reduceErrors(error),
                     variant: 'error'
                 })
             );
@@ -305,10 +318,7 @@ export default class QrngJobStatusPanel extends LightningElement {
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Retrieve Failed',
-                    message:
-                        error?.body?.message ||
-                        error?.message ||
-                        'Unknown error',
+                    message: reduceErrors(error),
                     variant: 'error'
                 })
             );

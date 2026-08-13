@@ -1,23 +1,31 @@
-import { LightningElement, track, wire } from 'lwc';
-import getSettings from '@salesforce/apex/SetupController.getSettings';
+import { LightningElement, track } from 'lwc';
 import { subscribe, unsubscribe, onError } from 'lightning/empApi';
 
-const COMPLETE_CHANNEL = '/event/OpenSF__Quantum_Job_Complete__e';
+const COMPLETE_CHANNEL = '/event/Quantum_Job_Complete__e';
 
 export default class QuantumFairApp extends LightningElement {
     @track activeJobs = [];
 
     _completeSubscription;
-    _settingsInitialized = false;
+    _disconnected = false;
 
     get hasActiveJobs() {
         return this.activeJobs.length > 0;
     }
 
     connectedCallback() {
+        this._disconnected = false;
         subscribe(COMPLETE_CHANNEL, -1, () => {
             this._refreshHealthMonitor();
         }).then((sub) => {
+            if (this._disconnected) {
+                // Component detached before subscribe resolved —
+                // release the subscription instead of leaking it.
+                if (sub) {
+                    unsubscribe(sub);
+                }
+                return;
+            }
             this._completeSubscription = sub;
         });
         onError((error) => {
@@ -26,31 +34,10 @@ export default class QuantumFairApp extends LightningElement {
     }
 
     disconnectedCallback() {
+        this._disconnected = true;
         if (this._completeSubscription) {
             unsubscribe(this._completeSubscription);
             this._completeSubscription = null;
-        }
-    }
-
-    @wire(getSettings)
-    wiredSettings({ data }) {
-        if (data && !this._settingsInitialized) {
-            this._settingsInitialized = true;
-            // eslint-disable-next-line @lwc/lwc/no-async-operation
-            setTimeout(() => {
-                this._initOperationsTab(data);
-            }, 0);
-        }
-    }
-
-    _initOperationsTab(data) {
-        const bgJobs = this.template.querySelector('c-qrng-background-jobs');
-        if (bgJobs) {
-            bgJobs.initSettings(data);
-        }
-        const healthMon = this.template.querySelector('c-qrng-health-monitor');
-        if (healthMon) {
-            healthMon.loadBackendHealth();
         }
     }
 

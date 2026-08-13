@@ -29,14 +29,35 @@
             class="container"
             lwc:ref="canvasContainer"
         >
-            <canvas lwc:ref="circuitCanvas"></canvas>
+            <canvas
+                lwc:ref="circuitCanvas"
+                role="img"
+                aria-label={circuitAriaLabel}
+                data-testid="circuit-canvas"
+            ></canvas>
         </div>
     </template>
     <template if:false={hasQasm}>
-        <div
-            class="slds-text-align_center slds-p-around_medium slds-text-color_weak"
-        >
-            No circuit QASM provided.
-        </div>
+        <template if:true={recordError}>
+            <div
+                class="slds-scoped-notification slds-media slds-media_center slds-theme_error slds-p-around_small"
+                role="status"
+                data-testid="qasm-viewer-error"
+            >
+                <div class="slds-media__body">
+                    <p>
+                        Could not load circuit QASM:
+                        {recordError}
+                    </p>
+                </div>
+            </div>
+        </template>
+        <template if:false={recordError}>
+            <div
+                class="slds-text-align_center slds-p-around_medium slds-text-color_weak"
+            >
+                No circuit QASM provided.
+            </div>
+        </template>
     </template>
 </template>

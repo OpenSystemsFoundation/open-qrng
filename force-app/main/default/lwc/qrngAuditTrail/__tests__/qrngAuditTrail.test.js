@@ -130,7 +130,7 @@ describe('c-qrng-audit-trail', () => {
         await flushPromises();
 
         const certLink = element.shadowRoot.querySelector(
-            'a[data-id="a01xx000001"]'
+            'button[data-id="a01xx000001"]'
         );
         expect(certLink).not.toBeNull();
 
@@ -157,7 +157,7 @@ describe('c-qrng-audit-trail', () => {
 
         // Open modal
         const certLink = element.shadowRoot.querySelector(
-            'a[data-id="a01xx000001"]'
+            'button[data-id="a01xx000001"]'
         );
         certLink.click();
         await flushPromises();
@@ -172,5 +172,57 @@ describe('c-qrng-audit-trail', () => {
 
         modal = element.shadowRoot.querySelector('.slds-modal');
         expect(modal).toBeNull();
+    });
+
+    it('modal has dialog semantics, assistive text, and Escape closes it', async () => {
+        const element = createComponent();
+
+        getAuditTrailDTO.emit(MOCK_AUDIT_DATA);
+        await flushPromises();
+
+        element.shadowRoot
+            .querySelector('button[data-id="a01xx000001"]')
+            .click();
+        await flushPromises();
+
+        const modal = element.shadowRoot.querySelector('.slds-modal');
+        expect(modal.getAttribute('role')).toBe('dialog');
+        expect(modal.getAttribute('aria-modal')).toBe('true');
+        expect(modal.getAttribute('aria-labelledby')).toBeTruthy();
+
+        const heading = element.shadowRoot.querySelector(
+            '.slds-modal__header h2'
+        );
+        expect(heading).not.toBeNull();
+        expect(heading.getAttribute('id')).toBeTruthy();
+
+        // Close button carries assistive text
+        const closeBtn = element.shadowRoot.querySelector('[data-modal-close]');
+        const assistive = closeBtn.querySelector('.slds-assistive-text');
+        expect(assistive).not.toBeNull();
+        expect(assistive.textContent).toContain('Close');
+
+        // Focus moved to the close button on open
+        expect(element.shadowRoot.activeElement).toBe(closeBtn);
+
+        // Escape closes the modal
+        modal.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+        );
+        await flushPromises();
+        expect(element.shadowRoot.querySelector('.slds-modal')).toBeNull();
+    });
+
+    it('renders inline error state when the wire errors (not console-only)', async () => {
+        const element = createComponent();
+
+        getAuditTrailDTO.error({ message: 'trail unavailable' });
+        await flushPromises();
+
+        const errorBox = element.shadowRoot.querySelector(
+            '[data-testid="audit-trail-error"]'
+        );
+        expect(errorBox).not.toBeNull();
+        expect(errorBox.textContent).toContain('trail unavailable');
     });
 });

@@ -4,28 +4,45 @@
         icon-name="standard:record"
     >
         <div class="slds-p-around_small">
-            <template if:true={hasAssignments}>
+            <template lwc:if={hasAssignments}>
                 <lightning-datatable
-                    key-field="Id"
+                    key-field="index"
                     data={assignments}
                     columns={columns}
                     hide-checkbox-column
+                    data-testid="assignment-table"
                 >
                 </lightning-datatable>
             </template>
-            <template if:false={hasAssignments}>
+            <template lwc:elseif={error}>
+                <div
+                    class="slds-scoped-notification slds-media slds-media_center slds-theme_error slds-p-around_small"
+                    role="status"
+                    data-testid="assignment-table-error"
+                >
+                    <div class="slds-media__body">
+                        <p>
+                            Could not load assignments:
+                            {error}
+                        </p>
+                    </div>
+                </div>
+            </template>
+            <template lwc:elseif={isLoading}>
+                <div
+                    class="slds-text-align_center slds-p-around_medium"
+                >
+                    <lightning-spinner
+                        alternative-text="Loading..."
+                        size="small"
+                    ></lightning-spinner>
+                </div>
+            </template>
+            <template lwc:else>
                 <div
                     class="slds-text-align_center slds-p-around_medium slds-text-color_weak"
                 >
-                    <template if:true={isLoading}>
-                        <lightning-spinner
-                            alternative-text="Loading..."
-                            size="small"
-                        ></lightning-spinner>
-                    </template>
-                    <template if:false={isLoading}>
-                        No assignments found for this job
-                    </template>
+                    No assignments found for this job
                 </div>
             </template>
         </div>

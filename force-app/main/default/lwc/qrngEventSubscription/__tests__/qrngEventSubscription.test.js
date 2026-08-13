@@ -15,12 +15,19 @@ jest.mock(
     { virtual: true }
 );
 
+function flushPromises() {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 // Import after mocking
 let subscribeToQuantumEvents, unsubscribeFromQuantumEvents;
 
 describe('c-qrng-event-subscription', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        mockSubscribe.mockImplementation(() =>
+            Promise.resolve({ id: 'sub-123' })
+        );
         // Re-import to reset module state
         jest.resetModules();
         const mod = require('c/qrngEventSubscription');
@@ -28,7 +35,7 @@ describe('c-qrng-event-subscription', () => {
         unsubscribeFromQuantumEvents = mod.unsubscribeFromQuantumEvents;
     });
 
-    it('subscribes to both Complete and Failed channels', async () => {
+    it('subscribes to both Complete and Failed channels (namespace-free)', async () => {
         const onComplete = jest.fn();
         const onFailed = jest.fn();
 
@@ -36,12 +43,12 @@ describe('c-qrng-event-subscription', () => {
 
         expect(mockSubscribe).toHaveBeenCalledTimes(2);
         expect(mockSubscribe).toHaveBeenCalledWith(
-            '/event/OpenSF__Quantum_Job_Complete__e',
+            '/event/Quantum_Job_Complete__e',
             -1,
             expect.any(Function)
         );
         expect(mockSubscribe).toHaveBeenCalledWith(
-            '/event/OpenSF__Quantum_Job_Failed__e',
+            '/event/Quantum_Job_Failed__e',
             -1,
             expect.any(Function)
         );
@@ -63,7 +70,7 @@ describe('c-qrng-event-subscription', () => {
 
         expect(mockSubscribe).toHaveBeenCalledTimes(1);
         expect(mockSubscribe).toHaveBeenCalledWith(
-            '/event/OpenSF__Quantum_Job_Complete__e',
+            '/event/Quantum_Job_Complete__e',
             -1,
             expect.any(Function)
         );
@@ -95,6 +102,49 @@ describe('c-qrng-event-subscription', () => {
 
         expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
         expect(mockUnsubscribe).toHaveBeenCalledWith({ id: 'sub-1' });
+    });
+
+    it('releases in-flight subscriptions when unsubscribed before subscribe resolves', async () => {
+        // subscribe promises resolve only after we call the trigger
+        let resolveComplete, resolveFailed;
+        mockSubscribe
+            .mockImplementationOnce(
+                () =>
+                    new Promise((resolve) => {
+                        resolveComplete = resolve;
+                    })
+            )
+            .mockImplementationOnce(
+                () =>
+                    new Promise((resolve) => {
+                        resolveFailed = resolve;
+                    })
+            );
+
+        const handle = subscribeToQuantumEvents(jest.fn(), jest.fn());
+
+        // Unsubscribe while the subscribe() calls are still pending
+        unsubscribeFromQuantumEvents(handle);
+        expect(mockUnsubscribe).not.toHaveBeenCalled();
+
+        // Now the subscriptions arrive late
+        resolveComplete({ id: 'late-complete' });
+        resolveFailed({ id: 'late-failed' });
+        await flushPromises();
+
+        // They must be released immediately, not stored on the handle
+        expect(mockUnsubscribe).toHaveBeenCalledWith({ id: 'late-complete' });
+        expect(mockUnsubscribe).toHaveBeenCalledWith({ id: 'late-failed' });
+        expect(handle.complete).toBeNull();
+        expect(handle.failed).toBeNull();
+    });
+
+    it('stores subscriptions on the handle when not cancelled', async () => {
+        const handle = subscribeToQuantumEvents(jest.fn(), jest.fn());
+        await flushPromises();
+        expect(handle.complete).toEqual({ id: 'sub-123' });
+        expect(handle.failed).toEqual({ id: 'sub-123' });
+        expect(mockUnsubscribe).not.toHaveBeenCalled();
     });
 
     it('calls onComplete callback when message arrives', async () => {

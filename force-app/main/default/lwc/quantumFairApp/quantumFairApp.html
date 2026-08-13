@@ -3,9 +3,15 @@
         title="QuantumFair"
         icon-name="custom:custom68"
     >
-        <div class="slds-p-around_medium">
+        <div
+            class="slds-p-around_medium"
+            data-testid="quantum-fair-app"
+        >
             <lightning-tabset>
-                <lightning-tab label="Dashboard">
+                <lightning-tab
+                    label="Dashboard"
+                    data-testid="tab-dashboard"
+                >
                     <div class="slds-p-around_small">
                         <c-qrng-request-form
                             onjobsubmitted={handleJobSubmitted}
@@ -40,21 +46,33 @@
                         </template>
                     </div>
                 </lightning-tab>
-                <lightning-tab label="Jobs">
+                <lightning-tab
+                    label="Jobs"
+                    data-testid="tab-jobs"
+                >
                     <div class="slds-p-around_small">
                         <c-qrng-job-dashboard></c-qrng-job-dashboard>
                     </div>
                 </lightning-tab>
-                <lightning-tab label="Setup">
+                <lightning-tab
+                    label="Setup"
+                    data-testid="tab-setup"
+                >
                     <c-qrng-setup></c-qrng-setup>
                 </lightning-tab>
-                <lightning-tab label="Operations">
+                <lightning-tab
+                    label="Operations"
+                    data-testid="tab-operations"
+                >
                     <div class="slds-p-around_small">
                         <c-qrng-background-jobs></c-qrng-background-jobs>
                         <c-qrng-health-monitor></c-qrng-health-monitor>
                     </div>
                 </lightning-tab>
-                <lightning-tab label="Compliance">
+                <lightning-tab
+                    label="Compliance"
+                    data-testid="tab-compliance"
+                >
                     <div class="slds-p-around_small">
                         <c-qrng-audit-trail></c-qrng-audit-trail>
                         <c-qrng-compliance-export></c-qrng-compliance-export>

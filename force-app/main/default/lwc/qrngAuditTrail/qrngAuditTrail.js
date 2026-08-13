@@ -5,13 +5,16 @@ import {
     subscribeToQuantumEvents,
     unsubscribeFromQuantumEvents
 } from 'c/qrngEventSubscription';
+import { reduceErrors } from 'c/qrngUtils';
 
 export default class QrngAuditTrail extends LightningElement {
     @track certificates = [];
     @track selectedCertId = null;
+    @track loadError;
 
     _wiredResult;
     _eventSub;
+    _modalFocused = false;
 
     connectedCallback() {
         this._eventSub = subscribeToQuantumEvents(() => {
@@ -23,11 +26,24 @@ export default class QrngAuditTrail extends LightningElement {
         unsubscribeFromQuantumEvents(this._eventSub);
     }
 
+    renderedCallback() {
+        // Move focus to the close button when the detail modal opens
+        if (this.selectedCertId && !this._modalFocused) {
+            const closeBtn = this.template.querySelector('[data-modal-close]');
+            if (closeBtn) {
+                this._modalFocused = true;
+                closeBtn.focus();
+            }
+        }
+    }
+
     @wire(getAuditTrailDTO)
     wiredTrail(result) {
         this._wiredResult = result;
-        if (result.data) {
-            this.certificates = result.data.map((cert) => ({
+        const { data, error } = result;
+        if (data) {
+            this.loadError = undefined;
+            this.certificates = data.map((cert) => ({
                 ...cert,
                 iconName: cert.tampered
                     ? 'standard:first_non_empty'
@@ -42,8 +58,8 @@ export default class QrngAuditTrail extends LightningElement {
                 badgeLabel: cert.tampered ? 'Tampered' : cert.status,
                 isQuantumCertified: cert.chshSValue && cert.chshSValue > 2.0
             }));
-        } else if (result.error) {
-            console.error('Error loading audit trail:', result.error);
+        } else if (error) {
+            this.loadError = reduceErrors(error);
         }
     }
 
@@ -53,9 +69,18 @@ export default class QrngAuditTrail extends LightningElement {
 
     handleCertClick(event) {
         this.selectedCertId = event.currentTarget.dataset.id;
+        this._modalFocused = false;
     }
 
     closeCertDetail() {
         this.selectedCertId = null;
+        this._modalFocused = false;
+    }
+
+    handleModalKeydown(event) {
+        if (event.key === 'Escape') {
+            event.stopPropagation();
+            this.closeCertDetail();
+        }
     }
 }

@@ -4,6 +4,7 @@ import getAvailableBackends from '@salesforce/apex/SetupController.getAvailableB
 import discoverInstances from '@salesforce/apex/SetupController.discoverInstances';
 import saveSettings from '@salesforce/apex/SetupController.saveSettings';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { reduceErrors } from 'c/qrngUtils';
 
 export default class QrngConnectionSetup extends LightningElement {
     @track _hasApiKey = false;
@@ -89,7 +90,7 @@ export default class QrngConnectionSetup extends LightningElement {
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Save Failed',
-                    message: this.reduceErrors(error),
+                    message: reduceErrors(error),
                     variant: 'error'
                 })
             );
@@ -138,7 +139,7 @@ export default class QrngConnectionSetup extends LightningElement {
             }
         } catch (error) {
             this.isConnected = false;
-            this.connectionMessage = 'Error: ' + this.reduceErrors(error);
+            this.connectionMessage = 'Error: ' + reduceErrors(error);
         } finally {
             this.isTestingConnection = false;
         }
@@ -184,7 +185,7 @@ export default class QrngConnectionSetup extends LightningElement {
             this.dispatchEvent(
                 new ShowToastEvent({
                     title: 'Discovery Failed',
-                    message: this.reduceErrors(error),
+                    message: reduceErrors(error),
                     variant: 'error'
                 })
             );
@@ -214,12 +215,5 @@ export default class QrngConnectionSetup extends LightningElement {
                 })
             );
         }
-    }
-
-    reduceErrors(error) {
-        if (typeof error === 'string') return error;
-        if (error?.body?.message) return error.body.message;
-        if (error?.message) return error.message;
-        return JSON.stringify(error);
     }
 }

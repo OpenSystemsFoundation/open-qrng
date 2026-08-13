@@ -105,11 +105,13 @@ describe('c-qrng-compliance-export', () => {
 
     // ── Prototype tests ──
 
-    it('connectedCallback sets default dates', () => {
+    it('connectedCallback sets default dates in local time (not UTC)', () => {
         const ctx = { startDate: null, endDate: null };
         proto.connectedCallback.call(ctx);
-        expect(ctx.endDate).toBe(new Date().toISOString().split('T')[0]);
-        expect(ctx.startDate).toBeDefined();
+        const now = new Date();
+        const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        expect(ctx.endDate).toBe(localToday);
+        expect(ctx.startDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
 
     it('handleFrameworkChange updates selectedFramework', () => {
@@ -178,12 +180,5 @@ describe('c-qrng-compliance-export', () => {
         expect(URL.createObjectURL).toHaveBeenCalled();
         expect(URL.revokeObjectURL).toHaveBeenCalled();
         document.createElement.mockRestore();
-    });
-
-    it('reduceErrors handles different formats', () => {
-        expect(proto.reduceErrors('plain')).toBe('plain');
-        expect(proto.reduceErrors({ body: { message: 'b' } })).toBe('b');
-        expect(proto.reduceErrors({ message: 'm' })).toBe('m');
-        expect(proto.reduceErrors({ x: 1 })).toBe('{"x":1}');
     });
 });
