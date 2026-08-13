@@ -4,6 +4,16 @@
         <application>QuantumFair</application>
         <visible>true</visible>
     </applicationVisibilities>
+    <!-- SetupController access is required for the LWC compliance/audit
+         views. Read-only behavior is enforced inside the controller:
+         privileged methods are gated on the QuantumFair_Administer custom
+         permission (not granted here), writes require isUpdateable() (this
+         set grants no edit rights), and reads apply USER_MODE or
+         stripInaccessible so withheld fields (e.g. raw results) stay hidden. -->
+    <classAccesses>
+        <apexClass>SetupController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <description
     >Read-only access to QuantumFair compliance data for external auditors.</description>
     <hasActivationRequired>false</hasActivationRequired>
@@ -53,6 +63,8 @@
         <object>Quantum_Backend__c</object>
         <viewAllRecords>true</viewAllRecords>
     </objectPermissions>
+    <!-- Quantum_Provider__c is Private OWD (H-S3): viewAllRecords keeps the
+         (read-only) backend/provider views working for auditors. -->
     <objectPermissions>
         <allowCreate>false</allowCreate>
         <allowDelete>false</allowDelete>
@@ -60,6 +72,26 @@
         <allowRead>true</allowRead>
         <modifyAllRecords>false</modifyAllRecords>
         <object>Quantum_Provider__c</object>
+        <viewAllRecords>true</viewAllRecords>
+    </objectPermissions>
+    <!-- Platform event read access (B5): required for empApi subscriptions
+         in the LWC monitors. Platform events support only Read/Create. -->
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Quantum_Job_Complete__e</object>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Quantum_Job_Failed__e</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
     <!-- Compliance_Event__c fields -->

@@ -26,6 +26,6 @@
     </values>
     <values>
         <field>Evidence_Type__c</field>
-        <value xsi:type="xsd:string">Quantum_Backend_Config__mdt</value>
+        <value xsi:type="xsd:string">Quantum_Backend__c</value>
     </values>
 </CustomMetadata>

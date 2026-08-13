@@ -4,6 +4,10 @@
         <application>QuantumFair</application>
         <visible>true</visible>
     </applicationVisibilities>
+    <classAccesses>
+        <apexClass>SetupController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
     <hasActivationRequired>false</hasActivationRequired>
     <label>QuantumFair User</label>
     <objectPermissions>
@@ -33,6 +37,12 @@
         <object>Quantum_Assignment__c</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
+    <!-- Quantum_Provider__c is Private OWD (H-S3). Regular users must still
+         READ provider rows: QuantumProviderFactory.getActiveProvider() and
+         the backend cache queries (Provider__r traversal) run 'with sharing',
+         so without viewAllRecords the admin-owned provider row would be
+         invisible and job submission/backend lists would silently degrade.
+         viewAllRecords grants read-only visibility; no create/edit/delete. -->
     <objectPermissions>
         <allowCreate>false</allowCreate>
         <allowDelete>false</allowDelete>
@@ -40,7 +50,7 @@
         <allowRead>true</allowRead>
         <modifyAllRecords>false</modifyAllRecords>
         <object>Quantum_Provider__c</object>
-        <viewAllRecords>false</viewAllRecords>
+        <viewAllRecords>true</viewAllRecords>
     </objectPermissions>
     <objectPermissions>
         <allowCreate>false</allowCreate>
@@ -49,6 +59,26 @@
         <allowRead>true</allowRead>
         <modifyAllRecords>false</modifyAllRecords>
         <object>Quantum_Backend__c</object>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+    <!-- Platform event read access (B5): required for empApi subscriptions
+         in the LWC job monitor. Platform events support only Read/Create. -->
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Quantum_Job_Complete__e</object>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Quantum_Job_Failed__e</object>
         <viewAllRecords>false</viewAllRecords>
     </objectPermissions>
     <fieldPermissions>
@@ -74,6 +104,11 @@
     <fieldPermissions>
         <editable>false</editable>
         <field>Quantum_Job__c.Circuit_QASM__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Quantum_Job__c.Job_Type__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
@@ -349,6 +384,11 @@
     <fieldPermissions>
         <editable>false</editable>
         <field>Quantum_Backend__c.CHSH_Job_Id__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Quantum_Backend__c.Quantum_Verified__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
