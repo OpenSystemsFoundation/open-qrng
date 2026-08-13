@@ -121,6 +121,8 @@ private class IBMQuantumConnection_IntTest {
 
         IBMQuantumAuth.clearCache();
 
+        // getAvailableBackends is gated on QuantumFair_Administer (B6)
+        SetupController.adminOverrideForTests = true;
         Test.startTest();
         List<Map<String, Object>> backends = SetupController.getAvailableBackends();
         Test.stopTest();

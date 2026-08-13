@@ -137,18 +137,42 @@ private class IBMResponseParser_Test {
     }
 
     @IsTest
-    static void testNormalizeStatusNull() {
+    static void testNormalizeStatusSubmitted() {
         System.assertEquals(
             'Submitted',
-            IBMResponseParser.normalizeStatus(null)
+            IBMResponseParser.normalizeStatus('Submitted')
         );
+        System.assertEquals(
+            'Submitted',
+            IBMResponseParser.normalizeStatus('submitted')
+        );
+    }
+
+    @IsTest
+    static void testNormalizeStatusNull() {
+        // Missing statuses are no longer masked as 'Submitted' — callers
+        // treat 'Unknown' as a transient, non-terminal condition.
+        System.assertEquals('Unknown', IBMResponseParser.normalizeStatus(null));
     }
 
     @IsTest
     static void testNormalizeStatusUnknown() {
         System.assertEquals(
-            'Submitted',
+            'Unknown',
             IBMResponseParser.normalizeStatus('some_unknown_status')
+        );
+    }
+
+    @IsTest
+    static void testUnknownStatusIsNotTerminal() {
+        System.assertEquals(false, IBMResponseParser.isTerminal('Unknown'));
+        System.assertEquals(
+            false,
+            IBMResponseParser.isCompleted('some_unknown_status')
+        );
+        System.assertEquals(
+            false,
+            IBMResponseParser.isFailed('some_unknown_status')
         );
     }
 
