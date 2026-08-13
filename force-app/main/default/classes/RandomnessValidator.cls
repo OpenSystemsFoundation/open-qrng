@@ -6,6 +6,24 @@
 public with sharing class RandomnessValidator {
     private static final Double SIGNIFICANCE_LEVEL = 0.01;
 
+    // Two-sided z critical value at alpha = 0.01 (99% confidence).
+    // Used by the frequency (monobit) and runs tests so all gate tests
+    // share the same alpha as the chi-squared test.
+    private static final Double Z_CRITICAL_001 = 2.576;
+
+    // Upper-tail chi-squared critical values at alpha = 0.01, keyed by
+    // degrees of freedom. Covers df = 2^blockSize - 1 for block sizes 1-8.
+    private static final Map<Integer, Double> CHI_SQUARED_CRITICAL_001 = new Map<Integer, Double>{
+        1 => 6.635,
+        3 => 11.345,
+        7 => 18.475,
+        15 => 30.578,
+        31 => 52.191,
+        63 => 92.010,
+        127 => 166.987,
+        255 => 310.457
+    };
+
     /**
      * Run all validation tests on the debiased bitstring.
      * Returns a map with test results and overall pass/fail.
@@ -43,8 +61,9 @@ public with sharing class RandomnessValidator {
     }
 
     /**
-     * Frequency (monobit) test: checks that the proportion of 1s is within 2 sigma of 50%.
-     * For a fair coin flipped n times, sigma = sqrt(n/4), so 2*sigma = sqrt(n).
+     * Frequency (monobit) test: checks that the proportion of 1s is within
+     * 2.576 sigma of 50% (two-sided alpha = 0.01, matching the chi-squared
+     * gate). For a fair coin flipped n times, sigma = sqrt(n/4).
      */
     public static Boolean frequencyTest(String bits) {
         Integer n = bits.length();
@@ -54,8 +73,8 @@ public with sharing class RandomnessValidator {
         Double sigma = Math.sqrt(n / 4.0);
         Double zScore = Math.abs(ones - expected) / sigma;
 
-        // Pass if within 2 standard deviations (95.4% confidence)
-        return zScore <= 2.0;
+        // Pass if within 2.576 standard deviations (alpha = 0.01)
+        return zScore <= Z_CRITICAL_001;
     }
 
     /**
@@ -100,7 +119,8 @@ public with sharing class RandomnessValidator {
 
         Double zScore = Math.abs(runs - expectedRuns) / Math.sqrt(variance);
 
-        return zScore <= 2.0;
+        // Pass if within 2.576 standard deviations (alpha = 0.01)
+        return zScore <= Z_CRITICAL_001;
     }
 
     /**
@@ -138,17 +158,39 @@ public with sharing class RandomnessValidator {
         Integer missingCategories = numCategories - counts.size();
         chiSquared += missingCategories * (Math.pow(expected, 2) / expected);
 
-        // Degrees of freedom = numCategories - 1
-        // For blockSize=4, df=15, critical value at 0.01 ~ 30.58
-        // Simplified: use 3 * df as approximate critical value for p=0.01
-        Double criticalValue = 3.0 * (numCategories - 1);
+        // Degrees of freedom = numCategories - 1 (e.g. blockSize=4 → df=15,
+        // critical value at alpha=0.01 is 30.578). Exact upper-tail values
+        // are tabulated for every df this method can produce; the
+        // Wilson-Hilferty approximation covers any other df.
+        Integer df = numCategories - 1;
+        Double criticalValue = CHI_SQUARED_CRITICAL_001.containsKey(df)
+            ? CHI_SQUARED_CRITICAL_001.get(df)
+            : wilsonHilfertyCritical001(df);
 
         return chiSquared <= criticalValue;
     }
 
     /**
+     * Wilson-Hilferty approximation of the upper-tail chi-squared critical
+     * value at alpha = 0.01 for arbitrary degrees of freedom:
+     * chi2 ≈ df * (1 - 2/(9*df) + z_0.01 * sqrt(2/(9*df)))^3, z_0.01 = 2.326.
+     * Fallback only — the common dfs use the exact tabulated values.
+     */
+    @TestVisible
+    private static Double wilsonHilfertyCritical001(Integer df) {
+        Double d = (Double) df;
+        Double term =
+            1.0 -
+            2.0 / (9.0 * d) +
+            2.326 * Math.sqrt(2.0 / (9.0 * d));
+        return d * term * term * term;
+    }
+
+    /**
      * Calculate CHSH S-value from Bell test measurements.
-     * S > 2 proves quantum origin (violates Bell inequality).
+     * S > 2 by a statistically significant margin is consistent with
+     * quantum origin (violates the Bell/CHSH inequality); see
+     * calculateCHSHWithStats for the significance-aware gate.
      *
      * The circuit assigns each pair one of 4 basis configs via round-robin:
      *   Config 0: Alice 0, Bob π/4       → E(a,b)
@@ -171,62 +213,124 @@ public with sharing class RandomnessValidator {
         List<String> bitstrings,
         Integer numPairs
     ) {
-        if (bitstrings == null || bitstrings.isEmpty() || numPairs < 4) {
+        if (numPairs == null || numPairs < 4) {
+            throw new QuantumException(
+                'Bell test requires at least 4 pairs (one per CHSH basis ' +
+                    'config), got ' +
+                    numPairs +
+                    '. Check the Bell-test job configuration (Num_Qubits__c ' +
+                    'must be at least 8).'
+            );
+        }
+        if (bitstrings == null || bitstrings.isEmpty()) {
             return 0.0;
+        }
+        return (Double) calculateCHSHWithStats(bitstrings, numPairs)
+            .get('sValue');
+    }
+
+    /**
+     * Calculate the CHSH S-value together with its statistical uncertainty.
+     *
+     * Each correlator E_i is a sample mean of n_i values in {-1, +1}, so
+     * var(E_i) ≈ (1 - E_i²) / n_i and σ_S = sqrt(Σ var(E_i)).
+     * The pass criterion requires the S-value to exceed the classical
+     * bound by at least two standard errors: (S - 2.0) > 2.0 * σ_S —
+     * a flat S > 2.0 gate lets classical data pass on noise alone
+     * (e.g. σ_S ≈ 0.125 at 256 samples per correlator).
+     *
+     * Returned map keys (all new; existing calculateCHSH keys unchanged):
+     *   'sValue'          Double  — CHSH S-value
+     *   'chshSValue'      Double  — same value under the key certificates
+     *                               already store (putAll-friendly)
+     *   'sigmaS'          Double  — standard error of S (null if no samples)
+     *   'margin'          Double  — S - 2.0 (excess over classical bound)
+     *   'bellTestPassed'  Boolean — (S - 2.0) > 2.0 * sigmaS
+     *   'correlators'     Map     — per-config E value and sample count
+     */
+    public static Map<String, Object> calculateCHSHWithStats(
+        List<String> bitstrings,
+        Integer numPairs
+    ) {
+        if (numPairs == null || numPairs < 4) {
+            throw new QuantumException(
+                'Bell test requires at least 4 pairs (one per CHSH basis ' +
+                    'config), got ' +
+                    numPairs +
+                    '. Check the Bell-test job configuration (Num_Qubits__c ' +
+                    'must be at least 8).'
+            );
         }
 
         // Correlations for each of the 4 basis configs
-        Double eAB = 0, eABp = 0, eApB = 0, eApBp = 0;
-        Integer nAB = 0, nABp = 0, nApB = 0, nApBp = 0;
+        List<Double> eSums = new List<Double>{ 0.0, 0.0, 0.0, 0.0 };
+        List<Integer> counts = new List<Integer>{ 0, 0, 0, 0 };
 
-        for (String rawBs : bitstrings) {
-            // Reverse bitstring: IBM big-endian → circuit register order
-            String bs = reverseString(rawBs);
+        if (bitstrings != null) {
+            for (String rawBs : bitstrings) {
+                // Reverse bitstring: IBM big-endian → circuit register order
+                String bs = reverseString(rawBs);
 
-            for (
-                Integer p = 0; p < numPairs && (p * 2 + 1) < bs.length(); p++
-            ) {
-                // Map measurement outcomes to ±1: |0⟩ → +1, |1⟩ → -1
-                Integer a = bs.substring(p * 2, p * 2 + 1) == '1' ? -1 : 1;
-                Integer b = bs.substring(p * 2 + 1, p * 2 + 2) == '1' ? -1 : 1;
-                Integer corr = a * b;
+                for (
+                    Integer p = 0;
+                    p < numPairs &&
+                    (p * 2 + 1) < bs.length();
+                    p++
+                ) {
+                    // Map measurement outcomes to ±1: |0⟩ → +1, |1⟩ → -1
+                    Integer a = bs.substring(p * 2, p * 2 + 1) == '1' ? -1 : 1;
+                    Integer b = bs.substring(p * 2 + 1, p * 2 + 2) == '1'
+                        ? -1
+                        : 1;
 
-                // Pair index determines which basis config was used in the circuit
-                Integer basisConfig = Math.mod(p, 4);
-                if (basisConfig == 0) {
-                    eAB += corr;
-                    nAB++;
-                } else if (basisConfig == 1) {
-                    eABp += corr;
-                    nABp++;
-                } else if (basisConfig == 2) {
-                    eApB += corr;
-                    nApB++;
-                } else {
-                    eApBp += corr;
-                    nApBp++;
+                    // Pair index determines the basis config used in the circuit
+                    Integer basisConfig = Math.mod(p, 4);
+                    eSums[basisConfig] = eSums[basisConfig] + (a * b);
+                    counts[basisConfig] = counts[basisConfig] + 1;
                 }
             }
         }
 
-        // Normalize correlations to [-1, +1]
-        if (nAB > 0) {
-            eAB /= nAB;
-        }
-        if (nABp > 0) {
-            eABp /= nABp;
-        }
-        if (nApB > 0) {
-            eApB /= nApB;
-        }
-        if (nApBp > 0) {
-            eApBp /= nApBp;
+        // Normalize correlations to [-1, +1] and accumulate var(E_i)
+        List<Double> eValues = new List<Double>{ 0.0, 0.0, 0.0, 0.0 };
+        Double sVariance = 0;
+        Boolean hasAllConfigs = true;
+        for (Integer i = 0; i < 4; i++) {
+            if (counts[i] > 0) {
+                eValues[i] = eSums[i] / counts[i];
+                sVariance += (1.0 - eValues[i] * eValues[i]) / counts[i];
+            } else {
+                hasAllConfigs = false;
+            }
         }
 
         // CHSH: S = |E(a,b) + E(a,b') + E(a',b) - E(a',b')|
-        Double sValue = Math.abs(eAB + eABp + eApB - eApBp);
+        Double sValue = Math.abs(
+            eValues[0] + eValues[1] + eValues[2] - eValues[3]
+        );
+        Double sigmaS = hasAllConfigs ? Math.sqrt(sVariance) : null;
+        Double margin = sValue - 2.0;
+        Boolean passed = hasAllConfigs && margin > 2.0 * sigmaS;
 
-        return sValue;
+        Map<String, Object> correlators = new Map<String, Object>{
+            'eAB' => eValues[0],
+            'nAB' => counts[0],
+            'eABp' => eValues[1],
+            'nABp' => counts[1],
+            'eApB' => eValues[2],
+            'nApB' => counts[2],
+            'eApBp' => eValues[3],
+            'nApBp' => counts[3]
+        };
+
+        return new Map<String, Object>{
+            'sValue' => sValue,
+            'chshSValue' => sValue,
+            'sigmaS' => sigmaS,
+            'margin' => margin,
+            'bellTestPassed' => passed,
+            'correlators' => correlators
+        };
     }
 
     /**
@@ -235,11 +339,11 @@ public with sharing class RandomnessValidator {
      */
     @TestVisible
     private static String reverseString(String s) {
-        String result = '';
+        List<String> chars = new List<String>();
         for (Integer i = s.length() - 1; i >= 0; i--) {
-            result += s.substring(i, i + 1);
+            chars.add(s.substring(i, i + 1));
         }
-        return result;
+        return String.join(chars, '');
     }
 
     // ── Extended tests (async — run via ValidationRunner) ──────
@@ -521,9 +625,13 @@ public with sharing class RandomnessValidator {
     /**
      * Most Common Value (MCV) min-entropy estimate (SP 800-90B §6.3.1).
      * The simplest and most conservative entropy estimator.
-     * For binary source: p_max = max(count_0, count_1) / n
-     *                    min_entropy = -log2(p_max)
-     * Ideal random: 1.0 bit per bit. Fails if < 0.9.
+     * For binary source: p_hat = max(count_0, count_1) / n, then apply the
+     * SP 800-90B upper confidence bound at the 99% level:
+     *   p_u = min(1, p_hat + 2.576 * sqrt(p_hat * (1 - p_hat) / n))
+     *   min_entropy = -log2(p_u)
+     * The bound prevents optimistic estimates near the pass threshold on
+     * small samples. Ideal random: approaches 1.0 bit per bit as n grows.
+     * Fails the extended suite if < 0.9.
      */
     public static Double mostCommonValueEntropy(String bits) {
         Integer n = bits.length();
@@ -533,14 +641,24 @@ public with sharing class RandomnessValidator {
 
         Integer ones = countOnes(bits);
         Integer zeros = n - ones;
-        Double pMax = (Double) Math.max(ones, zeros) / n;
+        Double pHat = (Double) Math.max(ones, zeros) / n;
 
-        if (pMax <= 0 || pMax >= 1.0) {
-            return pMax <= 0 ? 1.0 : 0.0;
+        if (pHat >= 1.0) {
+            return 0.0;
         }
 
-        // min_entropy = -log2(p_max) = -ln(p_max) / ln(2)
-        return -(Math.log(pMax) / Math.log(2));
+        // SP 800-90B §6.3.1 upper confidence bound (z = 2.576, alpha = 0.01)
+        Double pUpper = Math.min(
+            1.0,
+            pHat + 2.576 * Math.sqrt(pHat * (1.0 - pHat) / n)
+        );
+
+        if (pUpper >= 1.0) {
+            return 0.0;
+        }
+
+        // min_entropy = -log2(p_u) = -ln(p_u) / ln(2)
+        return -(Math.log(pUpper) / Math.log(2));
     }
 
     /**

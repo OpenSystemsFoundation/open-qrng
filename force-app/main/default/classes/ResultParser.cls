@@ -131,36 +131,138 @@ public with sharing class ResultParser {
 
     /**
      * Concatenate list of bitstrings into a single random bit pool.
+     * The pool layout is shot-major: shot s occupies characters
+     * [s*numQubits, (s+1)*numQubits). Within each shot string IBM's
+     * big-endian convention applies (meas[0] is the RIGHTMOST char),
+     * so a fixed character offset within every shot always maps to the
+     * same physical qubit. vonNeumannDebias(bits, numQubits) relies on
+     * this layout to de-interleave per-qubit streams.
      */
     public static String concatenateBitstrings(List<String> bitstrings) {
-        String result = '';
-        for (String bs : bitstrings) {
-            result += bs;
-        }
-        return result;
+        return String.join(bitstrings, '');
     }
 
     /**
      * Apply von Neumann debiasing to correct for hardware bias.
      * Pairs of bits: 01 -> 0, 10 -> 1, 00/11 -> discard
      * This produces unbiased bits at the cost of ~75% data loss.
+     *
+     * BACKWARD-COMPATIBLE OVERLOAD: treats the whole pool as ONE stream
+     * (safe default only when the pool really is a single i.i.d. stream).
+     * For pools built by concatenateBitstrings from multi-qubit shots,
+     * prefer vonNeumannDebias(rawBits, numQubits): pairing adjacent bits
+     * of an interleaved pool pairs bits from DIFFERENT qubits, whose
+     * biases do not cancel (and which are engineered to be correlated in
+     * Bell-test mode).
      */
     public static String vonNeumannDebias(String rawBits) {
-        String debiased = '';
+        return vonNeumannDebias(rawBits, 1);
+    }
 
-        for (Integer i = 0; i < rawBits.length() - 1; i += 2) {
-            String bit1 = rawBits.substring(i, i + 1);
-            String bit2 = rawBits.substring(i + 1, i + 2);
+    /**
+     * Per-qubit von Neumann debiasing.
+     * De-interleaves the shot-major pool (see concatenateBitstrings) into
+     * numQubits per-qubit streams — the bit at character offset o of shot s
+     * lives at pool index s*numQubits + o, and offset o maps to the same
+     * physical qubit in every shot (IBM big-endian: meas index
+     * numQubits-1-o). Each stream is debiased against itself (adjacent
+     * pairs within the stream, i.e. successive shots of the same qubit),
+     * and the debiased streams are concatenated in offset order.
+     *
+     * Von Neumann's guarantee requires pairs of i.i.d. bits from the same
+     * source; per-qubit pairing satisfies that, cross-qubit pairing does not.
+     *
+     * Trailing bits that do not form a complete shot are discarded.
+     * numQubits == null or <= 1 falls back to single-stream behavior.
+     */
+    public static String vonNeumannDebias(String rawBits, Integer numQubits) {
+        if (rawBits == null) {
+            return '';
+        }
+        if (numQubits == null || numQubits <= 1) {
+            return debiasSingleStream(rawBits);
+        }
 
+        Integer numShots = rawBits.length() / numQubits;
+        List<String> debiasedStreams = new List<String>();
+        for (Integer offset = 0; offset < numQubits; offset++) {
+            List<String> streamChars = new List<String>();
+            for (Integer s = 0; s < numShots; s++) {
+                Integer idx = s * numQubits + offset;
+                streamChars.add(rawBits.substring(idx, idx + 1));
+            }
+            debiasedStreams.add(
+                debiasSingleStream(String.join(streamChars, ''))
+            );
+        }
+        return String.join(debiasedStreams, '');
+    }
+
+    /**
+     * Per-qubit von Neumann debiasing for BELL-TEST jobs.
+     * In Bell mode qubits are measured in entangled pairs
+     * (meas[0]=Alice0, meas[1]=Bob0, meas[2]=Alice1, ...), so the two bits
+     * of a pair are engineered to be correlated: including both sides in
+     * the randomness pool violates the i.i.d. assumption. This helper
+     * keeps only the Alice-side qubits (even meas indices) — one
+     * independent bit per entangled pair — then applies per-qubit
+     * debiasing to those streams.
+     *
+     * Stored shot strings are IBM big-endian (meas[0] rightmost), so the
+     * meas index of character offset o is numQubits-1-o. Streams are
+     * concatenated in ascending character-offset order (deterministic for
+     * audit replay).
+     *
+     * NOT yet wired into JobProcessor — integration point for Bell-test
+     * jobs: replace vonNeumannDebias(rawBits, numQubits) with this method
+     * when job.Use_Bell_Test__c == true.
+     */
+    public static String vonNeumannDebiasBellPairs(
+        String rawBits,
+        Integer numQubits
+    ) {
+        if (rawBits == null || numQubits == null || numQubits <= 1) {
+            // Bell mode needs at least one (Alice, Bob) pair
+            return '';
+        }
+
+        Integer numShots = rawBits.length() / numQubits;
+        List<String> debiasedStreams = new List<String>();
+        for (Integer offset = 0; offset < numQubits; offset++) {
+            Integer measIndex = numQubits - 1 - offset;
+            if (Math.mod(measIndex, 2) != 0) {
+                continue; // Bob-side qubit — correlated with its Alice partner
+            }
+            List<String> streamChars = new List<String>();
+            for (Integer s = 0; s < numShots; s++) {
+                Integer idx = s * numQubits + offset;
+                streamChars.add(rawBits.substring(idx, idx + 1));
+            }
+            debiasedStreams.add(
+                debiasSingleStream(String.join(streamChars, ''))
+            );
+        }
+        return String.join(debiasedStreams, '');
+    }
+
+    /**
+     * Von Neumann debias a single i.i.d. bit stream: adjacent
+     * non-overlapping pairs, 01 -> 0, 10 -> 1, 00/11 discarded.
+     * O(n) via list building (no quadratic string concatenation).
+     */
+    private static String debiasSingleStream(String bits) {
+        List<String> debiased = new List<String>();
+        for (Integer i = 0; i < bits.length() - 1; i += 2) {
+            String bit1 = bits.substring(i, i + 1);
+            String bit2 = bits.substring(i + 1, i + 2);
             if (bit1 == '0' && bit2 == '1') {
-                debiased += '0';
+                debiased.add('0');
             } else if (bit1 == '1' && bit2 == '0') {
-                debiased += '1';
+                debiased.add('1');
             }
             // 00 and 11 are discarded
         }
-
-        return debiased;
+        return String.join(debiased, '');
     }
 
     /**

@@ -370,11 +370,14 @@ private class RandomnessValidatorExtended_Test {
 
     @IsTest
     static void testMostCommonValueEntropyTwoBitsBalanced() {
+        // With the SP 800-90B confidence bound, n=2 gives
+        // p_u = min(1, 0.5 + 2.576*sqrt(0.25/2)) = 1.0 → entropy 0.0:
+        // a two-bit sample supports no confident entropy claim.
         Double entropy = RandomnessValidator.mostCommonValueEntropy('01');
         System.assertEquals(
-            1.0,
+            0.0,
             entropy,
-            'Balanced 2 bits should have entropy 1.0'
+            'Tiny samples should yield 0 bounded entropy'
         );
     }
 

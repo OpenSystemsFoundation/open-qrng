@@ -23,6 +23,11 @@
                 <default>false</default>
                 <label>Failed</label>
             </value>
+            <value>
+                <fullName>Revoked</fullName>
+                <default>false</default>
+                <label>Revoked</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>
