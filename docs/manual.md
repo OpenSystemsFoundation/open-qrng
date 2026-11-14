@@ -33,7 +33,7 @@ Installation, configuration and day-to-day use of QuantumFair for Salesforce adm
 
 ## 2. Installation
 
-### Option A — Unmanaged package (v1.0)
+### Option A — Unlocked package (v1.0)
 
 1. Open the install link while logged in as an admin:
    `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tXXXXXXXXXXXXXXX`
@@ -41,7 +41,7 @@ Installation, configuration and day-to-day use of QuantumFair for Salesforce adm
 2. Choose **Install for Admins Only** (you will grant access with permission sets).
 3. Approve access to the three IBM hosts when prompted (the Remote Site Settings ship with the package).
 
-Unmanaged packages are not upgradeable in place: to move to a newer version, uninstall first or deploy the new source over it.
+QuantumFair is an **unlocked package with no namespace**: all metadata stays editable in your org, and later versions install over this one as upgrades. Released versions install in production and sandboxes.
 
 ### Option B — Source deploy
 

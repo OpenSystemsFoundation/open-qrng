@@ -40,7 +40,7 @@ _Screenshots: a scratch org with demo data from `scripts/seed-demo-data.sh` (moc
 
 ## Install
 
-**Unmanaged package (v1.0)** — install link:
+**Unlocked package (v1.0, no namespace)** — install link:
 `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tXXXXXXXXXXXXXXX`
 (see [Releases](https://github.com/OpenSystemsFoundation/open-qrng/releases) for the current link and notes).
 
@@ -67,7 +67,7 @@ The full walkthrough — Flow templates, certificates, verification, compliance 
 
 ## Security model
 
-- The IBM API key lives in a **Protected custom setting**, is never returned to the browser and never logged; only a short-lived bearer token is cached (Platform Cache). The key is plaintext at rest — add Shield Platform Encryption or your own Named Credential if your policy requires encryption.
+- The IBM API key lives in a hierarchy custom setting that only admins can read (View All Custom Settings / Customize Application), is never returned to the browser and never logged; only a short-lived bearer token is cached (Platform Cache). The key is plaintext at rest — add Shield Platform Encryption or your own Named Credential if your policy requires encryption.
 - Privileged actions require the **`QuantumFair_Administer`** custom permission (in `QuantumFair_Admin` only).
 - All objects are **Private**; CRUD/FLS is enforced server-side; auditors never receive raw bitstrings.
 - No Salesforce data leaves the org — only circuit definitions are sent to IBM.

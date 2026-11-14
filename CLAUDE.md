@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-QuantumFair is an open-source (Apache-2.0) Salesforce app — distributed as an unmanaged package / source deploy — that provides certified quantum random number generation (QRNG) for fair, auditable business process randomization. It uses IBM Quantum hardware to generate true randomness and creates immutable fairness certificates linked to every assignment.
+QuantumFair is an open-source (Apache-2.0) Salesforce app — distributed as an unlocked package (no namespace) / source deploy — that provides certified quantum random number generation (QRNG) for fair, auditable business process randomization. It uses IBM Quantum hardware to generate true randomness and creates immutable fairness certificates linked to every assignment.
 
 **Core principle:** The app that uses quantum mechanics to prove your business decisions are fair.
 
@@ -11,10 +11,10 @@ QuantumFair is an open-source (Apache-2.0) Salesforce app — distributed as an 
 Read [docs/solution-design.md](docs/solution-design.md) for the full system design. Key points:
 
 - **No external servers** — everything runs on Salesforce (Apex, LWC, Platform Events, Custom Objects)
-- **BYOQ** — each org provides their own IBM Quantum API key via the in-app Setup tab (Protected custom setting; callouts authorized via Remote Site Settings)
+- **BYOQ** — each org provides their own IBM Quantum API key via the in-app Setup tab (admin-only hierarchy custom setting; callouts authorized via Remote Site Settings)
 - **No Python/Qiskit** — Apex generates ISA-compliant OpenQASM 3.0 directly (trivial for QRNG circuits)
 - **Async flow** — invocable inserts Pending jobs, `QuantumSubmissionQueueable` submits to IBM, poll via Queueable/Schedulable chain, deliver results via Platform Events
-- **Unmanaged distribution** — the `OpenSF` namespace was **removed** from `sfdx-project.json`; all metadata is un-namespaced. Scratch orgs are created non-namespaced, and the app URL is `/lightning/n/QuantumFair`.
+- **Unlocked, no-namespace distribution** — the `OpenSF` namespace was **removed**; `sfdx-project.json` defines the unlocked package `QuantumFair` (alias in `packageAliases`) and all metadata is un-namespaced. Scratch orgs are created non-namespaced, and the app URL is `/lightning/n/QuantumFair`.
 
 ## Agent Definitions
 
@@ -31,7 +31,7 @@ See [AGENTS.md](AGENTS.md) for detailed agent roles, conventions, and quality ga
 | Testing        | Apex Tests + sfdx-lwc-jest + Playwright          |
 | Linting        | ESLint + Prettier (with Apex plugin)             |
 | CI             | GitHub Actions + Salesforce CLI                  |
-| Distribution   | Unmanaged package / open-source source deploy    |
+| Distribution   | Unlocked package (no namespace) / source deploy  |
 
 ## Project Structure
 
@@ -69,7 +69,7 @@ open-qrng/
 │   └── images/           ← Screenshots used by README and manual
 ├── AGENTS.md             ← AI agent role definitions
 ├── playwright.config.ts  ← Playwright E2E config
-└── sfdx-project.json     ← SFDX project config (no namespace — unmanaged)
+└── sfdx-project.json     ← SFDX project config (unlocked package, no namespace)
 ```
 
 ## Commands
@@ -77,7 +77,7 @@ open-qrng/
 ```bash
 # ── Quick tests (no scratch org needed) ───────────
 npm install                          # Install dependencies
-npm run test:unit                    # Run 445 LWC Jest tests
+npm run test:unit                    # Run 446 LWC Jest tests
 npm run test:unit:coverage           # Jest with coverage report
 npm run lint                         # ESLint
 npm run prettier:verify              # Format check
@@ -92,7 +92,7 @@ npm run test:e2e:report              # View HTML report
 # ── Scratch org (auto-provisioned on web sessions) ─
 sf project deploy start --target-org qrng-dev   # Deploy changes
 sf apex run test --target-org qrng-dev \
-  --code-coverage --result-format human --wait 10  # Apex tests (~480 test methods)
+  --code-coverage --result-format human --wait 10  # Apex tests (~490 test methods)
 
 # ── Manual scratch org setup (if not using session hook) ─
 sf org create scratch -f config/project-scratch-def.json -a qrng-dev
@@ -154,7 +154,7 @@ Each feature branch follows this cycle, entirely from Claude Code on the web:
 │     └─ Deploy changes: sf project deploy start      │
 ├─────────────────────────────────────────────────────┤
 │  3. TEST LOCALLY (in session)                       │
-│     └─ npm run test:unit        (445 Jest tests)    │
+│     └─ npm run test:unit        (446 Jest tests)    │
 │     └─ npm run lint             (ESLint)            │
 │     └─ npm run prettier:verify  (formatting)        │
 │     └─ sf apex run test         (Apex in scratch)   │

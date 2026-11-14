@@ -1,6 +1,6 @@
 # QuantumFair (open-qrng) — Agent Definitions
 
-This file defines AI agent roles for developing QuantumFair, an open-source Salesforce app distributed as an unmanaged package / source deploy. Each agent has a specific responsibility boundary and set of conventions it must follow.
+This file defines AI agent roles for developing QuantumFair, an open-source Salesforce app distributed as an unlocked package (no namespace) / source deploy. Each agent has a specific responsibility boundary and set of conventions it must follow.
 
 ---
 
@@ -11,7 +11,7 @@ This file defines AI agent roles for developing QuantumFair, an open-source Sale
 ### Conventions
 
 - All Apex classes use `with sharing` unless explicitly documented otherwise (async system-maintenance workers like `JobPoller`/`JobPollScheduler` are documented `without sharing`)
-- No namespace: the project distributes as an unmanaged package / source deploy — object/field API names are un-namespaced
+- No namespace: the project distributes as a no-namespace unlocked package / source deploy — object/field API names are un-namespaced
 - Every service class gets a corresponding `_Test` class alongside it in the flat `classes/` directory
 - Test classes must achieve 90%+ code coverage per class, not just org-wide
 - Use `@TestSetup` for shared test data, never insert data in individual test methods without justification
@@ -188,7 +188,7 @@ sf apex run test --code-coverage --result-format human --wait 10
 ### Conventions
 
 - Scratch org definition: `config/project-scratch-def.json` (non-namespaced — the project has no namespace)
-- Distribution: unmanaged package / open-source source deploy (no 2GP packaging, no `packageAliases`)
+- Distribution: unlocked 2GP package `QuantumFair` (no namespace) built from the DevHub, or source deploy. Release a version with `sf package version create --package QuantumFair --code-coverage --installation-key-bypass` then `sf package version promote`
 - Branch strategy: `master` is always deployable, feature branches for development
 - CI pipeline: lint + format check + Jest tests + scratch org creation + Apex deploy + Apex tests (fork-safe; workflows use concurrency groups)
 - Never store secrets in workflow files — use GitHub Secrets for IBM API key, SF auth URL

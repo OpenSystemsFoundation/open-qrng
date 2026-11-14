@@ -3,13 +3,16 @@
         {
             "path": "force-app",
             "default": true,
-            "package": "open-qrng",
-            "versionName": "ver 1.0",
+            "package": "QuantumFair",
+            "versionName": "1.0",
             "versionNumber": "1.0.0.NEXT",
-            "versionDescription": "QuantumFair — Certified quantum random number generation for Salesforce"
+            "versionDescription": "QuantumFair: quantum random numbers from IBM Quantum, called directly from Salesforce Apex. OpenSF Labs tech demo, Apache-2.0."
         }
     ],
     "name": "open-qrng",
     "sfdcLoginUrl": "https://login.salesforce.com",
-    "sourceApiVersion": "66.0"
+    "sourceApiVersion": "66.0",
+    "packageAliases": {
+        "QuantumFair": "0HoTt00000000ODKAY"
+    }
 }

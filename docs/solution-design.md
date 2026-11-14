@@ -16,14 +16,14 @@ QuantumFair is a Labs tech demo with two goals:
 
 ### Design constraints
 
-| Constraint                    | Decision                                                                        |
-| ----------------------------- | ------------------------------------------------------------------------------- |
-| No external servers           | Everything runs on Salesforce — Apex, LWC, Platform Events, custom objects      |
-| No middleware                 | Apex calls the IBM Quantum REST API directly over HTTPS                         |
-| BYOQ (bring your own quantum) | Each org provides its own IBM Quantum API key and instance CRN in the Setup tab |
-| No Python/Qiskit dependency   | Apex generates ISA-compliant OpenQASM 3.0 directly (QRNG circuits are shallow)  |
-| Unmanaged distribution        | No namespace, no InstallHandler — background scheduling is automated in-app     |
-| Open source                   | Apache-2.0, full source on GitHub                                               |
+| Constraint                     | Decision                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------- |
+| No external servers            | Everything runs on Salesforce — Apex, LWC, Platform Events, custom objects      |
+| No middleware                  | Apex calls the IBM Quantum REST API directly over HTTPS                         |
+| BYOQ (bring your own quantum)  | Each org provides its own IBM Quantum API key and instance CRN in the Setup tab |
+| No Python/Qiskit dependency    | Apex generates ISA-compliant OpenQASM 3.0 directly (QRNG circuits are shallow)  |
+| Unlocked package, no namespace | No InstallHandler — background scheduling is automated in-app                   |
+| Open source                    | Apache-2.0, full source on GitHub                                               |
 
 ### What the certificate does and does not claim
 
@@ -442,11 +442,11 @@ Also: `Compliance_Control__mdt` (24 seed records mapping controls to ISO 27001, 
 
 ### API key storage — design and tradeoff
 
-The IBM API key is stored in a **Protected hierarchy custom setting** (`Quantum_Settings__c.IBM_API_Key__c`), entered in the Setup tab. Named/External Credentials cannot be pre-wired with a per-org secret in an unmanaged package without manual setup, so the app uses the custom setting instead.
+The IBM API key is stored in a **hierarchy custom setting** (`Quantum_Settings__c.IBM_API_Key__c`, visibility Protected), entered in the Setup tab. Named/External Credentials cannot be pre-wired with a per-org secret in a package without manual setup, so the app uses the custom setting instead.
 
 The key is plaintext at rest in the org. Mitigations:
 
-- The setting is Protected — hidden from ordinary users
+- Only users with **View All Custom Settings** or **Customize Application** (admins) can read custom-setting data. The Protected visibility flag itself is only enforced for namespaced managed packages; in this no-namespace unlocked package and in source deploys it behaves like a public setting
 - The key is never returned to the client (`SetupController.getSettings` exposes only `hasApiKey`)
 - The key is never logged (settings-change events record field names, never values)
 - The key is only sent to IBM IAM over TLS
@@ -579,8 +579,8 @@ LWC ──DTOs── SetupController
 
 ## 13. Distribution
 
-- **Unmanaged package / source deploy**, no namespace; the app page is `/lightning/n/QuantumFair`.
-- No InstallHandler (unsupported for unmanaged packages). Instead, saving a working API key schedules `JobSweeper` and `IntegrityVerificationJob`; saving a compliance email schedules `ComplianceDigestJob` (daily 06:00), and clearing it unschedules it.
+- **Unlocked package** (no namespace, built from the DevHub) **or source deploy**; the app page is `/lightning/n/QuantumFair`.
+- No install handler. Instead, saving a working API key schedules `JobSweeper` and `IntegrityVerificationJob`; saving a compliance email schedules `ComplianceDigestJob` (daily 06:00), and clearing it unschedules it.
 - **Editions:** Enterprise, Unlimited, Developer. **Requires:** an IBM Quantum account (Open Plan works for evaluation).
 
 ---

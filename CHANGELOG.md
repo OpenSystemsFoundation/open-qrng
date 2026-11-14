@@ -11,12 +11,12 @@ and this project adheres to
 ## [1.0.0] - 2026-11-14
 
 First public release, published as an Open Systems Foundation Labs tech demo
-and distributed as an unmanaged package (install link on the GitHub release)
+and distributed as an unlocked package with no namespace (install link on the GitHub release)
 and as source.
 
 ### Added
 
-- Unmanaged package v1.0 and GitHub release
+- Unlocked package `QuantumFair` (no namespace) v1.0 and GitHub release
 - `scripts/seed-demo-data.sh`: seeds a scratch org with demo jobs,
   certificates and assignments by feeding mocked IBM Sampler results through
   the real processing pipeline — explore the app without an IBM account
@@ -37,7 +37,7 @@ and as source.
 - README rewritten for the public release; documentation corrected to
   match the code (Heron native two-qubit gate is `cz`; no AppExchange
   listing)
-- Distribution model set to unmanaged package / source deploy: removed the
+- Distribution model set to a no-namespace package / source deploy: removed the
   `OpenSF` namespace from `sfdx-project.json`, the scratch org definition, and
   the sample flows' invocable action names
 - Sample flows now document that the invocable action enqueues work
@@ -67,6 +67,9 @@ and as source.
   pools. Both now use exact alpha = 0.01 critical values
 - `QuantumSubmissionQueueable_Test` was missing its `-meta.xml`, so a clean
   source deploy failed
+- Docs no longer claim the Protected custom-setting flag hides the API key
+  (it is only enforced in namespaced managed packages); access is limited by
+  the View All Custom Settings / Customize Application permissions
 - Fairness certificate details overlapped in narrow containers (record-page
   sidebar); they now use stacked SLDS description lists
 - CHSH S-values are shown rounded to three decimals in the certificate and

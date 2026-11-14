@@ -32,7 +32,7 @@ Include, where possible:
 | Older releases                   | No        |
 
 QuantumFair is distributed as open source (deploy from source or install as
-an unmanaged package), so upgrading to the latest release is the supported
+an unlocked package), so upgrading to the latest release is the supported
 remediation path.
 
 ## Scope Notes
