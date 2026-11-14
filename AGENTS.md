@@ -25,7 +25,7 @@ This file defines AI agent roles for developing QuantumFair, an open-source Sale
 - Use `System.assert` with descriptive messages, never bare `System.assert(true)`
 - **DTO pattern:** Use dedicated DTO inner classes or wrapper classes for all data passed between Apex controllers and LWC components. Never return raw SObject records or untyped Maps to the front end.
 - **Provider pattern:** All quantum backend integrations implement the `QuantumProvider` interface. Use `QuantumProviderFactory` to obtain provider instances — never instantiate providers directly.
-- **Native Heron r2 gates:** Circuit generation must use the native ISA gate set (`rz`, `sx`, `x`, `ecr`). No abstract/logical gates — all circuits are pre-transpiled in Apex.
+- **Native Heron r2 gates:** Circuit generation must use the native ISA gate set (`rz`, `sx`, `x`, `cz`). No abstract/logical gates — all circuits are pre-transpiled in Apex.
 - **Coupling map awareness:** Qubit selection must respect the backend coupling map. Validate qubit connectivity before circuit submission.
 
 ### Apex Class Organization
@@ -246,7 +246,7 @@ gh pr create --title "feat: my feature" --body "..."
 ### Conventions
 
 - All circuits must be ISA-compliant for IBM Heron r2 backends
-- Native gate set: `rz(θ)`, `sx`, `x`, `ecr`
+- Native gate set: `rz(θ)`, `sx`, `x`, `cz`
 - Hadamard decomposition: `rz(π/2) → sx → rz(π/2)`
 - Standard QRNG: H + measure on N qubits (1024-8192 shots)
 - Bell-test QRNG: Bell pairs (H + ECR) with random basis rotation + measure
@@ -363,7 +363,7 @@ Playwright enables UI debugging without a visible browser:
 
 ## Cross-Cutting Rules (All Agents)
 
-1. **Read ARCHITECTURE.md** before making structural decisions — it is the source of truth for system design
+1. **Read docs/solution-design.md** before making structural decisions — it is the source of truth for system design
 2. **Apache-2.0 license** — all source files must be compatible
 3. **No external servers** — everything runs on Salesforce except IBM Quantum API callouts
 4. **BYOQ model** — never assume a specific IBM API key; each org enters its own key via the Setup tab (Protected custom setting)

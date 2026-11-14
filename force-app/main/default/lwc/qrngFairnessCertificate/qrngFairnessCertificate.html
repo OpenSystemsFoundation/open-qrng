@@ -61,44 +61,44 @@
                     <div
                         class="slds-col slds-size_1-of-2 slds-m-bottom_small"
                     >
-                        <dl class="slds-dl_horizontal">
+                        <dl class="slds-dl_stacked">
                             <dt
-                                class="slds-dl_horizontal__label cert-label"
+                                class="slds-item_label cert-label"
                             >
                                 External Job ID:
                             </dt>
                             <dd
-                                class="slds-dl_horizontal__detail"
+                                class="slds-item_detail cert-detail"
                             >
                                 {certificate.externalJobId}
                             </dd>
                             <dt
-                                class="slds-dl_horizontal__label cert-label"
+                                class="slds-item_label cert-label"
                             >
                                 Backend:
                             </dt>
                             <dd
-                                class="slds-dl_horizontal__detail"
+                                class="slds-item_detail cert-detail"
                             >
                                 {certificate.backend}
                             </dd>
                             <dt
-                                class="slds-dl_horizontal__label cert-label"
+                                class="slds-item_label cert-label"
                             >
                                 Purpose:
                             </dt>
                             <dd
-                                class="slds-dl_horizontal__detail"
+                                class="slds-item_detail cert-detail"
                             >
                                 {certificate.purpose}
                             </dd>
                             <dt
-                                class="slds-dl_horizontal__label cert-label"
+                                class="slds-item_label cert-label"
                             >
                                 Created:
                             </dt>
                             <dd
-                                class="slds-dl_horizontal__detail"
+                                class="slds-item_detail cert-detail"
                             >
                                 <lightning-formatted-date-time
                                     value={certificate.createdDate}
@@ -119,14 +119,14 @@
                         >
                             Backend Quantum Verification
                         </h3>
-                        <dl class="slds-dl_horizontal">
+                        <dl class="slds-dl_stacked">
                             <dt
-                                class="slds-dl_horizontal__label cert-label"
+                                class="slds-item_label cert-label"
                             >
                                 Status:
                             </dt>
                             <dd
-                                class="slds-dl_horizontal__detail"
+                                class="slds-item_detail cert-detail"
                             >
                                 <lightning-badge
                                     label={backendVerifiedLabel}
@@ -135,26 +135,26 @@
                             </dd>
                             <template if:true={hasCHSH}>
                                 <dt
-                                    class="slds-dl_horizontal__label cert-label"
+                                    class="slds-item_label cert-label"
                                 >
                                     CHSH S-Value:
                                 </dt>
                                 <dd
-                                    class="slds-dl_horizontal__detail"
+                                    class="slds-item_detail cert-detail"
                                 >
-                                    {certificate.chshSValue}
+                                    {chshSValueLabel}
                                 </dd>
                             </template>
                             <template
                                 if:true={certificate.backendVerifiedAt}
                             >
                                 <dt
-                                    class="slds-dl_horizontal__label cert-label"
+                                    class="slds-item_label cert-label"
                                 >
                                     Verified At:
                                 </dt>
                                 <dd
-                                    class="slds-dl_horizontal__detail"
+                                    class="slds-item_detail cert-detail"
                                 >
                                     <lightning-formatted-date-time
                                         value={certificate.backendVerifiedAt}

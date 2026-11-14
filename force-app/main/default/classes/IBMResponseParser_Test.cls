@@ -75,6 +75,14 @@ private class IBMResponseParser_Test {
     }
 
     // ── normalizeStatus ─────────────────────────────────────────────
+    @IsTest
+    static void normalizeStatus_cancelledRanTooLong_isTerminalFailure() {
+        String normalized = IBMResponseParser.normalizeStatus(
+            'Cancelled - Ran too long'
+        );
+        Assert.areEqual('Failed', normalized);
+        Assert.isTrue(IBMResponseParser.isTerminal(normalized));
+    }
 
     @IsTest
     static void testNormalizeStatusCompleted() {

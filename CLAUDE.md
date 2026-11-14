@@ -8,7 +8,7 @@ QuantumFair is an open-source (Apache-2.0) Salesforce app — distributed as an 
 
 ## Architecture
 
-Read [ARCHITECTURE.md](ARCHITECTURE.md) for the full system design. Key points:
+Read [docs/solution-design.md](docs/solution-design.md) for the full system design. Key points:
 
 - **No external servers** — everything runs on Salesforce (Apex, LWC, Platform Events, Custom Objects)
 - **BYOQ** — each org provides their own IBM Quantum API key via the in-app Setup tab (Protected custom setting; callouts authorized via Remote Site Settings)
@@ -22,16 +22,16 @@ See [AGENTS.md](AGENTS.md) for detailed agent roles, conventions, and quality ga
 
 ## Tech Stack
 
-| Layer          | Technology                                    |
-| -------------- | --------------------------------------------- |
-| Backend        | Apex (API v66.0, Spring '26)                  |
-| Frontend       | Lightning Web Components (LWS)                |
-| Visualizations | Canvas 2D (hand-rolled, no libs)              |
-| Quantum        | IBM Quantum REST API (Heron r2)               |
-| Testing        | Apex Tests + sfdx-lwc-jest + Playwright       |
-| Linting        | ESLint + Prettier (with Apex plugin)          |
-| CI             | GitHub Actions + Salesforce CLI               |
-| Distribution   | Unmanaged package / open-source source deploy |
+| Layer          | Technology                                       |
+| -------------- | ------------------------------------------------ |
+| Backend        | Apex (API v66.0, Spring '26)                     |
+| Frontend       | Lightning Web Components (LWS)                   |
+| Visualizations | Canvas 2D (hand-rolled, no libs)                 |
+| Quantum        | IBM Quantum REST API (Heron; `rz`/`sx`/`x`/`cz`) |
+| Testing        | Apex Tests + sfdx-lwc-jest + Playwright          |
+| Linting        | ESLint + Prettier (with Apex plugin)             |
+| CI             | GitHub Actions + Salesforce CLI                  |
+| Distribution   | Unmanaged package / open-source source deploy    |
 
 ## Project Structure
 
@@ -63,8 +63,10 @@ open-qrng/
 ├── manifest/             ← package.xml (regenerated from source)
 ├── scripts/
 │   └── session-setup.sh  ← Auto scratch org setup (SessionStart hook)
-├── docs/                 ← Production readiness review, tutorials, internal docs
-├── ARCHITECTURE.md       ← System design (source of truth)
+├── docs/
+│   ├── solution-design.md ← System design (source of truth)
+│   ├── manual.md         ← Admin & user manual
+│   └── images/           ← Screenshots used by README and manual
 ├── AGENTS.md             ← AI agent role definitions
 ├── playwright.config.ts  ← Playwright E2E config
 └── sfdx-project.json     ← SFDX project config (no namespace — unmanaged)
@@ -209,7 +211,7 @@ gh api repos/OWNER/REPO/issues/PR_NUMBER/comments
 
 ## Development Rules
 
-1. **Always read ARCHITECTURE.md** before making structural changes
+1. **Always read docs/solution-design.md** before making structural changes
 2. **Apex:** `with sharing` on all classes (documented `without sharing` only for system-maintenance async workers), 90%+ test coverage per class
 3. **LWC:** No third-party JS libs, Canvas 2D for visuals, empApi for real-time events, Jest tests for every component
 4. **Security:** No raw API keys in code, key never returned to the client or logged, no customer data in circuits, no PII in logs, OWD = Private, privileged methods gated by the `QuantumFair_Administer` custom permission

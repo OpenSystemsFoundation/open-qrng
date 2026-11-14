@@ -8,7 +8,22 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-14
+
+First public release, published as an Open Systems Foundation Labs tech demo
+and distributed as an unmanaged package (install link on the GitHub release)
+and as source.
+
 ### Added
+
+- Unmanaged package v1.0 and GitHub release
+- `scripts/seed-demo-data.sh`: seeds a scratch org with demo jobs,
+  certificates and assignments by feeding mocked IBM Sampler results through
+  the real processing pipeline — explore the app without an IBM account
+- Screenshots in `docs/images/`
+- `docs/solution-design.md` (technical design, consolidated from the former
+  `ARCHITECTURE.md` and `PROVIDERS.md`) and `docs/manual.md` (installation,
+  configuration, usage, Flow integration, verification, troubleshooting)
 
 - Apache-2.0 `LICENSE` and `NOTICE` files; `license` and `engines` fields in
   `package.json`
@@ -19,6 +34,9 @@ and this project adheres to
 
 ### Changed
 
+- README rewritten for the public release; documentation corrected to
+  match the code (Heron native two-qubit gate is `cz`; no AppExchange
+  listing)
 - Distribution model set to unmanaged package / source deploy: removed the
   `OpenSF` namespace from `sfdx-project.json`, the scratch org definition, and
   the sample flows' invocable action names
@@ -34,10 +52,34 @@ and this project adheres to
   CustomApplication, Layout, RemoteSiteSetting; drops fossil entries)
 - Bumped 5 straggler components from API v62.0 to v66.0
 
+### Fixed
+
+- IBM API: pin `IBM-API-Version` to `2026-04-15`. The former `2025-11-01` is not
+  a published version; IBM silently served 2025-05-01, which is deprecated and
+  sunsets on 2027-01-01
+- IBM job status `Cancelled - Ran too long` is now terminal (`Failed`) instead
+  of `Unknown`, which retried the job until the 6-hour budget ran out
+- The IBM provider record stored the retired `api.quantum-computing.ibm.com`
+  base URL; it now stores `https://quantum.cloud.ibm.com/api`
+- Serial and approximate-entropy tests used a `3 × df` shortcut for the
+  chi-squared critical value, which is too strict for small df and revoked
+  about 6.6% (serial) and 1.7% (approximate entropy) of genuinely random
+  pools. Both now use exact alpha = 0.01 critical values
+- `QuantumSubmissionQueueable_Test` was missing its `-meta.xml`, so a clean
+  source deploy failed
+- Fairness certificate details overlapped in narrow containers (record-page
+  sidebar); they now use stacked SLDS description lists
+- CHSH S-values are shown rounded to three decimals in the certificate and
+  audit trail
+
 ### Removed
 
 - Dead `Quantum_Backend_Config__mdt` custom metadata type
 - Dead `lint-staged`/`precommit` tooling (CI-only enforcement) and the
   duplicate standalone `playwright` dependency
-- Stale `.forceignore` rules and internal working docs from the repo root
-  (moved to `docs/internal/`)
+- Stale `.forceignore` rules
+- Internal working docs, the production readiness review, and the per-domain
+  tutorials (folded into the manual)
+
+[Unreleased]: https://github.com/OpenSystemsFoundation/open-qrng/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/OpenSystemsFoundation/open-qrng/releases/tag/v1.0.0

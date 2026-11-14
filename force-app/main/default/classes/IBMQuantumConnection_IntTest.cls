@@ -4,8 +4,8 @@
  * Since Apex test methods cannot make real HTTP callouts,
  * this class always uses mocks to validate the connection code path.
  *
- * The REAL integration test (with live IBM API) runs as anonymous Apex
- * via scripts/apex/integration-test-connection.apex in CI only.
+ * A live check against the real IBM API is done from the app itself:
+ * Setup tab → Test Connection (requires a configured API key).
  *
  * This test class ensures the connection logic works correctly
  * regardless of whether an API key is configured.

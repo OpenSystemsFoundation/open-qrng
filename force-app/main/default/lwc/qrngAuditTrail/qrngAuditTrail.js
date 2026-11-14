@@ -56,6 +56,10 @@ export default class QrngAuditTrail extends LightningElement {
                       ? 'slds-badge slds-theme_success'
                       : 'slds-badge slds-theme_error',
                 badgeLabel: cert.tampered ? 'Tampered' : cert.status,
+                chshSValueLabel:
+                    cert.chshSValue != null
+                        ? Number(cert.chshSValue).toFixed(3)
+                        : null,
                 isQuantumCertified: cert.chshSValue && cert.chshSValue > 2.0
             }));
         } else if (error) {

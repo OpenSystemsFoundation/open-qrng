@@ -1,200 +1,117 @@
 # QuantumFair (open-qrng)
 
-**Certified quantum random number generation for Salesforce.**
-Apache-2.0 | Open Source | Zero Infrastructure Cost
+**Quantum circuits from Salesforce to IBM Quantum hardware — with no middleware.**
+
+An [Open Systems Foundation Labs](https://opensf.foundation/products/quantumfair/) tech demo · Apache-2.0
+
+![The QuantumFair Jobs tab in Salesforce](docs/images/jobs.png)
 
 ---
 
-QuantumFair uses real IBM Quantum hardware to generate true randomness and creates immutable fairness certificates linked to every assignment. No external servers, no middleware. Everything runs on Salesforce.
+QuantumFair shows that a Salesforce org can build quantum circuits in Apex and submit them straight to the IBM Quantum REST API. There is no Python service, no Qiskit and no Heroku or AWS layer in between: Apex builds the circuit, sends it, polls for the result and processes the measurements, all on the platform.
 
-## How It Works
+The use case it demonstrates is **certified fair randomness**: random assignment and selection (lead routing, audit sampling, panel selection, trial randomization) driven by bits measured on a quantum processor, with a tamper-evident certificate behind every decision.
 
-1. **Request** — A Flow, Apex trigger, or LWC requests random values for a purpose (e.g., "assign 50 leads across 5 reps fairly"). The invocable action is bulk-safe: it inserts pending job records and submits them asynchronously, so it works from record-triggered Flows with up to 200 interviews per invocation.
-2. **Generate** — Apex builds an ISA-compliant OpenQASM 3.0 circuit using native Heron r2 gates (`rz`, `sx`, `x`, `ecr`) and submits it to the IBM Quantum REST API (callouts authorized via Remote Site Settings).
-3. **Execute** — IBM Quantum hardware runs the circuit. A Queueable/Schedulable chain polls for results with a stretching backoff and a 6-hour wall-clock budget; transient IBM errors are retried, never fatal.
-4. **Certify** — Per-qubit von Neumann debiasing, then statistical validation (monobit, runs test, chi-squared) at alpha = 0.01. Certificates are chain-linked via SHA-256 hashes for tamper-evident ordering. SP 800-90B extended health tests run asynchronously and **revoke** the certificate if the pool fails them.
-5. **Verify** — A separate CHSH Bell test provides evidence consistent with quantum origin: certification requires the S-value to exceed the classical bound of 2.0 by at least two standard errors ((S − 2.0) > 2σ_S), not just S > 2.0.
-6. **Assign** — Quantum random bits drive the assignment via rejection sampling (no modulo bias). Assignments are deterministic given the certified bit pool, and the canonical assignment hash is stamped on the certificate so auditors can replay every draw.
-7. **Audit** — Framework-agnostic compliance: evidence maps to ISO 27001, SOC 2, NIST 800-90B, GDPR, and eIDAS. Daily hash digests sent to an external compliance mailbox. Read-only `QuantumFair_Auditor` permission set for external auditors.
+## What this is — and is not
 
-## Use Cases
+- **A concept and reference implementation.** It runs on real IBM Quantum hardware with your own IBM account (BYOQ). It is not a supported commercial product.
+- **Not cost-competitive today.** IBM's free Open Plan includes 10 minutes of QPU time per rolling window — enough for many evaluation jobs, since a standard job uses a few seconds. Pay-as-you-go is billed per second (USD 96/minute at the time of writing). A classical CSPRNG is effectively free.
+- **Honest about its claims.** Assignments are replayable and certificates are tamper-evident. The optional Bell test gives evidence _consistent with quantum origin_ (CHSH violated by at least 2σ). It is not device-independent certified randomness: you still trust IBM to run the circuit on the hardware it reports.
 
-| Process                   | Why Fairness Matters                          |
-| ------------------------- | --------------------------------------------- |
-| Lead distribution         | Reps contest "unfair" lead quality            |
-| A/B test assignment       | Statistical validity requires true randomness |
-| Audit sample selection    | Regulators require unbiased sampling          |
-| Incentive lotteries       | Employee trust, legal requirements            |
-| Case assignment           | Whistleblower protection, bias avoidance      |
-| Interview panel selection | Demonstrable non-bias (EU AI Act)             |
+## How it works
 
-## Tech Stack
+1. **Request** — a Flow, Apex or the app asks for a random assignment ("assign these 50 leads across 5 reps"). The Flow action is bulk-safe: it only queues `Pending` jobs.
+2. **Build** — Apex generates ISA-compliant OpenQASM 3.0 in IBM Heron native gates (`rz`, `sx`, `x`, `cz`).
+3. **Submit** — a Queueable authenticates with IBM IAM and posts a Sampler job to `quantum.cloud.ibm.com`.
+4. **Poll** — a Queueable/Schedulable chain polls with backoff (6-hour budget); transient IBM errors are retried.
+5. **Certify** — per-qubit von Neumann debiasing, then frequency, runs and chi-squared tests at alpha = 0.01. Certificates are SHA-256 hash-chained; NIST SP 800-90B health tests run afterwards and can revoke a certificate.
+6. **Assign** — rejection sampling turns bits into assignments (never modulo, never a pseudo-random fallback). The same bits always produce the same result, and the assignment hash is stamped on the certificate.
+7. **Notify** — Platform Events update the UI in real time and let Flows apply the results.
 
-| Layer          | Technology                                    |
-| -------------- | --------------------------------------------- |
-| Backend        | Apex (API v66.0, Spring '26)                  |
-| Frontend       | Lightning Web Components (LWS)                |
-| Visualizations | Canvas 2D (hand-rolled, no libs)              |
-| Quantum        | IBM Quantum REST API (Heron r2)               |
-| Architecture   | Multi-backend provider pattern, DTO layer     |
-| Testing        | Apex Tests + sfdx-lwc-jest + Playwright       |
-| Linting        | ESLint + Prettier (with Apex plugin)          |
-| CI             | GitHub Actions + Salesforce CLI               |
-| Distribution   | Unmanaged package / open-source source deploy |
+## Screenshots
 
-## Distribution Model
+| Request                                     | Job detail                                |
+| ------------------------------------------- | ----------------------------------------- |
+| ![Request form](docs/images/request.png)    | ![Job detail](docs/images/job-detail.png) |
+| **Fairness certificate**                    | **Compliance**                            |
+| ![Certificate](docs/images/certificate.png) | ![Compliance](docs/images/compliance.png) |
 
-QuantumFair is distributed as an **unmanaged package / open-source source deploy** — not a managed package. The namespace was removed; all metadata is un-namespaced and the app lives at `/lightning/n/QuantumFair`. An AppExchange listing is planned. Because unmanaged packages do not support install handlers, there is no InstallHandler — instead, background jobs are scheduled automatically from within the app (the sweeper and integrity-verification jobs start on the first successful settings save; the compliance digest starts when a compliance email is saved).
+_Screenshots: a scratch org with demo data from `scripts/seed-demo-data.sh` (mocked IBM responses)._
 
-## Requirements
+## Install
 
-- Salesforce org: Enterprise, Unlimited, or Developer Edition
-- IBM Quantum account (free Open Plan is sufficient)
-- Salesforce CLI (`sf`) for development or source deploys
+**Unmanaged package (v1.0)** — install link:
+`https://login.salesforce.com/packaging/installPackage.apexp?p0=04tXXXXXXXXXXXXXXX`
+(see [Releases](https://github.com/OpenSystemsFoundation/open-qrng/releases) for the current link and notes).
 
-## Quick Start
+**From source:**
 
 ```bash
 git clone https://github.com/OpenSystemsFoundation/open-qrng.git
 cd open-qrng
-npm install
-
-# Create scratch org
-sf org create scratch -f config/project-scratch-def.json -a qrng-dev
-
-# Deploy
-sf project deploy start
-
-# Assign admin permission set
-sf org assign permset -n QuantumFair_Admin
-
-# Open the org
-sf org open
+sf project deploy start --target-org <your-org>
+sf org assign permset --name QuantumFair_Admin --target-org <your-org>
 ```
 
-## Post-Install Setup (Admin)
+Requires Salesforce Enterprise, Unlimited or Developer Edition and an [IBM Quantum Platform](https://quantum.cloud.ibm.com) account.
 
-1. **Deploy the source** (`sf project deploy start`) or install the unmanaged package into your org.
-2. **Assign the `QuantumFair_Admin` permission set to your admin user.** This is required: privileged actions are gated by the `QuantumFair_Administer` custom permission, which is granted only by this permission set — the System Administrator profile alone is denied.
-3. Open the **QuantumFair** app from the App Launcher (`/lightning/n/QuantumFair`) and go to the **Setup** tab.
-4. **Enter your IBM Quantum API key** and save. Saving a working key automatically schedules the job sweeper and the nightly certificate integrity-verification job.
-5. Optionally set a **Compliance Email** address — saving it automatically schedules the daily hash digest (06:00 org time); clearing it unschedules the digest.
-6. **Test the connection** from the Setup tab (the key is verified against IBM IAM).
-7. Assign `QuantumFair_User` to users who need random assignments, and `QuantumFair_Auditor` to external auditors (read-only).
+## Quick setup
 
-## Personas & Security Model
+1. Assign **QuantumFair_Admin** to yourself (the System Administrator profile alone cannot change settings).
+2. Open the **QuantumFair** app (`/lightning/n/QuantumFair`) → **Setup** tab.
+3. Paste your IBM Quantum API key, enter or auto-detect your instance CRN, and click **Test Connection**.
+4. Go to **Dashboard**, enter a purpose and click **Generate Quantum Random Numbers**.
+5. Give `QuantumFair_User` to people who request assignments and `QuantumFair_Auditor` to auditors.
 
-Three permission sets define the app's personas. All three grant access to the `SetupController` Apex class and read access to the `Quantum_Job_Complete__e` / `Quantum_Job_Failed__e` Platform Events (required for the real-time UI):
+The full walkthrough — Flow templates, certificates, verification, compliance export and troubleshooting — is in the [Manual](docs/manual.md).
 
-| Permission set        | Persona          | Access                                                                                                                                                     |
-| --------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `QuantumFair_Admin`   | Administrator    | Everything, including the `QuantumFair_Administer` custom permission that gates settings, scheduled-job control, backend verification, and evidence export |
-| `QuantumFair_User`    | Business user    | Request assignments, view jobs/certificates/results                                                                                                        |
-| `QuantumFair_Auditor` | External auditor | Read-only; raw and debiased bitstrings are withheld (field-level security enforced server-side via `Security.stripInaccessible` / `WITH USER_MODE`)        |
+## Security model
 
-Key security properties (see [SECURITY.md](SECURITY.md) for the disclosure policy and full details):
+- The IBM API key lives in a **Protected custom setting**, is never returned to the browser and never logged; only a short-lived bearer token is cached (Platform Cache). The key is plaintext at rest — add Shield Platform Encryption or your own Named Credential if your policy requires encryption.
+- Privileged actions require the **`QuantumFair_Administer`** custom permission (in `QuantumFair_Admin` only).
+- All objects are **Private**; CRUD/FLS is enforced server-side; auditors never receive raw bitstrings.
+- No Salesforce data leaves the org — only circuit definitions are sent to IBM.
 
-- The IBM API key is stored in a **Protected hierarchy custom setting** (`Quantum_Settings__c.IBM_API_Key__c`), entered via the Setup tab. It is plaintext at rest — the tradeoff of an unmanaged, zero-infrastructure design — mitigated by: the Protected setting is hidden from ordinary users, the key is never returned to the client (`getSettings` exposes only a `hasApiKey` flag), never logged, and only ever sent to IBM IAM over TLS.
-- All privileged `@AuraEnabled` methods check the `QuantumFair_Administer` custom permission.
-- OWD is **Private** on all custom objects (detail objects inherit via Controlled by Parent).
-- Settings changes are logged to `Compliance_Event__c` as `SETTINGS_CHANGED` events (the key value is never logged).
-- Callouts are authorized by three Remote Site Settings: `IBM_IAM`, `IBM_Quantum_API`, `IBM_Resource_Controller`.
+See [SECURITY.md](SECURITY.md) to report a vulnerability.
+
+## Documentation
+
+- [Solution Design](docs/solution-design.md) — architecture, IBM integration, randomness math, data model, security, limits, extensibility
+- [Manual](docs/manual.md) — installation, configuration, usage, Flow integration, verification, troubleshooting
 
 ## Development
 
 ```bash
-npm run test:unit           # 445 LWC Jest tests
-npm run test:unit:coverage  # Tests with coverage
-npm run test:e2e            # 147 Playwright E2E tests (mock fixture)
-npm run lint                # ESLint
-npm run prettier:verify     # Format check
-npm run prettier            # Format fix
+npm install
+npm run test:unit         # 446 LWC Jest tests
+npm run test:e2e          # 147 Playwright tests (mock fixture, no org needed)
+npm run lint              # ESLint
+npm run prettier:verify   # Formatting check
+
+# Apex (~490 test methods in 30 test classes) against a scratch org
+sf org create scratch -f config/project-scratch-def.json -a qrng-dev
+sf project deploy start --target-org qrng-dev
+sf apex run test --target-org qrng-dev --code-coverage --result-format human --wait 10
 ```
 
-Apex: ~480 test methods across 30 test classes (`sf apex run test --code-coverage` against a scratch org).
+### Explore without an IBM account
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for system design, [AGENTS.md](AGENTS.md) for AI-assisted development conventions, and [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute.
+`scripts/seed-demo-data.sh` fills a scratch org with demo jobs, certificates and assignments. It mocks the IBM API by feeding locally generated Sampler results through the real processing pipeline (debiasing, validation, certificate chain, assignment engine), so every screen has data. The bits are not quantum and every record is labelled `[DEMO]` — use it for demos and UI work only.
 
-## Project Structure
-
-```
-open-qrng/
-├── force-app/main/default/
-│   ├── classes/              ← All Apex classes + tests (flat directory)
-│   ├── lwc/
-│   │   ├── quantumFairApp/           ← Main app shell (5-tab layout)
-│   │   ├── qrngSetup/               ← Admin setup orchestrator
-│   │   ├── qrngConnectionSetup/     ← API key + connection test
-│   │   ├── qrngSettingsPanel/       ← Backend, shots, compliance email config
-│   │   ├── qrngHealthMonitor/       ← Backend health with fidelity scoring
-│   │   ├── qrngBackgroundJobs/      ← Scheduler management
-│   │   ├── qrngJobDashboard/        ← Filterable job table with real-time updates
-│   │   ├── qrngJobMonitor/          ← Real-time job status via empApi
-│   │   ├── qrngJobStatusPanel/      ← Job type + status display
-│   │   ├── qrngQasmViewer/          ← Canvas 2D OpenQASM circuit renderer
-│   │   ├── qrngCircuitVisualizer/   ← Legacy circuit diagram
-│   │   ├── qrngResultsVisualizer/   ← Canvas 2D measurement charts
-│   │   ├── qrngValidationResults/   ← Statistical + CHSH results (job-type aware)
-│   │   ├── qrngRequestForm/         ← Assignment request form
-│   │   ├── qrngFairnessCertificate/ ← Certificate document view (works on record pages)
-│   │   ├── qrngAssignmentTable/     ← Results table (DTO-based)
-│   │   ├── qrngAuditTrail/          ← Historical timeline (real-time updates)
-│   │   ├── qrngBellTestIndicator/   ← CSS gauge for CHSH S-value
-│   │   ├── qrngChshVisualizer/      ← CHSH correlator breakdown chart
-│   │   ├── qrngComplianceExport/    ← Framework evidence JSON download
-│   │   ├── qrngEventSubscription/   ← Shared Platform Event subscription utility
-│   │   └── qrngUtils/               ← Shared utilities (reduceErrors)
-│   ├── objects/
-│   │   ├── Quantum_Job__c/          ← Job records (assignment request JSON, poll tracking)
-│   │   ├── Fairness_Certificate__c/ ← Chain-linked certificates with verification fields
-│   │   ├── Quantum_Assignment__c/   ← Individual assignment records
-│   │   ├── Quantum_Provider__c/     ← Quantum provider registry (IBM, future providers)
-│   │   ├── Quantum_Backend__c/      ← Backend records + NIST 800-90B entropy fields
-│   │   ├── Compliance_Event__c/     ← Compliance audit log
-│   │   ├── Compliance_Control__mdt/ ← Control-to-framework mapping (24 seed records)
-│   │   ├── Quantum_Settings__c/     ← Protected hierarchy custom settings
-│   │   └── Quantum_Job_Complete__e / Quantum_Job_Failed__e  ← Platform Events
-│   ├── customMetadata/       ← Compliance control seed records (ISO/SOC/NIST/GDPR/eIDAS)
-│   ├── customPermissions/    ← QuantumFair_Administer
-│   ├── remoteSiteSettings/   ← IBM_IAM, IBM_Quantum_API, IBM_Resource_Controller
-│   ├── cachePartitions/      ← QuantumFair Platform Cache partition (IAM token cache)
-│   ├── permissionsets/       ← QuantumFair_Admin, QuantumFair_User, QuantumFair_Auditor
-│   ├── applications/, tabs/, layouts/, flexipages/, notificationtypes/
-│   └── flows/                ← Sample flows (lead round robin, case routing, ...)
-├── e2e/                      ← Playwright E2E tests (mock fixture)
-├── config/                   ← Scratch org definition
-├── docs/                     ← Production readiness review, tutorials, internal docs
-├── ARCHITECTURE.md           ← Full system design (source of truth)
-├── CLAUDE.md                 ← AI-assisted development config
-├── AGENTS.md                 ← AI agent role definitions
-├── SECURITY.md               ← Vulnerability disclosure policy
-└── CONTRIBUTING.md           ← Contribution guide
+```bash
+scripts/seed-demo-data.sh qrng-dev
 ```
 
-## Roadmap
+| Layer    | Technology                            |
+| -------- | ------------------------------------- |
+| Backend  | Apex (API v66.0)                      |
+| Frontend | Lightning Web Components, Canvas 2D   |
+| Quantum  | IBM Quantum Platform REST API (Heron) |
+| Testing  | Apex tests, sfdx-lwc-jest, Playwright |
+| CI       | GitHub Actions + Salesforce CLI       |
 
-### Now (Current Sprint)
-
-- Multi-provider architecture (IonQ simulator support alongside IBM Quantum)
-- Generic provider abstraction for backend-agnostic job submission
-- Scratch-org Playwright E2E project (the current suite runs against a mock fixture)
-
-### Next (Upcoming)
-
-- AppExchange listing (planned)
-- Multi-backend failover with automatic least-busy routing
-- Custom Labels for i18n support
-- Big Object migration for high-volume compliance logging
-- Enhanced CHSH visualization with correlator scatter plot
-
-### Future (Longer Term)
-
-- Additional quantum providers (Amazon Braket, Azure Quantum)
-- Quantum Pareto (QAMOO) optimization package
-- PQC readiness scanner
-- Quantum key distribution integration
-- Real-time CHSH violation monitoring dashboard
+See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
 
 ## License
 
-Apache-2.0 — See [LICENSE](LICENSE) and [NOTICE](NOTICE)
+Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).

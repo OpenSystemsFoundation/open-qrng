@@ -8,7 +8,7 @@
  *   QuantumProvider active   = QuantumProviderFactory.getActiveProvider();
  *
  * To add a new provider:
- *   1. Create a class implementing QuantumProvider (see PROVIDERS.md)
+ *   1. Create a class implementing QuantumProvider (see docs/solution-design.md, Extensibility)
  *   2. Add an entry to PROVIDER_REGISTRY below
  *
  * Governor limits: 0 callouts, 0-1 SOQL (getActiveProvider reads settings)

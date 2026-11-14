@@ -273,6 +273,23 @@ private class RandomnessValidatorExtended_Test {
     }
 
     // ── serialTest ───────────────────────────────────────────────
+    @IsTest
+    static void chiSquaredCritical001_usesExactValuesForSmallDf() {
+        // Regression: serial/ApEn previously used 3*df (6 at df=2, 12 at
+        // df=4), which wrongly failed several percent of random pools.
+        Assert.areEqual(9.210, RandomnessValidator.chiSquaredCritical001(2));
+        Assert.areEqual(13.277, RandomnessValidator.chiSquaredCritical001(4));
+        // Untabulated df falls back to Wilson–Hilferty (exact 15.086 at df=5)
+        Double approx = RandomnessValidator.chiSquaredCritical001(5);
+        Assert.isTrue(Math.abs(approx - 15.086) < 0.15, 'got ' + approx);
+    }
+
+    @IsTest
+    static void serialTest_periodicSequenceStillFails() {
+        String bits = '01'.repeat(500);
+        Assert.isFalse(RandomnessValidator.serialTest(bits, 3));
+        Assert.isFalse(RandomnessValidator.approximateEntropyTest(bits, 2));
+    }
 
     @IsTest
     static void testSerialTestShortBits() {
