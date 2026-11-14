@@ -1,14 +1,27 @@
 name: Release
 
-# Publishes a GitHub release when a version tag (v1.0.0, v1.1.0, ...) is pushed.
-# The release notes are the matching section of CHANGELOG.md, which carries the
-# unmanaged-package install link for that version.
+# Publishes a GitHub release for a QuantumFair package version. The release
+# notes are the matching section of CHANGELOG.md, which carries the
+# production and sandbox install links for that version.
+#
+# Two ways in:
+# - Push a version tag (v1.0.0, v1.1.0, ...).
+# - Push a commit that records a promoted package version in sfdx-project.json
+#   (packageAliases "QuantumFair@X.Y.Z-N"). If there is no release for vX.Y.Z
+#   yet and CHANGELOG.md has a section for it, the workflow creates the tag on
+#   that commit and publishes the release. Otherwise it does nothing.
 on:
     push:
         tags: ['v*.*.*']
+        branches: ['master', 'claude/**']
+        paths: ['sfdx-project.json', '.github/workflows/release.yml']
 
 permissions:
     contents: write
+
+concurrency:
+    group: release
+    cancel-in-progress: false
 
 jobs:
     release:
@@ -16,9 +29,42 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            - name: Extract release notes from CHANGELOG.md
+            - name: Work out the version
+              id: version
               run: |
-                  VERSION="${GITHUB_REF_NAME#v}"
+                  if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+                      VERSION="${GITHUB_REF_NAME#v}"
+                  else
+                      VERSION=$(jq -r '.packageAliases // {} | keys[]' sfdx-project.json \
+                          | sed -n 's/^QuantumFair@\([0-9]*\.[0-9]*\.[0-9]*\)-[0-9]*$/\1/p' \
+                          | sort -V | tail -1)
+                  fi
+                  if [ -z "$VERSION" ]; then
+                      echo "No promoted package version recorded; nothing to release."
+                      exit 0
+                  fi
+                  echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+                  echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+            - name: Check whether a release is needed
+              id: check
+              if: steps.version.outputs.version != ''
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  TAG: ${{ steps.version.outputs.tag }}
+              run: |
+                  if gh release view "$TAG" >/dev/null 2>&1; then
+                      echo "Release $TAG already exists."
+                      echo "needed=false" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "needed=true" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Extract release notes from CHANGELOG.md
+              if: steps.check.outputs.needed == 'true'
+              env:
+                  VERSION: ${{ steps.version.outputs.version }}
+              run: |
                   awk -v ver="$VERSION" '
                       $0 ~ "^## \\[" ver "\\]" { found = 1; next }
                       found && /^## \[/ { exit }
@@ -31,10 +77,15 @@ jobs:
                   fi
 
             - name: Create GitHub release
+              if: steps.check.outputs.needed == 'true'
               env:
                   GH_TOKEN: ${{ github.token }}
+                  TAG: ${{ steps.version.outputs.tag }}
               run: |
-                  gh release create "$GITHUB_REF_NAME" \
-                      --title "QuantumFair $GITHUB_REF_NAME" \
-                      --notes-file release-notes.md \
-                      --verify-tag
+                  if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+                      gh release create "$TAG" --title "QuantumFair $TAG" \
+                          --notes-file release-notes.md --verify-tag
+                  else
+                      gh release create "$TAG" --title "QuantumFair $TAG" \
+                          --notes-file release-notes.md --target "$GITHUB_SHA"
+                  fi
