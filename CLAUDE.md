@@ -30,7 +30,7 @@ See [AGENTS.md](AGENTS.md) for detailed agent roles, conventions, and quality ga
 | Quantum        | IBM Quantum REST API (Heron; `rz`/`sx`/`x`/`cz`) |
 | Testing        | Apex Tests + sfdx-lwc-jest + Playwright          |
 | Linting        | ESLint + Prettier (with Apex plugin)             |
-| CI             | GitHub Actions + Salesforce CLI                  |
+| CI             | GitHub Actions: ESLint, Prettier, Jest           |
 | Distribution   | Unlocked package (no namespace) / source deploy  |
 
 ## Project Structure
@@ -160,20 +160,13 @@ Each feature branch follows this cycle, entirely from Claude Code on the web:
 │     └─ sf apex run test         (Apex in scratch)   │
 │     └─ npm run test:e2e         (Playwright E2E)    │
 ├─────────────────────────────────────────────────────┤
-│  4. PUSH & CI FEEDBACK                              │
+│  4. PUSH & CI                                       │
 │     └─ git push to feature branch                   │
-│     └─ GitHub Actions run all test suites           │
-│     └─ Results posted as PR/commit comments          │
-│     └─ Read results: gh api repos/.../comments      │
+│     └─ CI runs ESLint, Prettier and Jest            │
 ├─────────────────────────────────────────────────────┤
-│  5. ITERATE                                         │
-│     └─ Read CI output, fix failures, push again     │
-│     └─ E2E failures → add Jest/Apex tests           │
-│     └─ Repeat until all green                       │
-├─────────────────────────────────────────────────────┤
-│  6. CREATE PR                                       │
-│     └─ gh pr create or use Claude Code web UI       │
-│     └─ CI runs full suite, results in PR comments   │
+│  5. CREATE PR                                       │
+│     └─ Use the Claude Code web UI                   │
+│     └─ CI check must be green before merging        │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -189,25 +182,11 @@ claude --remote "Write Apex tests for ComplianceEvidenceExporter edge cases"
 
 Each session gets its own scratch org and runs independently.
 
-### CI Feedback Loop
+### CI
 
-All three GitHub Actions workflows post structured results as PR/commit comments:
+One GitHub Actions workflow, `ci.yml`, runs on every pull request and on pushes to `master`: **ESLint, Prettier and the LWC Jest tests**. It needs no Salesforce org and no secrets. Apex and Playwright tests are not run in CI — run them in the session (step 3). Apex tests also run when a package version is built (`sf package version create --code-coverage`).
 
-| Workflow        | What it reports                                     |
-| --------------- | --------------------------------------------------- |
-| `test.yml`      | Jest results (pass/fail per test), ESLint, Prettier |
-| `e2e-debug.yml` | Playwright E2E results with failure screenshots     |
-| `apex-test.yml` | Apex test results with org-wide coverage %          |
-
-Read CI output from the session:
-
-```bash
-# List recent commit comments (test results)
-gh api repos/OWNER/REPO/commits/HEAD/comments
-
-# List PR comments
-gh api repos/OWNER/REPO/issues/PR_NUMBER/comments
-```
+`release.yml` publishes a GitHub release (notes from `CHANGELOG.md`) when a promoted package version is recorded in `sfdx-project.json` or a `v*` tag is pushed.
 
 ## Development Rules
 
@@ -218,4 +197,4 @@ gh api repos/OWNER/REPO/issues/PR_NUMBER/comments
 5. **Determinism:** Same quantum bits must always produce the same assignment (audit verifiable); rejection sampling only — never modulo, never pseudo-random fallback
 6. **Governor limits:** Document callout/SOQL/DML budget in class-level comments for heavy classes
 7. **Formatting:** Prettier on save, ESLint zero errors/warnings before commit
-8. **Git:** No pre-commit hooks — commits are never blocked locally. CI enforces lint, formatting, and tests; fix forward on the next commit.
+8. **Git:** No pre-commit hooks — commits are never blocked locally. CI enforces lint, formatting and Jest; run Apex tests in the scratch org before pushing Apex changes.
