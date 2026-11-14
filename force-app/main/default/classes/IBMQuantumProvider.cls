@@ -5,7 +5,7 @@
  *
  * This is the reference provider implementation. To add a new provider
  * (e.g. IonQ, Quantinuum), create a similar class implementing QuantumProvider
- * and register it in QuantumProviderFactory. See PROVIDERS.md for details.
+ * and register it in QuantumProviderFactory. See docs/solution-design.md (Extensibility) for details.
  *
  * Governor limits: delegates to IBMQuantumService (1-2 callouts per method)
  */

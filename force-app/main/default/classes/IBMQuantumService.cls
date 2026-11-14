@@ -3,11 +3,15 @@
  * Handles job submission, status polling, and result retrieval.
  *
  * Base URL: https://quantum.cloud.ibm.com/api
+ * API version: pinned via the IBM-API-Version header. IBM publishes the
+ * supported versions at GET /v1/versions (no auth needed); deprecated
+ * versions are sunset roughly a year after their successor ships, and an
+ * unrecognized or missing header silently falls back to an older version.
  * Governor limits: 1-2 callouts per invocation
  */
 public with sharing class IBMQuantumService {
     private static final String BASE_URL = 'https://quantum.cloud.ibm.com/api';
-    private static final String IBM_API_VERSION = '2025-11-01';
+    private static final String IBM_API_VERSION = '2026-04-15';
 
     /**
      * Get the Instance CRN from settings.

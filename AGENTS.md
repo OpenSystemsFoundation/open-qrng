@@ -1,6 +1,6 @@
 # QuantumFair (open-qrng) — Agent Definitions
 
-This file defines AI agent roles for developing QuantumFair, an open-source Salesforce app distributed as an unmanaged package / source deploy. Each agent has a specific responsibility boundary and set of conventions it must follow.
+This file defines AI agent roles for developing QuantumFair, an open-source Salesforce app distributed as an unlocked package (no namespace) / source deploy. Each agent has a specific responsibility boundary and set of conventions it must follow.
 
 ---
 
@@ -11,7 +11,7 @@ This file defines AI agent roles for developing QuantumFair, an open-source Sale
 ### Conventions
 
 - All Apex classes use `with sharing` unless explicitly documented otherwise (async system-maintenance workers like `JobPoller`/`JobPollScheduler` are documented `without sharing`)
-- No namespace: the project distributes as an unmanaged package / source deploy — object/field API names are un-namespaced
+- No namespace: the project distributes as a no-namespace unlocked package / source deploy — object/field API names are un-namespaced
 - Every service class gets a corresponding `_Test` class alongside it in the flat `classes/` directory
 - Test classes must achieve 90%+ code coverage per class, not just org-wide
 - Use `@TestSetup` for shared test data, never insert data in individual test methods without justification
@@ -25,7 +25,7 @@ This file defines AI agent roles for developing QuantumFair, an open-source Sale
 - Use `System.assert` with descriptive messages, never bare `System.assert(true)`
 - **DTO pattern:** Use dedicated DTO inner classes or wrapper classes for all data passed between Apex controllers and LWC components. Never return raw SObject records or untyped Maps to the front end.
 - **Provider pattern:** All quantum backend integrations implement the `QuantumProvider` interface. Use `QuantumProviderFactory` to obtain provider instances — never instantiate providers directly.
-- **Native Heron r2 gates:** Circuit generation must use the native ISA gate set (`rz`, `sx`, `x`, `ecr`). No abstract/logical gates — all circuits are pre-transpiled in Apex.
+- **Native Heron r2 gates:** Circuit generation must use the native ISA gate set (`rz`, `sx`, `x`, `cz`). No abstract/logical gates — all circuits are pre-transpiled in Apex.
 - **Coupling map awareness:** Qubit selection must respect the backend coupling map. Validate qubit connectivity before circuit submission.
 
 ### Apex Class Organization
@@ -188,7 +188,7 @@ sf apex run test --code-coverage --result-format human --wait 10
 ### Conventions
 
 - Scratch org definition: `config/project-scratch-def.json` (non-namespaced — the project has no namespace)
-- Distribution: unmanaged package / open-source source deploy (no 2GP packaging, no `packageAliases`)
+- Distribution: unlocked 2GP package `QuantumFair` (no namespace) built from the DevHub, or source deploy. Release a version with `sf package version create --package QuantumFair --code-coverage --installation-key-bypass` then `sf package version promote`
 - Branch strategy: `master` is always deployable, feature branches for development
 - CI pipeline: lint + format check + Jest tests + scratch org creation + Apex deploy + Apex tests (fork-safe; workflows use concurrency groups)
 - Never store secrets in workflow files — use GitHub Secrets for IBM API key, SF auth URL
@@ -246,7 +246,7 @@ gh pr create --title "feat: my feature" --body "..."
 ### Conventions
 
 - All circuits must be ISA-compliant for IBM Heron r2 backends
-- Native gate set: `rz(θ)`, `sx`, `x`, `ecr`
+- Native gate set: `rz(θ)`, `sx`, `x`, `cz`
 - Hadamard decomposition: `rz(π/2) → sx → rz(π/2)`
 - Standard QRNG: H + measure on N qubits (1024-8192 shots)
 - Bell-test QRNG: Bell pairs (H + ECR) with random basis rotation + measure
@@ -363,7 +363,7 @@ Playwright enables UI debugging without a visible browser:
 
 ## Cross-Cutting Rules (All Agents)
 
-1. **Read ARCHITECTURE.md** before making structural decisions — it is the source of truth for system design
+1. **Read docs/solution-design.md** before making structural decisions — it is the source of truth for system design
 2. **Apache-2.0 license** — all source files must be compatible
 3. **No external servers** — everything runs on Salesforce except IBM Quantum API callouts
 4. **BYOQ model** — never assume a specific IBM API key; each org enters its own key via the Setup tab (Protected custom setting)

@@ -76,6 +76,12 @@ export default class QrngFairnessCertificate extends LightningElement {
         return this.hasCertId && !this.certificate && !this.loadError;
     }
 
+    get chshSValueLabel() {
+        return this.hasCHSH
+            ? Number(this.certificate.chshSValue).toFixed(3)
+            : null;
+    }
+
     get hasCHSH() {
         return (
             this.certificate &&

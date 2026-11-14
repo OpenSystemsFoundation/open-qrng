@@ -55,7 +55,13 @@ public with sharing class IBMResponseParser {
         if (lower == 'queued' || lower == 'pending_in_queue') {
             return 'Queued';
         }
-        if (lower == 'failed' || lower == 'cancelled' || lower == 'canceled') {
+        // IBM also reports e.g. 'Cancelled - Ran too long' (job hit its
+        // max execution time) — terminal, so it must not be retried as Unknown
+        if (
+            lower == 'failed' ||
+            lower.startsWith('cancelled') ||
+            lower.startsWith('canceled')
+        ) {
             return 'Failed';
         }
         if (lower == 'submitted') {

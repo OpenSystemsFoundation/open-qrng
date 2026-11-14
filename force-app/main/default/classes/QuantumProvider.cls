@@ -8,7 +8,7 @@
  * via Named Credentials or Custom Settings.
  *
  * To add a new provider, implement this interface and register it in
- * QuantumProviderFactory. See PROVIDERS.md for a step-by-step guide.
+ * QuantumProviderFactory. See docs/solution-design.md (Extensibility) for a step-by-step guide.
  */
 public interface QuantumProvider {
     // ── Identity ────────────────────────────────────────────────────

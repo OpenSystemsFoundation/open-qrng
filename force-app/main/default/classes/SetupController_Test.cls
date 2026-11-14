@@ -1,5 +1,60 @@
 @IsTest
 private class SetupController_Test {
+    private static final String QF_ADMIN_USERNAME_PREFIX = 'qf.admin.';
+
+    /**
+     * Create a QuantumFair admin test user (System Administrator profile plus
+     * the QuantumFair_Admin and QuantumFair_User permission sets). The
+     * controller reads WITH USER_MODE / stripInaccessible, and object and field
+     * access comes only from those permission sets, so tests that read through
+     * the controller run as this user. Running them as whoever runs the tests
+     * made them pass only where that user already held the permission sets
+     * (a dev scratch org) and fail in a package build org.
+     */
+    @TestSetup
+    static void createQuantumFairAdmin() {
+        Profile admin = [
+            SELECT Id
+            FROM Profile
+            WHERE PermissionsModifyAllData = TRUE AND UserType = 'Standard'
+            ORDER BY CreatedDate
+            LIMIT 1
+        ];
+        User u = new User(
+            Alias = 'qfadmin',
+            Email = 'qf.admin@example.com',
+            EmailEncodingKey = 'UTF-8',
+            LastName = 'QuantumFair Admin',
+            LanguageLocaleKey = 'en_US',
+            LocaleSidKey = 'en_US',
+            ProfileId = admin.Id,
+            TimeZoneSidKey = 'America/Los_Angeles',
+            Username = QF_ADMIN_USERNAME_PREFIX +
+                DateTime.now().getTime() +
+                '@example.com.qrngtest'
+        );
+        insert u;
+        List<PermissionSetAssignment> grants = new List<PermissionSetAssignment>();
+        for (PermissionSet ps : [
+            SELECT Id
+            FROM PermissionSet
+            WHERE Name IN ('QuantumFair_Admin', 'QuantumFair_User')
+        ]) {
+            grants.add(
+                new PermissionSetAssignment(
+                    AssigneeId = u.Id,
+                    PermissionSetId = ps.Id
+                )
+            );
+        }
+        insert grants;
+    }
+
+    private static User qfAdmin() {
+        String prefix = QF_ADMIN_USERNAME_PREFIX + '%';
+        return [SELECT Id FROM User WHERE Username LIKE :prefix LIMIT 1];
+    }
+
     /**
      * Shared mock for IBM Quantum API callouts used across controller tests.
      */
@@ -144,23 +199,27 @@ private class SetupController_Test {
 
     @IsTest
     static void testGetUsageStats() {
-        Map<String, Object> stats = SetupController.getUsageStats();
-        System.assertEquals(0, stats.get('totalJobs'));
+        System.runAs(qfAdmin()) {
+            Map<String, Object> stats = SetupController.getUsageStats();
+            System.assertEquals(0, stats.get('totalJobs'));
+        }
     }
 
     @IsTest
     static void testGetJobDetails() {
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_details',
-            Backend__c = 'test_backend',
-            Status__c = 'Completed',
-            Shots__c = 1024,
-            Num_Qubits__c = 8
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_details',
+                Backend__c = 'test_backend',
+                Status__c = 'Completed',
+                Shots__c = 1024,
+                Num_Qubits__c = 8
+            );
+            insert job;
 
-        Quantum_Job__c result = SetupController.getJobDetails(job.Id);
-        System.assertEquals('test_details', result.External_Job_ID__c);
+            Quantum_Job__c result = SetupController.getJobDetails(job.Id);
+            System.assertEquals('test_details', result.External_Job_ID__c);
+        }
     }
 
     @IsTest
@@ -178,32 +237,34 @@ private class SetupController_Test {
 
     @IsTest
     static void testGetAllBackendHealthWithData() {
-        Quantum_Provider__c provider = new Quantum_Provider__c(
-            Name = 'Test Provider',
-            Provider_Key__c = 'test',
-            Is_Active__c = true
-        );
-        insert provider;
+        System.runAs(qfAdmin()) {
+            Quantum_Provider__c provider = new Quantum_Provider__c(
+                Name = 'Test Provider',
+                Provider_Key__c = 'test',
+                Is_Active__c = true
+            );
+            insert provider;
 
-        Quantum_Backend__c backend = new Quantum_Backend__c(
-            Name = 'test_backend_1',
-            Backend_Key__c = 'test:test_backend_1',
-            Provider__c = provider.Id,
-            Status__c = 'online',
-            Num_Qubits__c = 127,
-            Queue_Length__c = 5,
-            Avg_T1_us__c = 200.5,
-            Avg_T2_us__c = 150.3,
-            Median_Gate_Error__c = 0.001,
-            Median_Readout_Error__c = 0.02
-        );
-        insert backend;
+            Quantum_Backend__c backend = new Quantum_Backend__c(
+                Name = 'test_backend_1',
+                Backend_Key__c = 'test:test_backend_1',
+                Provider__c = provider.Id,
+                Status__c = 'online',
+                Num_Qubits__c = 127,
+                Queue_Length__c = 5,
+                Avg_T1_us__c = 200.5,
+                Avg_T2_us__c = 150.3,
+                Median_Gate_Error__c = 0.001,
+                Median_Readout_Error__c = 0.02
+            );
+            insert backend;
 
-        List<SetupController.BackendHealthDTO> health = SetupController.getAllBackendHealth();
-        System.assertEquals(1, health.size());
-        System.assertEquals('test_backend_1', health[0].name);
-        System.assertEquals('online', health[0].status);
-        System.assertEquals(127, health[0].qubits);
+            List<SetupController.BackendHealthDTO> health = SetupController.getAllBackendHealth();
+            System.assertEquals(1, health.size());
+            System.assertEquals('test_backend_1', health[0].name);
+            System.assertEquals('online', health[0].status);
+            System.assertEquals(127, health[0].qubits);
+        }
     }
 
     @IsTest
@@ -456,137 +517,149 @@ private class SetupController_Test {
 
     @IsTest
     static void testGetJobStatusDTO() {
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_dto_job',
-            Backend__c = 'test_backend',
-            Status__c = 'Completed',
-            Shots__c = 2048,
-            Num_Qubits__c = 8,
-            Purpose__c = 'DTO test',
-            Use_Bell_Test__c = true,
-            Submitted_At__c = DateTime.now().addMinutes(-5),
-            Completed_At__c = DateTime.now(),
-            Execution_Time_ms__c = 3000,
-            Queue_Time_ms__c = 1500,
-            Poll_Count__c = 3,
-            Raw_Results__c = '0x66',
-            Debiased_Results__c = '0x6'
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_dto_job',
+                Backend__c = 'test_backend',
+                Status__c = 'Completed',
+                Shots__c = 2048,
+                Num_Qubits__c = 8,
+                Purpose__c = 'DTO test',
+                Use_Bell_Test__c = true,
+                Submitted_At__c = DateTime.now().addMinutes(-5),
+                Completed_At__c = DateTime.now(),
+                Execution_Time_ms__c = 3000,
+                Queue_Time_ms__c = 1500,
+                Poll_Count__c = 3,
+                Raw_Results__c = '0x66',
+                Debiased_Results__c = '0x6'
+            );
+            insert job;
 
-        SetupController.JobStatusDTO dto = SetupController.getJobStatusDTO(
-            job.Id
-        );
-        System.assertEquals('Completed', dto.status);
-        System.assertEquals('test_dto_job', dto.externalJobId);
-        System.assertEquals('test_backend', dto.backend);
-        System.assertEquals(2048, dto.shots);
-        System.assertEquals(8, dto.numQubits);
-        System.assertEquals('DTO test', dto.purpose);
-        System.assertEquals(true, dto.useBellTest);
-        System.assertEquals(3, dto.pollCount);
-        System.assertEquals(3000, dto.executionTimeMs);
-        System.assertEquals(1500, dto.queueTimeMs);
-        System.assertEquals('0x66', dto.rawResults);
-        System.assertEquals('0x6', dto.debiasedResults);
+            SetupController.JobStatusDTO dto = SetupController.getJobStatusDTO(
+                job.Id
+            );
+            System.assertEquals('Completed', dto.status);
+            System.assertEquals('test_dto_job', dto.externalJobId);
+            System.assertEquals('test_backend', dto.backend);
+            System.assertEquals(2048, dto.shots);
+            System.assertEquals(8, dto.numQubits);
+            System.assertEquals('DTO test', dto.purpose);
+            System.assertEquals(true, dto.useBellTest);
+            System.assertEquals(3, dto.pollCount);
+            System.assertEquals(3000, dto.executionTimeMs);
+            System.assertEquals(1500, dto.queueTimeMs);
+            System.assertEquals('0x66', dto.rawResults);
+            System.assertEquals('0x6', dto.debiasedResults);
+        }
     }
 
     @IsTest
     static void testGetJobStatusDTONullNumerics() {
-        // Test with null numeric fields to cover null-safe casting
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_dto_null',
-            Backend__c = 'test_backend',
-            Status__c = 'Submitted'
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            // Test with null numeric fields to cover null-safe casting
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_dto_null',
+                Backend__c = 'test_backend',
+                Status__c = 'Submitted'
+            );
+            insert job;
 
-        SetupController.JobStatusDTO dto = SetupController.getJobStatusDTO(
-            job.Id
-        );
-        System.assertEquals('Submitted', dto.status);
-        System.assertEquals(null, dto.shots);
-        System.assertEquals(null, dto.numQubits);
-        System.assertEquals(0, dto.pollCount);
+            SetupController.JobStatusDTO dto = SetupController.getJobStatusDTO(
+                job.Id
+            );
+            System.assertEquals('Submitted', dto.status);
+            System.assertEquals(null, dto.shots);
+            System.assertEquals(null, dto.numQubits);
+            System.assertEquals(0, dto.pollCount);
+        }
     }
 
     @IsTest
     static void testGetCertificateDTO() {
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_cert_dto',
-            Backend__c = 'test_backend',
-            Status__c = 'Completed',
-            Shots__c = 1024,
-            Num_Qubits__c = 8,
-            Raw_Results__c = '0x66',
-            Debiased_Results__c = '0x6',
-            Purpose__c = 'Cert DTO test',
-            Requested_By__c = UserInfo.getUserId()
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_cert_dto',
+                Backend__c = 'test_backend',
+                Status__c = 'Completed',
+                Shots__c = 1024,
+                Num_Qubits__c = 8,
+                Raw_Results__c = '0x66',
+                Debiased_Results__c = '0x6',
+                Purpose__c = 'Cert DTO test',
+                Requested_By__c = UserInfo.getUserId()
+            );
+            insert job;
 
-        Id certId = FairnessCertificateService.createCertificate(
-            job.Id,
-            '{"passed":true}',
-            'Certified'
-        );
+            Id certId = FairnessCertificateService.createCertificate(
+                job.Id,
+                '{"passed":true}',
+                'Certified'
+            );
 
-        SetupController.CertificateDTO dto = SetupController.getCertificateDTO(
-            certId
-        );
-        System.assertNotEquals(null, dto.name, 'Name should be set');
-        System.assertEquals(
-            'test_cert_dto',
-            dto.externalJobId,
-            'External job ID should match'
-        );
-        System.assertEquals('test_backend', dto.backend);
-        System.assertNotEquals(
-            null,
-            dto.rawBitstringHash,
-            'Raw hash should be set'
-        );
-        System.assertNotEquals(
-            null,
-            dto.debiasedBitstringHash,
-            'Debiased hash should be set'
-        );
-        System.assertEquals('Certified', dto.status);
-        System.assertEquals(job.Id, dto.quantumJobId);
-        System.assertEquals(false, dto.tampered);
-        System.assertEquals('Cert DTO test', dto.purpose);
+            SetupController.CertificateDTO dto = SetupController.getCertificateDTO(
+                certId
+            );
+            System.assertNotEquals(null, dto.name, 'Name should be set');
+            System.assertEquals(
+                'test_cert_dto',
+                dto.externalJobId,
+                'External job ID should match'
+            );
+            System.assertEquals('test_backend', dto.backend);
+            System.assertNotEquals(
+                null,
+                dto.rawBitstringHash,
+                'Raw hash should be set'
+            );
+            System.assertNotEquals(
+                null,
+                dto.debiasedBitstringHash,
+                'Debiased hash should be set'
+            );
+            System.assertEquals('Certified', dto.status);
+            System.assertEquals(job.Id, dto.quantumJobId);
+            System.assertEquals(false, dto.tampered);
+            System.assertEquals('Cert DTO test', dto.purpose);
+        }
     }
 
     @IsTest
     static void testGetAuditTrailDTOWithData() {
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_audit_dto',
-            Backend__c = 'test_backend',
-            Status__c = 'Completed',
-            Shots__c = 1024,
-            Num_Qubits__c = 8,
-            Raw_Results__c = '0x66',
-            Debiased_Results__c = '0x6',
-            Purpose__c = 'Audit trail test',
-            Requested_By__c = UserInfo.getUserId()
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_audit_dto',
+                Backend__c = 'test_backend',
+                Status__c = 'Completed',
+                Shots__c = 1024,
+                Num_Qubits__c = 8,
+                Raw_Results__c = '0x66',
+                Debiased_Results__c = '0x6',
+                Purpose__c = 'Audit trail test',
+                Requested_By__c = UserInfo.getUserId()
+            );
+            insert job;
 
-        FairnessCertificateService.createCertificate(
-            job.Id,
-            '{"passed":true}',
-            'Certified'
-        );
+            FairnessCertificateService.createCertificate(
+                job.Id,
+                '{"passed":true}',
+                'Certified'
+            );
 
-        List<SetupController.AuditTrailDTO> trail = SetupController.getAuditTrailDTO();
-        System.assertEquals(1, trail.size(), 'Should return one audit entry');
-        System.assertEquals('test_audit_dto', trail[0].externalJobId);
-        System.assertEquals('test_backend', trail[0].backend);
-        System.assertEquals('Certified', trail[0].status);
-        System.assertEquals('Audit trail test', trail[0].purpose);
-        System.assertEquals(false, trail[0].tampered);
-        System.assertNotEquals(null, trail[0].recordId);
-        System.assertEquals(job.Id, trail[0].quantumJobId);
+            List<SetupController.AuditTrailDTO> trail = SetupController.getAuditTrailDTO();
+            System.assertEquals(
+                1,
+                trail.size(),
+                'Should return one audit entry'
+            );
+            System.assertEquals('test_audit_dto', trail[0].externalJobId);
+            System.assertEquals('test_backend', trail[0].backend);
+            System.assertEquals('Certified', trail[0].status);
+            System.assertEquals('Audit trail test', trail[0].purpose);
+            System.assertEquals(false, trail[0].tampered);
+            System.assertNotEquals(null, trail[0].recordId);
+            System.assertEquals(job.Id, trail[0].quantumJobId);
+        }
     }
 
     /**
@@ -720,82 +793,86 @@ private class SetupController_Test {
 
     @IsTest
     static void testGetAllBackendHealthWithCHSHData() {
-        Quantum_Provider__c provider = new Quantum_Provider__c(
-            Name = 'Test Provider',
-            Provider_Key__c = 'test',
-            Is_Active__c = true
-        );
-        insert provider;
+        System.runAs(qfAdmin()) {
+            Quantum_Provider__c provider = new Quantum_Provider__c(
+                Name = 'Test Provider',
+                Provider_Key__c = 'test',
+                Is_Active__c = true
+            );
+            insert provider;
 
-        Quantum_Backend__c backend = new Quantum_Backend__c(
-            Name = 'verified_backend',
-            Backend_Key__c = 'test:verified_backend',
-            Provider__c = provider.Id,
-            Status__c = 'online',
-            Num_Qubits__c = 127,
-            CHSH_S_Value__c = 2.61,
-            CHSH_Verified_At__c = DateTime.now()
-        );
-        insert backend;
+            Quantum_Backend__c backend = new Quantum_Backend__c(
+                Name = 'verified_backend',
+                Backend_Key__c = 'test:verified_backend',
+                Provider__c = provider.Id,
+                Status__c = 'online',
+                Num_Qubits__c = 127,
+                CHSH_S_Value__c = 2.61,
+                CHSH_Verified_At__c = DateTime.now()
+            );
+            insert backend;
 
-        List<SetupController.BackendHealthDTO> health = SetupController.getAllBackendHealth();
-        System.assertEquals(1, health.size());
-        System.assertEquals(2.61, health[0].chshSValue);
-        System.assertNotEquals(null, health[0].chshVerifiedAt);
-        System.assertEquals(true, health[0].quantumVerified);
+            List<SetupController.BackendHealthDTO> health = SetupController.getAllBackendHealth();
+            System.assertEquals(1, health.size());
+            System.assertEquals(2.61, health[0].chshSValue);
+            System.assertNotEquals(null, health[0].chshVerifiedAt);
+            System.assertEquals(true, health[0].quantumVerified);
+        }
     }
 
     @IsTest
     static void testGetCertificateDTOWithBackendVerification() {
-        Quantum_Provider__c provider = new Quantum_Provider__c(
-            Name = 'IBM',
-            Provider_Key__c = 'ibm',
-            Is_Active__c = true
-        );
-        insert provider;
+        System.runAs(qfAdmin()) {
+            Quantum_Provider__c provider = new Quantum_Provider__c(
+                Name = 'IBM',
+                Provider_Key__c = 'ibm',
+                Is_Active__c = true
+            );
+            insert provider;
 
-        Quantum_Backend__c backend = new Quantum_Backend__c(
-            Name = 'verified_backend',
-            Backend_Key__c = 'ibm:verified_backend',
-            Provider__c = provider.Id,
-            Status__c = 'online',
-            Num_Qubits__c = 127,
-            CHSH_S_Value__c = 2.55,
-            CHSH_Verified_At__c = DateTime.now()
-        );
-        insert backend;
+            Quantum_Backend__c backend = new Quantum_Backend__c(
+                Name = 'verified_backend',
+                Backend_Key__c = 'ibm:verified_backend',
+                Provider__c = provider.Id,
+                Status__c = 'online',
+                Num_Qubits__c = 127,
+                CHSH_S_Value__c = 2.55,
+                CHSH_Verified_At__c = DateTime.now()
+            );
+            insert backend;
 
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_bv_cert',
-            Backend__c = 'verified_backend',
-            Status__c = 'Completed',
-            Shots__c = 1024,
-            Num_Qubits__c = 8,
-            Raw_Results__c = '0x66',
-            Debiased_Results__c = '0x6',
-            Requested_By__c = UserInfo.getUserId()
-        );
-        insert job;
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_bv_cert',
+                Backend__c = 'verified_backend',
+                Status__c = 'Completed',
+                Shots__c = 1024,
+                Num_Qubits__c = 8,
+                Raw_Results__c = '0x66',
+                Debiased_Results__c = '0x6',
+                Requested_By__c = UserInfo.getUserId()
+            );
+            insert job;
 
-        Id certId = FairnessCertificateService.createCertificate(
-            job.Id,
-            '{"passed":true}',
-            'Certified'
-        );
+            Id certId = FairnessCertificateService.createCertificate(
+                job.Id,
+                '{"passed":true}',
+                'Certified'
+            );
 
-        SetupController.CertificateDTO dto = SetupController.getCertificateDTO(
-            certId
-        );
-        System.assertEquals(
-            true,
-            dto.backendVerified,
-            'Certificate should show backend as verified'
-        );
-        System.assertNotEquals(
-            null,
-            dto.backendVerifiedAt,
-            'Certificate should have backend verification timestamp'
-        );
+            SetupController.CertificateDTO dto = SetupController.getCertificateDTO(
+                certId
+            );
+            System.assertEquals(
+                true,
+                dto.backendVerified,
+                'Certificate should show backend as verified'
+            );
+            System.assertNotEquals(
+                null,
+                dto.backendVerifiedAt,
+                'Certificate should have backend verification timestamp'
+            );
+        }
     }
 
     @IsTest
@@ -851,173 +928,187 @@ private class SetupController_Test {
 
     @IsTest
     static void testRunValidationTestsCompletedJob() {
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_val',
-            Backend__c = 'test_backend',
-            Status__c = 'Completed',
-            Shots__c = 1024,
-            Num_Qubits__c = 8,
-            Debiased_Results__c = '0x66a5a5a5',
-            Raw_Results__c = '0x69a5a5a5',
-            Use_Bell_Test__c = false
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_val',
+                Backend__c = 'test_backend',
+                Status__c = 'Completed',
+                Shots__c = 1024,
+                Num_Qubits__c = 8,
+                Debiased_Results__c = '0x66a5a5a5',
+                Raw_Results__c = '0x69a5a5a5',
+                Use_Bell_Test__c = false
+            );
+            insert job;
 
-        Test.startTest();
-        Map<String, Object> results = SetupController.runValidationTests(
-            job.Id
-        );
-        Test.stopTest();
+            Test.startTest();
+            Map<String, Object> results = SetupController.runValidationTests(
+                job.Id
+            );
+            Test.stopTest();
 
-        System.assertNotEquals(null, results);
-        System.assertEquals(
-            true,
-            results.get('allTestsCompleted'),
-            'Should mark all tests completed'
-        );
-        System.assertNotEquals(
-            null,
-            results.get('manualRunTimestamp'),
-            'Should have timestamp'
-        );
+            System.assertNotEquals(null, results);
+            System.assertEquals(
+                true,
+                results.get('allTestsCompleted'),
+                'Should mark all tests completed'
+            );
+            System.assertNotEquals(
+                null,
+                results.get('manualRunTimestamp'),
+                'Should have timestamp'
+            );
+        }
     }
 
     @IsTest
     static void testRunValidationTestsNotCompleted() {
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_val_nc',
-            Backend__c = 'test_backend',
-            Status__c = 'Running',
-            Shots__c = 1024,
-            Num_Qubits__c = 8
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_val_nc',
+                Backend__c = 'test_backend',
+                Status__c = 'Running',
+                Shots__c = 1024,
+                Num_Qubits__c = 8
+            );
+            insert job;
 
-        try {
-            SetupController.runValidationTests(job.Id);
-            System.assert(false, 'Should throw');
-        } catch (QuantumException e) {
-            System.assert(e.getMessage().contains('not completed'));
+            try {
+                SetupController.runValidationTests(job.Id);
+                System.assert(false, 'Should throw');
+            } catch (QuantumException e) {
+                System.assert(e.getMessage().contains('not completed'));
+            }
         }
     }
 
     @IsTest
     static void testRunValidationTestsNoDebiased() {
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_val_nod',
-            Backend__c = 'test_backend',
-            Status__c = 'Completed',
-            Shots__c = 1024,
-            Num_Qubits__c = 8
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_val_nod',
+                Backend__c = 'test_backend',
+                Status__c = 'Completed',
+                Shots__c = 1024,
+                Num_Qubits__c = 8
+            );
+            insert job;
 
-        try {
-            SetupController.runValidationTests(job.Id);
-            System.assert(false, 'Should throw');
-        } catch (QuantumException e) {
-            System.assert(e.getMessage().contains('No debiased'));
+            try {
+                SetupController.runValidationTests(job.Id);
+                System.assert(false, 'Should throw');
+            } catch (QuantumException e) {
+                System.assert(e.getMessage().contains('No debiased'));
+            }
         }
     }
 
     @IsTest
     static void testRunValidationTestsWithBellTest() {
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_val_bell',
-            Backend__c = 'test_backend',
-            Status__c = 'Completed',
-            Shots__c = 1024,
-            Num_Qubits__c = 8,
-            Debiased_Results__c = '0x66a5a5a5',
-            Raw_Results__c = '0110100111100011',
-            Use_Bell_Test__c = true
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_val_bell',
+                Backend__c = 'test_backend',
+                Status__c = 'Completed',
+                Shots__c = 1024,
+                Num_Qubits__c = 8,
+                Debiased_Results__c = '0x66a5a5a5',
+                Raw_Results__c = '0110100111100011',
+                Use_Bell_Test__c = true
+            );
+            insert job;
 
-        Test.startTest();
-        Map<String, Object> results = SetupController.runValidationTests(
-            job.Id
-        );
-        Test.stopTest();
+            Test.startTest();
+            Map<String, Object> results = SetupController.runValidationTests(
+                job.Id
+            );
+            Test.stopTest();
 
-        System.assertNotEquals(null, results.get('chshSValue'));
+            System.assertNotEquals(null, results.get('chshSValue'));
+        }
     }
 
     @IsTest
     static void testRunValidationTestsUpdatesCertificate() {
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_val_cert',
-            Backend__c = 'test_backend',
-            Status__c = 'Completed',
-            Shots__c = 1024,
-            Num_Qubits__c = 8,
-            Debiased_Results__c = '0x66a5a5a5',
-            Raw_Results__c = '0x69a5a5a5',
-            Use_Bell_Test__c = false,
-            Requested_By__c = UserInfo.getUserId()
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_val_cert',
+                Backend__c = 'test_backend',
+                Status__c = 'Completed',
+                Shots__c = 1024,
+                Num_Qubits__c = 8,
+                Debiased_Results__c = '0x66a5a5a5',
+                Raw_Results__c = '0x69a5a5a5',
+                Use_Bell_Test__c = false,
+                Requested_By__c = UserInfo.getUserId()
+            );
+            insert job;
 
-        Id certId = FairnessCertificateService.createCertificate(
-            job.Id,
-            '{"passed":true}',
-            'Certified'
-        );
+            Id certId = FairnessCertificateService.createCertificate(
+                job.Id,
+                '{"passed":true}',
+                'Certified'
+            );
 
-        Test.startTest();
-        SetupController.runValidationTests(job.Id);
-        Test.stopTest();
+            Test.startTest();
+            SetupController.runValidationTests(job.Id);
+            Test.stopTest();
 
-        Fairness_Certificate__c cert = [
-            SELECT Validation_Results__c
-            FROM Fairness_Certificate__c
-            WHERE Id = :certId
-        ];
-        System.assert(
-            cert.Validation_Results__c.contains('allTestsCompleted'),
-            'Certificate should be updated with new validation'
-        );
+            Fairness_Certificate__c cert = [
+                SELECT Validation_Results__c
+                FROM Fairness_Certificate__c
+                WHERE Id = :certId
+            ];
+            System.assert(
+                cert.Validation_Results__c.contains('allTestsCompleted'),
+                'Certificate should be updated with new validation'
+            );
+        }
     }
 
     // ── getValidationResults ────────────────────────────────────────
 
     @IsTest
     static void testGetValidationResultsWithData() {
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_vr',
-            Backend__c = 'test_backend',
-            Status__c = 'Completed',
-            Shots__c = 1024,
-            Num_Qubits__c = 8,
-            Validation_Results__c = '{"passed":true,"frequency":0.51}'
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_vr',
+                Backend__c = 'test_backend',
+                Status__c = 'Completed',
+                Shots__c = 1024,
+                Num_Qubits__c = 8,
+                Validation_Results__c = '{"passed":true,"frequency":0.51}'
+            );
+            insert job;
 
-        Map<String, Object> results = SetupController.getValidationResults(
-            job.Id
-        );
-        System.assertEquals(true, results.get('passed'));
-        System.assertEquals(0.51, results.get('frequency'));
+            Map<String, Object> results = SetupController.getValidationResults(
+                job.Id
+            );
+            System.assertEquals(true, results.get('passed'));
+            System.assertEquals(0.51, results.get('frequency'));
+        }
     }
 
     @IsTest
     static void testGetValidationResultsEmpty() {
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'test_vr_empty',
-            Backend__c = 'test_backend',
-            Status__c = 'Submitted',
-            Shots__c = 1024,
-            Num_Qubits__c = 8
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'test_vr_empty',
+                Backend__c = 'test_backend',
+                Status__c = 'Submitted',
+                Shots__c = 1024,
+                Num_Qubits__c = 8
+            );
+            insert job;
 
-        Map<String, Object> results = SetupController.getValidationResults(
-            job.Id
-        );
-        // Map always contains jobType and circuitQasm even when no validation data
-        System.assert(results.containsKey('jobType'));
-        System.assert(results.containsKey('circuitQasm'));
-        System.assert(!results.containsKey('monobit'));
+            Map<String, Object> results = SetupController.getValidationResults(
+                job.Id
+            );
+            // Map always contains jobType and circuitQasm even when no validation data
+            System.assert(results.containsKey('jobType'));
+            System.assert(results.containsKey('circuitQasm'));
+            System.assert(!results.containsKey('monobit'));
+        }
     }
 
     // ── verifyCertificate ───────────────────────────────────────────
@@ -1090,26 +1181,28 @@ private class SetupController_Test {
 
     @IsTest
     static void testGetUsageStatsWithData() {
-        Quantum_Job__c job1 = new Quantum_Job__c(
-            External_Job_ID__c = 'stat_1',
-            Backend__c = 'test',
-            Status__c = 'Completed',
-            Shots__c = 1024,
-            Num_Qubits__c = 8
-        );
-        Quantum_Job__c job2 = new Quantum_Job__c(
-            External_Job_ID__c = 'stat_2',
-            Backend__c = 'test',
-            Status__c = 'Failed',
-            Shots__c = 1024,
-            Num_Qubits__c = 8
-        );
-        insert new List<Quantum_Job__c>{ job1, job2 };
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job1 = new Quantum_Job__c(
+                External_Job_ID__c = 'stat_1',
+                Backend__c = 'test',
+                Status__c = 'Completed',
+                Shots__c = 1024,
+                Num_Qubits__c = 8
+            );
+            Quantum_Job__c job2 = new Quantum_Job__c(
+                External_Job_ID__c = 'stat_2',
+                Backend__c = 'test',
+                Status__c = 'Failed',
+                Shots__c = 1024,
+                Num_Qubits__c = 8
+            );
+            insert new List<Quantum_Job__c>{ job1, job2 };
 
-        Map<String, Object> stats = SetupController.getUsageStats();
-        System.assertEquals(2, stats.get('totalJobs'));
-        System.assertEquals(1, stats.get('completedJobs'));
-        System.assertEquals(1, stats.get('failedJobs'));
+            Map<String, Object> stats = SetupController.getUsageStats();
+            System.assertEquals(2, stats.get('totalJobs'));
+            System.assertEquals(1, stats.get('completedJobs'));
+            System.assertEquals(1, stats.get('failedJobs'));
+        }
     }
 
     // ── startIntegrityCheck / stopIntegrityCheck ────────────────────
@@ -1426,51 +1519,57 @@ private class SetupController_Test {
 
     @IsTest
     static void testGetAssignmentsDTO() {
-        Quantum_Job__c job = new Quantum_Job__c(
-            External_Job_ID__c = 'dto_assign_job',
-            Backend__c = 'test_backend',
-            Status__c = 'Completed',
-            Shots__c = 1024,
-            Num_Qubits__c = 8
-        );
-        insert job;
+        System.runAs(qfAdmin()) {
+            Quantum_Job__c job = new Quantum_Job__c(
+                External_Job_ID__c = 'dto_assign_job',
+                Backend__c = 'test_backend',
+                Status__c = 'Completed',
+                Shots__c = 1024,
+                Num_Qubits__c = 8
+            );
+            insert job;
 
-        Quantum_Assignment__c assignment = new Quantum_Assignment__c(
-            Quantum_Job__c = job.Id,
-            Assignment_Index__c = 0,
-            Assigned_Record_ID__c = '001000000000001AAA',
-            Assigned_To_ID__c = '005000000000001AAA',
-            Random_Value__c = '0.4213'
-        );
-        insert assignment;
+            Quantum_Assignment__c assignment = new Quantum_Assignment__c(
+                Quantum_Job__c = job.Id,
+                Assignment_Index__c = 0,
+                Assigned_Record_ID__c = '001000000000001AAA',
+                Assigned_To_ID__c = '005000000000001AAA',
+                Random_Value__c = '0.4213'
+            );
+            insert assignment;
 
-        List<Map<String, Object>> result = SetupController.getAssignmentsDTO(
-            job.Id
-        );
-        System.assertEquals(1, result.size(), 'Should return one assignment');
-        Map<String, Object> row = result[0];
-        System.assertEquals(assignment.Id, row.get('id'));
-        System.assert(row.containsKey('name'), 'Should expose name');
-        System.assertEquals(
-            0,
-            ((Decimal) row.get('index')).intValue(),
-            'index should map Assignment_Index__c'
-        );
-        System.assertEquals(
-            '001000000000001AAA',
-            row.get('recordId'),
-            'recordId should map Assigned_Record_ID__c'
-        );
-        System.assertEquals(
-            '005000000000001AAA',
-            row.get('assigneeId'),
-            'assigneeId should map Assigned_To_ID__c'
-        );
-        System.assertEquals(
-            '0.4213',
-            row.get('randomValue'),
-            'randomValue should map Random_Value__c'
-        );
+            List<Map<String, Object>> result = SetupController.getAssignmentsDTO(
+                job.Id
+            );
+            System.assertEquals(
+                1,
+                result.size(),
+                'Should return one assignment'
+            );
+            Map<String, Object> row = result[0];
+            System.assertEquals(assignment.Id, row.get('id'));
+            System.assert(row.containsKey('name'), 'Should expose name');
+            System.assertEquals(
+                0,
+                ((Decimal) row.get('index')).intValue(),
+                'index should map Assignment_Index__c'
+            );
+            System.assertEquals(
+                '001000000000001AAA',
+                row.get('recordId'),
+                'recordId should map Assigned_Record_ID__c'
+            );
+            System.assertEquals(
+                '005000000000001AAA',
+                row.get('assigneeId'),
+                'assigneeId should map Assigned_To_ID__c'
+            );
+            System.assertEquals(
+                '0.4213',
+                row.get('randomValue'),
+                'randomValue should map Random_Value__c'
+            );
+        }
     }
 
     @IsTest

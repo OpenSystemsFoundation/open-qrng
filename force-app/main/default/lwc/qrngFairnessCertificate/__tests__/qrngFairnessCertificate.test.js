@@ -442,14 +442,15 @@ describe('c-qrng-fairness-certificate', () => {
 
         getCertificateDTO.emit({
             ...MOCK_CERTIFICATE,
-            chshSValue: 2.65
+            chshSValue: 2.669921875
         });
         await flushPromises();
 
-        // CHSH S-Value should be displayed
+        // CHSH S-Value should be displayed, rounded to three decimals
         const text = element.shadowRoot.textContent;
         expect(text).toContain('CHSH S-Value');
-        expect(text).toContain('2.65');
+        expect(text).toContain('2.670');
+        expect(text).not.toContain('2.669921875');
     });
 
     it('hasCHSH returns false when chshSValue is null', async () => {

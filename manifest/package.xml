@@ -48,6 +48,7 @@
         <members>QuantumRandomAssignment</members>
         <members>QuantumRandomAssignment_Test</members>
         <members>QuantumSubmissionQueueable</members>
+        <members>QuantumSubmissionQueueable_Test</members>
         <members>RandomnessValidator</members>
         <members>RandomnessValidatorExtended_Test</members>
         <members>RandomnessValidator_Test</members>

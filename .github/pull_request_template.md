@@ -13,6 +13,6 @@
 
 ## Checklist
 
-- [ ] I read `ARCHITECTURE.md` before structural changes
+- [ ] I read `docs/solution-design.md` before structural changes
 - [ ] No API keys, secrets, or customer data in code, logs, or tests
 - [ ] `CHANGELOG.md` updated (user-visible changes)

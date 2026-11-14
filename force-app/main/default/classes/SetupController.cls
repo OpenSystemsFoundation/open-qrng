@@ -1856,7 +1856,7 @@ public with sharing class SetupController {
             Provider_Key__c = 'ibm',
             Provider_Class__c = 'IBMQuantumService',
             Auth_Endpoint__c = 'https://iam.cloud.ibm.com/identity/token',
-            API_Base_URL__c = 'https://api.quantum-computing.ibm.com',
+            API_Base_URL__c = 'https://quantum.cloud.ibm.com/api',
             Is_Active__c = true,
             Status__c = 'Connected'
         );

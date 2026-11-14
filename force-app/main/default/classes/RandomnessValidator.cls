@@ -12,10 +12,19 @@ public with sharing class RandomnessValidator {
     private static final Double Z_CRITICAL_001 = 2.576;
 
     // Upper-tail chi-squared critical values at alpha = 0.01, keyed by
-    // degrees of freedom. Covers df = 2^blockSize - 1 for block sizes 1-8.
+    // degrees of freedom. Covers df = 2^blockSize - 1 for block sizes 1-8
+    // (frequency chi-squared) and df = 2^k for k = 1-7 (serial and
+    // approximate-entropy tests).
     private static final Map<Integer, Double> CHI_SQUARED_CRITICAL_001 = new Map<Integer, Double>{
         1 => 6.635,
+        2 => 9.210,
         3 => 11.345,
+        4 => 13.277,
+        8 => 20.090,
+        16 => 32.000,
+        32 => 53.486,
+        64 => 93.217,
+        128 => 168.133,
         7 => 18.475,
         15 => 30.578,
         31 => 52.191,
@@ -23,6 +32,17 @@ public with sharing class RandomnessValidator {
         127 => 166.987,
         255 => 310.457
     };
+
+    /**
+     * Upper-tail chi-squared critical value at alpha = 0.01 for the given
+     * degrees of freedom: exact for tabulated df, Wilson–Hilferty otherwise.
+     */
+    @TestVisible
+    private static Double chiSquaredCritical001(Integer df) {
+        return CHI_SQUARED_CRITICAL_001.containsKey(df)
+            ? CHI_SQUARED_CRITICAL_001.get(df)
+            : wilsonHilfertyCritical001(df);
+    }
 
     /**
      * Run all validation tests on the debiased bitstring.
@@ -163,11 +183,7 @@ public with sharing class RandomnessValidator {
         // are tabulated for every df this method can produce; the
         // Wilson-Hilferty approximation covers any other df.
         Integer df = numCategories - 1;
-        Double criticalValue = CHI_SQUARED_CRITICAL_001.containsKey(df)
-            ? CHI_SQUARED_CRITICAL_001.get(df)
-            : wilsonHilfertyCritical001(df);
-
-        return chiSquared <= criticalValue;
+        return chiSquared <= chiSquaredCritical001(df);
     }
 
     /**
@@ -418,11 +434,11 @@ public with sharing class RandomnessValidator {
         // Chi-squared statistic: chi2 = 2n * (ln2 - ApEn)
         Double chi2 = 2.0 * n * (Math.log(2) - apEn);
 
-        // Degrees of freedom = 2^m
+        // Degrees of freedom = 2^m; exact critical value at alpha = 0.01
+        // (the former 3*df shortcut under-estimated it for small df and
+        // failed ~1.7% of truly random pools at m = 2)
         Integer df = (Integer) Math.pow(2, m);
-
-        // Approximate: pass if chi2 < 3 * df (p ≈ 0.01)
-        return chi2 < 3.0 * df;
+        return chi2 <= chiSquaredCritical001(df);
     }
 
     private static Double computePhi(String bits, Integer m) {
@@ -480,8 +496,12 @@ public with sharing class RandomnessValidator {
         Integer df1 = (Integer) Math.pow(2, m - 1);
         Integer df2 = (Integer) Math.pow(2, m - 2);
 
-        // Pass if both are within 3*df (approximate p=0.01)
-        return delPsi < 3.0 * df1 && del2Psi < 3.0 * df2;
+        // Exact critical values at alpha = 0.01. The former 3*df shortcut
+        // (6 and 12 at m = 3, vs 9.210 and 13.277) failed ~6.6% of truly
+        // random pools and revoked valid certificates.
+        Boolean firstPass = delPsi <= chiSquaredCritical001(df1);
+        Boolean secondPass = df2 < 1 || del2Psi <= chiSquaredCritical001(df2);
+        return firstPass && secondPass;
     }
 
     private static Double computePsiSquared(String bits, Integer m) {

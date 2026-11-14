@@ -69,3 +69,7 @@ canvas {
     margin: 0 auto;
     border-radius: 0.25rem;
 }
+.cert-detail {
+    overflow-wrap: anywhere;
+    margin-bottom: 0.5rem;
+}

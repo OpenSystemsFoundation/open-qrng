@@ -52,7 +52,7 @@ sf apex run test --target-org qrng-dev --code-coverage --result-format human --w
 
 1. Fork and create a feature branch from `master`.
 2. Keep changes focused; include tests for new behavior.
-3. Read `ARCHITECTURE.md` before structural changes — it is the source of
+3. Read `docs/solution-design.md` before structural changes — it is the source of
    truth for system design.
 4. Fill in the PR template (summary + testing checklist).
 

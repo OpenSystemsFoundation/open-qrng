@@ -123,6 +123,18 @@ describe('c-qrng-audit-trail', () => {
         expect(quantumBadges[0].textContent).toBe('Quantum Certified');
     });
 
+    it('formats the CHSH S-value to three decimals', async () => {
+        const element = createComponent();
+
+        getAuditTrailDTO.emit(MOCK_AUDIT_DATA);
+        await flushPromises();
+
+        const strongs = Array.from(
+            element.shadowRoot.querySelectorAll('strong')
+        ).map((el) => el.textContent);
+        expect(strongs).toContain('2.500');
+    });
+
     it('click on cert name sets selectedCertId (opens modal)', async () => {
         const element = createComponent();
 
