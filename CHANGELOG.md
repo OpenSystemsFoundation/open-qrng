@@ -87,6 +87,10 @@ README).
   chi-squared critical value, which is too strict for small df and revoked
   about 6.6% (serial) and 1.7% (approximate entropy) of genuinely random
   pools. Both now use exact alpha = 0.01 critical values
+- `SetupController_Test` passed only when the user running the tests
+  already held the QuantumFair permission sets; tests that read through the
+  controller now run as a dedicated admin test user, so they pass in any org
+  (including the package build org)
 - `QuantumSubmissionQueueable_Test` was missing its `-meta.xml`, so a clean
   source deploy failed
 - Docs no longer claim the Protected custom-setting flag hides the API key
