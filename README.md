@@ -105,13 +105,13 @@ sf apex run test --target-org qrng-dev --code-coverage --result-format human --w
 scripts/seed-demo-data.sh qrng-dev
 ```
 
-| Layer    | Technology                            |
-| -------- | ------------------------------------- |
-| Backend  | Apex (API v66.0)                      |
-| Frontend | Lightning Web Components, Canvas 2D   |
-| Quantum  | IBM Quantum Platform REST API (Heron) |
-| Testing  | Apex tests, sfdx-lwc-jest, Playwright |
-| CI       | GitHub Actions + Salesforce CLI       |
+| Layer    | Technology                              |
+| -------- | --------------------------------------- |
+| Backend  | Apex (API v66.0)                        |
+| Frontend | Lightning Web Components, Canvas 2D     |
+| Quantum  | IBM Quantum Platform REST API (Heron)   |
+| Testing  | Apex tests, sfdx-lwc-jest, Playwright   |
+| CI       | GitHub Actions (ESLint, Prettier, Jest) |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
 
