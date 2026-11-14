@@ -14,6 +14,28 @@ First public release, published as an Open Systems Foundation Labs tech demo
 and distributed as an unlocked package with no namespace (install link on the GitHub release)
 and as source.
 
+### Install
+
+QuantumFair 1.0.0 is an unlocked package with no namespace (package version
+ID `04tXXXXXXXXXXXXXXX`). Log in as an admin, open the link for your org type
+and choose **Install for Admins Only**:
+
+| Org                             | Install link                                                                      |
+| ------------------------------- | --------------------------------------------------------------------------------- |
+| Production or Developer Edition | https://login.salesforce.com/packaging/installPackage.apexp?p0=04tXXXXXXXXXXXXXXX |
+| Sandbox                         | https://test.salesforce.com/packaging/installPackage.apexp?p0=04tXXXXXXXXXXXXXXX  |
+
+Or with the Salesforce CLI:
+
+```bash
+sf package install --package 04tXXXXXXXXXXXXXXX --target-org <your-org> --wait 20 --security-type AdminsOnly
+```
+
+Then assign the `QuantumFair_Admin` permission set to yourself and follow the
+[manual](https://github.com/OpenSystemsFoundation/open-qrng/blob/v1.0.0/docs/manual.md)
+to connect your IBM Quantum account. You can also deploy from source (see the
+README).
+
 ### Added
 
 - Unlocked package `QuantumFair` (no namespace) v1.0 and GitHub release

@@ -40,9 +40,12 @@ _Screenshots: a scratch org with demo data from `scripts/seed-demo-data.sh` (moc
 
 ## Install
 
-**Unlocked package (v1.0, no namespace)** — install link:
-`https://login.salesforce.com/packaging/installPackage.apexp?p0=04tXXXXXXXXXXXXXXX`
-(see [Releases](https://github.com/OpenSystemsFoundation/open-qrng/releases) for the current link and notes).
+**Unlocked package (v1.0, no namespace)** — log in as an admin and open:
+
+- Production or Developer Edition: <https://login.salesforce.com/packaging/installPackage.apexp?p0=04tXXXXXXXXXXXXXXX>
+- Sandbox: <https://test.salesforce.com/packaging/installPackage.apexp?p0=04tXXXXXXXXXXXXXXX>
+
+Choose **Install for Admins Only**. Release notes are on the [v1.0.0 release](https://github.com/OpenSystemsFoundation/open-qrng/releases/tag/v1.0.0).
 
 **From source:**
 
