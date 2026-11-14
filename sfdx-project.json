@@ -13,6 +13,7 @@
     "sfdcLoginUrl": "https://login.salesforce.com",
     "sourceApiVersion": "66.0",
     "packageAliases": {
-        "QuantumFair": "0HoTt00000000ODKAY"
+        "QuantumFair": "0HoTt00000000ODKAY",
+        "QuantumFair@1.0.0-1": "04tTt0000001QWjIAM"
     }
 }

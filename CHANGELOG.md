@@ -17,18 +17,18 @@ and as source.
 ### Install
 
 QuantumFair 1.0.0 is an unlocked package with no namespace (package version
-ID `04tXXXXXXXXXXXXXXX`). Log in as an admin, open the link for your org type
+ID `04tTt0000001QWjIAM`). Log in as an admin, open the link for your org type
 and choose **Install for Admins Only**:
 
 | Org                             | Install link                                                                      |
 | ------------------------------- | --------------------------------------------------------------------------------- |
-| Production or Developer Edition | https://login.salesforce.com/packaging/installPackage.apexp?p0=04tXXXXXXXXXXXXXXX |
-| Sandbox                         | https://test.salesforce.com/packaging/installPackage.apexp?p0=04tXXXXXXXXXXXXXXX  |
+| Production or Developer Edition | https://login.salesforce.com/packaging/installPackage.apexp?p0=04tTt0000001QWjIAM |
+| Sandbox                         | https://test.salesforce.com/packaging/installPackage.apexp?p0=04tTt0000001QWjIAM  |
 
 Or with the Salesforce CLI:
 
 ```bash
-sf package install --package 04tXXXXXXXXXXXXXXX --target-org <your-org> --wait 20 --security-type AdminsOnly
+sf package install --package 04tTt0000001QWjIAM --target-org <your-org> --wait 20 --security-type AdminsOnly
 ```
 
 Then assign the `QuantumFair_Admin` permission set to yourself and follow the

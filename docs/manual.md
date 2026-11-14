@@ -35,9 +35,12 @@ Installation, configuration and day-to-day use of QuantumFair for Salesforce adm
 
 ### Option A — Unlocked package (v1.0)
 
-1. Open the install link while logged in as an admin:
-   `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tXXXXXXXXXXXXXXX`
-   (use `https://test.salesforce.com/...` for sandboxes). The current link is also listed on the [GitHub Releases](https://github.com/OpenSystemsFoundation/open-qrng/releases) page.
+1. Open the install link for your org type while logged in as an admin:
+    - Production or Developer Edition: <https://login.salesforce.com/packaging/installPackage.apexp?p0=04tTt0000001QWjIAM>
+    - Sandbox: <https://test.salesforce.com/packaging/installPackage.apexp?p0=04tTt0000001QWjIAM>
+
+    Or with the CLI: `sf package install --package 04tTt0000001QWjIAM --target-org <your-org> --wait 20 --security-type AdminsOnly`. Every version's links are on the [GitHub Releases](https://github.com/OpenSystemsFoundation/open-qrng/releases) page.
+
 2. Choose **Install for Admins Only** (you will grant access with permission sets).
 3. Approve access to the three IBM hosts when prompted (the Remote Site Settings ship with the package).
 
