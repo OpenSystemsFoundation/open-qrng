@@ -6,7 +6,7 @@
 
 **Quantum circuits from Salesforce to IBM Quantum hardware — with no middleware.**
 
-An [Open Systems Foundation Labs](https://opensf.foundation/products/quantumfair/) tech demo · Apache-2.0
+An [Open Systems Foundation Labs](https://opensf.foundation/labs/quantumfair/) tech demo · Apache-2.0
 
 ![The QuantumFair Jobs tab in Salesforce](docs/images/jobs.png)
 
