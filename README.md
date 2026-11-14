@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/logo.svg" width="112" height="112" alt="QuantumFair logo: a Bloch sphere with a state vector">
+</p>
+
 # QuantumFair (open-qrng)
 
 **Quantum circuits from Salesforce to IBM Quantum hardware — with no middleware.**
