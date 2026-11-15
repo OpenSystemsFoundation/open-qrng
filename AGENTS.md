@@ -190,9 +190,10 @@ sf apex run test --code-coverage --result-format human --wait 10
 - Scratch org definition: `config/project-scratch-def.json` (non-namespaced — the project has no namespace)
 - Distribution: unlocked 2GP package `QuantumFair` (no namespace) built from the DevHub, or source deploy. Release a version with `sf package version create --package QuantumFair --code-coverage --installation-key-bypass` then `sf package version promote`
 - Branch strategy: `master` is always deployable, feature branches for development
-- CI pipeline: lint + format check + Jest tests + scratch org creation + Apex deploy + Apex tests (fork-safe; workflows use concurrency groups)
-- Never store secrets in workflow files — use GitHub Secrets for IBM API key, SF auth URL
-- Scratch org TTL: 7 days for CI, 30 days for development
+- CI pipeline (`ci.yml`): ESLint + Prettier + LWC Jest on every PR and push to `master` — no org, no secrets. Apex tests run in the dev scratch org and in the package version build
+- Release pipeline (`release.yml`): publishes the GitHub release from `CHANGELOG.md` for a promoted package version
+- Never store secrets in workflow files; CI needs none
+- Scratch org TTL: 7 days for development
 - Version naming: `MAJOR.MINOR.PATCH` in `sfdx-project.json` / CHANGELOG.md
 
 ### Claude Code Web Session Setup
@@ -204,16 +205,6 @@ Every Claude Code web session automatically provisions a scratch org via `script
 3. Deploys all metadata with `sf project deploy start`
 4. Assigns `QuantumFair_Admin` + `QuantumFair_User` permission sets
 5. Persists `SF_INSTANCE_URL` and `SF_ACCESS_TOKEN` to `CLAUDE_ENV_FILE` for the session
-
-### CI Feedback Loop Workflows
-
-| Workflow        | Trigger                    | Posts Results To                               |
-| --------------- | -------------------------- | ---------------------------------------------- |
-| `test.yml`      | All pushes + PRs to master | PR comment (LWC Test Results) + commit comment |
-| `e2e-debug.yml` | All pushes + PRs to master | PR comment (E2E Test Results) + commit comment |
-| `apex-test.yml` | Push/PR to master          | PR comment (Apex Test Results)                 |
-
-All workflows use `actions/github-script` to create or update a single bot comment per result type (avoids comment spam). Results include collapsible failure details.
 
 ### Developing Features from the Web
 
@@ -227,14 +218,10 @@ sf project deploy start --target-org qrng-dev
 sf apex run test --code-coverage --result-format human --wait 10
 npm run test:unit
 
-# 4. Push and read CI feedback
+# 4. Push — CI runs ESLint, Prettier and Jest on the PR
 git push -u origin feature/my-feature
-# CI runs → results appear as commit comments
-gh api repos/OWNER/REPO/commits/$(git rev-parse HEAD)/comments
 
-# 5. Iterate: fix failures, push again
-# 6. Create PR when ready
-gh pr create --title "feat: my feature" --body "..."
+# 5. Open a PR when ready and merge once CI is green
 ```
 
 ---

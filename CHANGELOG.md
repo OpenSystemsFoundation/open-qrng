@@ -8,6 +8,20 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- QuantumFair app logo (the Bloch sphere icon) as the Lightning app's brand
+  image: shipped as the `QuantumFairLogo` ContentAsset and shown in the App
+  Launcher and, with the app's theme override, top left while the app is open
+
+### Changed
+
+- CI simplified to one workflow, `ci.yml`: ESLint, Prettier and LWC Jest on
+  pull requests and pushes to `master`, with no org and no secrets. Removed the
+  scratch-org Apex workflow, both Playwright E2E workflows, OpenQASM
+  validation, the security scan and the PR/commit result comments. Apex tests
+  still run in the dev scratch org and in every package version build
+
 ## [1.0.0] - 2026-11-14
 
 First public release, published as an Open Systems Foundation Labs tech demo

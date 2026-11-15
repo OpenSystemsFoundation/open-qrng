@@ -1,8 +1,12 @@
+<p align="center">
+  <img src="docs/images/logo.svg" width="112" height="112" alt="QuantumFair logo: a Bloch sphere with a state vector">
+</p>
+
 # QuantumFair (open-qrng)
 
 **Quantum circuits from Salesforce to IBM Quantum hardware — with no middleware.**
 
-An [Open Systems Foundation Labs](https://opensf.foundation/products/quantumfair/) tech demo · Apache-2.0
+An [Open Systems Foundation Labs](https://opensf.foundation/labs/quantumfair/) tech demo · Apache-2.0
 
 ![The QuantumFair Jobs tab in Salesforce](docs/images/jobs.png)
 
@@ -105,13 +109,13 @@ sf apex run test --target-org qrng-dev --code-coverage --result-format human --w
 scripts/seed-demo-data.sh qrng-dev
 ```
 
-| Layer    | Technology                            |
-| -------- | ------------------------------------- |
-| Backend  | Apex (API v66.0)                      |
-| Frontend | Lightning Web Components, Canvas 2D   |
-| Quantum  | IBM Quantum Platform REST API (Heron) |
-| Testing  | Apex tests, sfdx-lwc-jest, Playwright |
-| CI       | GitHub Actions + Salesforce CLI       |
+| Layer    | Technology                              |
+| -------- | --------------------------------------- |
+| Backend  | Apex (API v66.0)                        |
+| Frontend | Lightning Web Components, Canvas 2D     |
+| Quantum  | IBM Quantum Platform REST API (Heron)   |
+| Testing  | Apex tests, sfdx-lwc-jest, Playwright   |
+| CI       | GitHub Actions (ESLint, Prettier, Jest) |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) to contribute.
 

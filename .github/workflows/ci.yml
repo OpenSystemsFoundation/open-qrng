@@ -1,0 +1,39 @@
+name: CI
+
+# Fast checks that need no Salesforce org and no secrets: ESLint, Prettier and
+# the LWC Jest tests. Apex tests run in a scratch org during development and
+# when a package version is built (sf package version create --code-coverage).
+on:
+    push:
+        branches: [master]
+    pull_request:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    test:
+        name: Lint & Jest
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+
+            - run: npm ci
+
+            - name: ESLint
+              run: npm run lint
+
+            - name: Prettier
+              run: npm run prettier:verify
+
+            - name: Jest
+              run: npm run test:unit
