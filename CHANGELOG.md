@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- QuantumFair app logo (the Bloch sphere icon) as the Lightning app's brand
+  image: shipped as the `QuantumFairLogo` ContentAsset and shown in the App
+  Launcher and, with the app's theme override, top left while the app is open
+
 ## [1.0.0] - 2026-11-14
 
 First public release, published as an Open Systems Foundation Labs tech demo

@@ -61,6 +61,10 @@
         <name>ApexClass</name>
     </types>
     <types>
+        <members>QuantumFairLogo</members>
+        <name>ContentAsset</name>
+    </types>
+    <types>
         <members>QuantumFair</members>
         <name>CustomApplication</name>
     </types>
